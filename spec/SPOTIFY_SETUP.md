@@ -8,6 +8,13 @@ Disco Incognito requires Spotify API integration for:
 - Music playback control
 - Track searching and selection
 - Device management
+- A spoofable Spotify adapter so local development can run entirely in test mode
+
+### Workflow Reminders
+
+- Keep development in Spotify test mode (`SPOTIFY_MODE=test`) until final integration.
+- After completing each setup step below, capture the changes and make a local git commit (do not push yet).
+- When a step includes UI or authentication work, run automated tests and verify Puppeteer screenshots before moving on.
 
 ## Prerequisites
 
@@ -71,12 +78,14 @@ SPOTIFY_REDIRECT_URI=http://localhost:8000/api/auth/callback
 JWT_SECRET_KEY=your-random-secret-key-here
 SESSION_SECRET=your-session-secret-here
 
-# Database
-DATABASE_URL=sqlite:///./data/disco_incognito.db
+# Storage Adapter
+SESSION_STORAGE=json_file
+SESSION_STORAGE_FILE=./data/disco_incognito.json
 
 # Development
 DEBUG=true
 LOG_LEVEL=INFO
+SPOTIFY_MODE=test
 ```
 
 ## Step 5: Test Configuration
@@ -98,7 +107,9 @@ LOG_LEVEL=INFO
    npm run dev
    ```
 
-3. Visit `http://localhost:3000` and test the login flow
+3. Ensure `data/disco_incognito.json` exists and contains `{}` before exercising multiplayer flows.
+4. Visit `http://localhost:3000`, keep `SPOTIFY_MODE=test`, and verify the login flow using the spoofed adapter.
+5. Capture Puppeteer screenshots for the login experience and commit the changes locally (git commit only, no push yet).
 
 ## OAuth Flow Details
 
@@ -157,6 +168,13 @@ POST https://accounts.spotify.com/api/token
 - Store client secret securely (environment variables, secret management)
 - Implement proper CSRF protection with state parameters
 - Validate redirect URIs
+- Keep secrets out of git; commit only templates and placeholder JSON files
+
+### Storage & Infrastructure
+
+- Set `SESSION_STORAGE=json_file` and point `SESSION_STORAGE_FILE` at the mounted location (for example `/mnt/disco_incognito/disco_incognito.json`).
+- Mount the shared bucket (Cloud Storage FUSE or equivalent) so every instance reads/writes the same JSON file.
+- Perform atomic writes (temp file + rename) to avoid corruption when multiple instances update state.
 
 ### Rate Limits
 

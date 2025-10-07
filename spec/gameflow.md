@@ -6,6 +6,13 @@ A multiplayer web game powered by Spotify. Guess who's hearing something differe
 
 Disco Incognito is a social listening game where one player hears a different song than everyone else — and the group must figure out who it is. The game uses the Spotify Web API and requires users to log in with their Spotify account.
 
+### Workflow Notes
+
+- Keep designs minimal: dark background, pink accents, and no extra chrome beyond the described controls.
+- Stay in Spotify test mode (`SPOTIFY_MODE=test`) while building these flows.
+- After finishing each section below, run the automated test suite, capture Puppeteer screenshots, and make a local git commit (no pushing yet).
+- Room and game data persist to a shared JSON file (`disco_incognito.json`); ensure updates are atomic to avoid corruption.
+
 ## 🔐 1. Login Page
 
 - Fullscreen dark background
@@ -40,6 +47,7 @@ Song pairs:
 - Are hidden from everyone
 - Cannot be deleted once added
 - Are removed after being used in a round
+- Persist immediately to the JSON storage adapter with optimistic locking
 
 ## 🎶 4. Song Picker Page
 
@@ -58,6 +66,7 @@ Host clicks "Start Game":
 - Assigns one song to the Odd Duck and the other to everyone else
 - Countdown appears: 1.5 minutes of listening
 - Songs start playing on each user's Spotify account simultaneously
+- Record start/end timestamps in the JSON file so reconnecting clients can recover
 
 ## 🔊 6. In-Game UI
 
@@ -77,6 +86,7 @@ Players see:
 
 - All usernames
 - "Guess Who's the Odd Duck" buttons
+- Each vote is written to the JSON file before broadcasting updates
 
 Once everyone has voted, show:
 
@@ -101,8 +111,7 @@ The game continues indefinitely until the host stops playing
 Players can add more song pairs between rounds
 
 Song pairs cannot be reused once played
-
-Room state persists as long as at least one person stays
+- Room state persists as long as at least one person stays (JSON file retains the room while active)
 
 ## 🧑‍💻 Edge Cases
 
@@ -110,10 +119,12 @@ If a user disconnects:
 
 - Marked as "Disconnected" in the player list
 - Can rejoin the same room if it's still active
+- On reconnect, reload state from the shared JSON file before resuming playback
 
 If Spotify playback fails:
 
 - Show error and allow retry or device switch
+- Capture a screenshot of the error state for QA before committing
 
 If no song pairs are left:
 
@@ -121,7 +132,7 @@ If no song pairs are left:
 
 Other:
 
-- Room expires after 30 minutes of inactivity
+- Room expires after 60 minutes of inactivity (tracked in JSON storage with last-activity timestamps)
 
 ## 🎨 UI Theme
 
