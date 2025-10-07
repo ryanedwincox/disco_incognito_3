@@ -1,0 +1,40 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.dylib
+.Python
+env/
+venv/
+.venv/
+pip-wheel-metadata/
+*.egg-info/
+dist/
+build/
+
+# IDEs and misc
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/.vite/
+frontend/dist/
+
+# Python cache
+backend/.mypy_cache/
+backend/.pytest_cache/
+
+# Environment
+.env
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Data files generated at runtime
+data/*.json
+!data/disco_incognito.json

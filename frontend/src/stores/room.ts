@@ -1,0 +1,44 @@
+import { defineStore } from "pinia";
+
+interface RoomPlayer {
+  id: string;
+  name: string;
+  isHost: boolean;
+  isConnected: boolean;
+}
+
+interface RoomState {
+  code: string | null;
+  players: RoomPlayer[];
+  status: "lobby" | "song_selection" | "playing" | "guessing" | "reveal";
+  songPairCount: number;
+}
+
+export const useRoomStore = defineStore("room", {
+  state: (): RoomState => ({
+    code: null,
+    players: [],
+    status: "lobby",
+    songPairCount: 0
+  }),
+  actions: {
+    setRoom(code: string) {
+      this.code = code;
+    },
+    setPlayers(players: RoomPlayer[]) {
+      this.players = players;
+    },
+    setStatus(status: RoomState["status"]) {
+      this.status = status;
+    },
+    setSongPairCount(count: number) {
+      this.songPairCount = count;
+    },
+    reset() {
+      this.code = null;
+      this.players = [];
+      this.status = "lobby";
+      this.songPairCount = 0;
+    }
+  }
+});

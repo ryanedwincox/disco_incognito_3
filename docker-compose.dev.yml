@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: dev.Dockerfile
+      target: dev-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+    environment:
+      - SPOTIFY_MODE=test
+      - SESSION_STORAGE=json_file
+      - SESSION_STORAGE_FILE=/app/data/disco_incognito.json
+      - ALLOWED_ORIGINS=http://localhost:3000
+
+  frontend:
+    build:
+      context: .
+      dockerfile: dev.Dockerfile
+      target: dev-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app/frontend
+      - /app/frontend/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_UI_MODE=minimal
