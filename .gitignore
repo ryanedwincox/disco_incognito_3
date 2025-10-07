@@ -38,3 +38,5 @@ frontend/.env.*
 # Data files generated at runtime
 data/*.json
 !data/disco_incognito.json
+
+frontend/tests/e2e/screenshots
