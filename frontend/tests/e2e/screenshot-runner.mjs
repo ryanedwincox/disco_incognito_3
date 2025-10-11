@@ -49,16 +49,24 @@ async function startViteServer() {
 }
 
 async function captureScreenshots(baseUrl) {
-  const browser = await puppeteer.launch({
+  const launchOptions = {
     headless: "new",
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage"
     ]
-  });
+  };
+
+  // Use system Chromium if available (set via PUPPETEER_EXECUTABLE_PATH env var)
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+
+  const browser = await puppeteer.launch(launchOptions);
   const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 2 });
+  // Mobile viewport (iPhone 12/13 Pro dimensions)
+  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3 });
 
   const report = [];
 
@@ -67,7 +75,7 @@ async function captureScreenshots(baseUrl) {
     await page.goto(url, { waitUntil: "networkidle0" });
     const filePath = join(OUTPUT_DIR, `${route.label}.png`);
     await page.screenshot({ path: filePath, fullPage: true });
-    report.push({ route: route.path, file: filePath });
+    report.push({ route: route.path, file: filePath, viewport: "mobile" });
   }
 
   await browser.close();

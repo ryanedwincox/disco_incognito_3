@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-zinc-950 text-white px-6 py-10 space-y-10">
-    <header class="text-center space-y-2">
+  <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
+    <header class="text-center mb-10 space-y-2">
       <h2 class="text-4xl font-bold text-disco-pink uppercase tracking-widest">Reveal</h2>
-      <p class="text-zinc-400">See who guessed correctly and who the Odd Duck really was.</p>
+      <p class="text-zinc-400 text-sm">See who guessed correctly and who the Odd Duck really was.</p>
     </header>
 
     <section class="max-w-4xl mx-auto bg-zinc-900/80 rounded-3xl p-6 space-y-6">

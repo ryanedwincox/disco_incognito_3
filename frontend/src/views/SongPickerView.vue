@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-zinc-950 text-white px-6 py-10 space-y-8">
-    <header class="text-center">
+  <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
+    <header class="text-center mb-8 space-y-2">
       <h2 class="text-3xl font-semibold">Pick a Pair</h2>
-      <p class="text-zinc-400">Search Spotify tracks, pick two songs, and drop them into the room pool.</p>
+      <p class="text-zinc-400 text-sm max-w-md mx-auto">Search Spotify tracks, pick two songs, and drop them into the room pool.</p>
     </header>
 
     <div class="max-w-3xl mx-auto space-y-6">

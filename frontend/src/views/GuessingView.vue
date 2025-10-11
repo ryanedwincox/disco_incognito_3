@@ -1,8 +1,8 @@
 <template>
-  <div class="min-h-screen bg-zinc-950 text-white px-6 py-10">
-    <header class="text-center mb-10">
+  <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
+    <header class="text-center mb-10 space-y-2">
       <h2 class="text-3xl font-semibold uppercase tracking-wide">Who Is The Odd Duck?</h2>
-      <p class="text-zinc-400">Pick the player you think heard a different song.</p>
+      <p class="text-zinc-400 text-sm">Pick the player you think heard a different song.</p>
     </header>
 
     <ul class="max-w-2xl mx-auto grid gap-4 md:grid-cols-2">

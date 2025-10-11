@@ -1,15 +1,17 @@
 <template>
-  <div class="min-h-screen bg-zinc-950 text-white px-6 py-10">
-    <header class="flex items-center justify-between mb-8">
-      <div>
-        <h2 class="text-sm uppercase text-zinc-400">Room Code</h2>
-        <p class="text-4xl font-bold tracking-[0.5em]">123</p>
+  <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
+    <header class="mb-8">
+      <div class="flex items-start justify-between mb-6">
+        <div>
+          <h2 class="text-sm uppercase text-zinc-400">Room Code</h2>
+          <p class="text-4xl font-bold tracking-[0.5em]">123</p>
+        </div>
       </div>
-      <div class="space-x-3">
-        <button class="px-4 py-2 rounded-full border border-zinc-700 text-zinc-300" type="button">
+      <div class="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-3">
+        <button class="w-full md:w-auto px-6 py-3 rounded-full border border-zinc-700 text-zinc-300 hover:border-zinc-600" type="button">
           Leave
         </button>
-        <button class="px-4 py-2 rounded-full bg-disco-pink text-black font-semibold" type="button">
+        <button class="w-full md:w-auto px-6 py-3 rounded-full bg-disco-pink text-black font-semibold hover:bg-disco-pink-light" type="button">
           Pick Songs
         </button>
       </div>
