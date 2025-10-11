@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from "vue-router";
 import LoginView from "@/views/LoginView.vue";
+import TestPlaybackView from "@/views/TestPlaybackView.vue";
 import RoomSelectionView from "@/views/RoomSelectionView.vue";
 import RoomLobbyView from "@/views/RoomLobbyView.vue";
 import SongPickerView from "@/views/SongPickerView.vue";
@@ -12,6 +13,11 @@ const routes: RouteRecordRaw[] = [
     path: "/",
     name: "login",
     component: LoginView
+  },
+  {
+    path: "/test",
+    name: "test-playback",
+    component: TestPlaybackView
   },
   {
     path: "/rooms",

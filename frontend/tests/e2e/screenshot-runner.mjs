@@ -6,13 +6,14 @@ import { createServer as createViteServer } from "vite";
 
 const OUTPUT_DIR = resolve("tests/e2e/screenshots");
 const ROUTES = [
-  { path: "/", label: "login" },
-  { path: "/rooms", label: "room-selection" },
-  { path: "/rooms/123", label: "room-lobby" },
-  { path: "/rooms/123/songs", label: "song-picker" },
-  { path: "/rooms/123/play", label: "game" },
-  { path: "/rooms/123/guess", label: "guessing" },
-  { path: "/rooms/123/reveal", label: "reveal" }
+  { path: "/", label: "1-login" },
+  { path: "/test", label: "1.5-test-playback" },
+  { path: "/rooms", label: "2-room-selection" },
+  { path: "/rooms/123", label: "3-room-lobby" },
+  { path: "/rooms/123/songs", label: "4-song-picker" },
+  { path: "/rooms/123/play", label: "5-game" },
+  { path: "/rooms/123/guess", label: "6-guessing" },
+  { path: "/rooms/123/reveal", label: "7-reveal" }
 ];
 
 async function ensureCleanDirectory() {
