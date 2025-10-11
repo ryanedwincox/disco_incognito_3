@@ -13,7 +13,9 @@ const ROUTES = [
   { path: "/rooms/123/songs", label: "4-song-picker" },
   { path: "/rooms/123/play", label: "5-game" },
   { path: "/rooms/123/guess", label: "6-guessing" },
-  { path: "/rooms/123/reveal", label: "7-reveal" }
+  { path: "/rooms/123/reveal", label: "7-reveal" },
+  { path: "/test/server-disconnected", label: "8-error-server-disconnected" },
+  { path: "/test/exception", label: "9-error-exceptions" }
 ];
 
 async function ensureCleanDirectory() {

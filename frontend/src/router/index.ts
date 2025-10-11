@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from "vue-router";
 import LoginView from "@/views/LoginView.vue";
 import TestPlaybackView from "@/views/TestPlaybackView.vue";
+import ErrorTestView from "@/views/ErrorTestView.vue";
+import ServerDisconnectedDemoView from "@/views/ServerDisconnectedDemoView.vue";
+import ExceptionDemoView from "@/views/ExceptionDemoView.vue";
 import RoomSelectionView from "@/views/RoomSelectionView.vue";
 import RoomLobbyView from "@/views/RoomLobbyView.vue";
 import SongPickerView from "@/views/SongPickerView.vue";
@@ -18,6 +21,21 @@ const routes: RouteRecordRaw[] = [
     path: "/test",
     name: "test-playback",
     component: TestPlaybackView
+  },
+  {
+    path: "/test/errors",
+    name: "test-errors",
+    component: ErrorTestView
+  },
+  {
+    path: "/test/server-disconnected",
+    name: "demo-server-disconnected",
+    component: ServerDisconnectedDemoView
+  },
+  {
+    path: "/test/exception",
+    name: "demo-exception",
+    component: ExceptionDemoView
   },
   {
     path: "/rooms",
