@@ -13,7 +13,7 @@ app = FastAPI(title="Disco Incognito API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[str(origin) for origin in settings.allowed_origins],
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

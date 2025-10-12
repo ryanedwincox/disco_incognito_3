@@ -1,3 +1,9 @@
+# Docker build command:
+# docker build -f Dockerfile-claude -t claude-dev .
+#
+# Docker run command:
+# docker run -it --rm -v $(pwd):/workspace -v ~/.claude:/home/claude/.claude claude-dev
+
 # Use a Node.js 20 base image on Ubuntu 22.04 LTS
 FROM node:20-bookworm
 

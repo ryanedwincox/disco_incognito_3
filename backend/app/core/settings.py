@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import List
 
-from pydantic import AnyHttpUrl, Field
+from pydantic import AnyHttpUrl, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,15 +19,23 @@ class Settings(BaseSettings):
         "http://localhost:8000/api/auth/callback", alias="SPOTIFY_REDIRECT_URI"
     )
     spotify_mode: str = Field("test", alias="SPOTIFY_MODE")
+    music_service: str = Field("spotify", alias="MUSIC_SERVICE")
     session_storage: str = Field("json_file", alias="SESSION_STORAGE")
     session_storage_file: str = Field("./data/disco_incognito.json", alias="SESSION_STORAGE_FILE")
-    allowed_origins: List[AnyHttpUrl] = Field(default_factory=lambda: ["http://localhost:3000"], alias="ALLOWED_ORIGINS")
+    allowed_origins: str = Field("http://localhost:3000", alias="ALLOWED_ORIGINS")
     jwt_secret_key: str = Field("super-secret-key", alias="JWT_SECRET_KEY")
     session_secret: str = Field("development-secret", alias="SESSION_SECRET")
     debug: bool = Field(True, alias="DEBUG")
     log_level: str = Field("INFO", alias="LOG_LEVEL")
 
-    model_config = SettingsConfigDict(
+    @property
+    def allowed_origins_list(self) -> List[str]:
+        """Parse allowed_origins string into a list."""
+        if not self.allowed_origins:
+            return []
+        # Handle comma-separated values
+        return [origin.strip() for origin in self.allowed_origins.split(",")]
+
     model_config = SettingsConfigDict(
         env_file=[
             Path(__file__).resolve().parents[2] / ".env",

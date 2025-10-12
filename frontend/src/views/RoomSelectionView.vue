@@ -17,10 +17,24 @@
           Join Room
         </button>
       </div>
+      <button
+        class="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-medium px-8 py-3 rounded-full transition-colors"
+        type="button"
+        @click="goToTest"
+      >
+        Test Playback
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+function goToTest() {
+  router.push('/test')
+}
 // Room creation and join logic will connect to WebSocket API in Phase 3.
 </script>

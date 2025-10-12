@@ -5,17 +5,28 @@ import puppeteer from "puppeteer";
 import { createServer as createViteServer } from "vite";
 
 const OUTPUT_DIR = resolve("tests/e2e/screenshots");
+
+// Routes with different room scenarios for realistic screenshots
+// Room codes correspond to test data seeding:
+// 123: Empty lobby (1 player)
+// 456: Lobby with 7 players, no songs
+// 789: Lobby with 7 players and 3 song pairs (ready to play)
+// 111: Playing state
+// 222: Guessing state
+// 333: Reveal state
 const ROUTES = [
   { path: "/", label: "1-login" },
-  { path: "/test", label: "1.5-test-playback" },
   { path: "/rooms", label: "2-room-selection" },
-  { path: "/rooms/123", label: "3-room-lobby" },
-  { path: "/rooms/123/songs", label: "4-song-picker" },
-  { path: "/rooms/123/play", label: "5-game" },
-  { path: "/rooms/123/guess", label: "6-guessing" },
-  { path: "/rooms/123/reveal", label: "7-reveal" },
-  { path: "/test/server-disconnected", label: "8-error-server-disconnected" },
-  { path: "/test/exception", label: "9-error-exceptions" }
+  { path: "/test", label: "3-test-playback" },
+  { path: "/rooms/123", label: "4a-room-lobby-empty" },
+  { path: "/rooms/456", label: "4b-room-lobby-players" },
+  { path: "/rooms/789", label: "4c-room-lobby-ready" },
+  { path: "/rooms/789/songs", label: "5-song-picker" },
+  { path: "/rooms/111/play", label: "6-game-playing" },
+  { path: "/rooms/222/guess", label: "7-guessing" },
+  { path: "/rooms/333/reveal", label: "8-reveal" },
+  { path: "/test/server-disconnected", label: "9-error-server-disconnected" },
+  { path: "/test/exception", label: "10-error-exceptions" }
 ];
 
 async function ensureCleanDirectory() {
@@ -51,6 +62,26 @@ async function startViteServer() {
   return { vite, httpServer, baseUrl };
 }
 
+async function seedTestData() {
+  // Seed test data via backend API
+  // This creates rooms with realistic player and song data
+  console.log("Seeding test data...");
+  try {
+    const response = await fetch("http://localhost:8000/api/testing/seed", {
+      method: "POST"
+    });
+    if (!response.ok) {
+      console.warn("Warning: Failed to seed test data. Screenshots may show empty states.");
+    } else {
+      const data = await response.json();
+      console.log(`Test data seeded: ${data.rooms?.join(", ") || "unknown rooms"}`);
+    }
+  } catch (error) {
+    console.warn("Warning: Could not connect to backend to seed test data:", error.message);
+    console.warn("Make sure backend is running on http://localhost:8000");
+  }
+}
+
 async function captureScreenshots(baseUrl) {
   const launchOptions = {
     headless: "new",
@@ -75,7 +106,12 @@ async function captureScreenshots(baseUrl) {
 
   for (const route of ROUTES) {
     const url = `${baseUrl}${route.path}`;
+    console.log(`Capturing: ${route.label} - ${route.path}`);
     await page.goto(url, { waitUntil: "networkidle0" });
+
+    // Give a small delay for any animations to settle
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     const filePath = join(OUTPUT_DIR, `${route.label}.png`);
     await page.screenshot({ path: filePath, fullPage: true });
     report.push({ route: route.path, file: filePath, viewport: "mobile" });
@@ -87,13 +123,18 @@ async function captureScreenshots(baseUrl) {
 
 async function main() {
   await ensureCleanDirectory();
+
+  // Seed test data before starting screenshot capture
+  await seedTestData();
+
   const { vite, httpServer, baseUrl } = await startViteServer();
 
   try {
     const report = await captureScreenshots(baseUrl);
     const summaryPath = join(OUTPUT_DIR, "summary.json");
     await writeFile(summaryPath, JSON.stringify(report, null, 2));
-    console.log(`Screenshots captured to ${OUTPUT_DIR}`);
+    console.log(`\nScreenshots captured to ${OUTPUT_DIR}`);
+    console.log(`Total screenshots: ${report.length}`);
   } finally {
     await vite.close();
     await new Promise((resolvePromise, rejectPromise) => {

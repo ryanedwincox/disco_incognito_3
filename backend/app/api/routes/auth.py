@@ -1,26 +1,148 @@
 from __future__ import annotations
 
+import logging
 import secrets
+import urllib.parse
+from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
 
+from ...core.settings import settings
 from ...services.spotify import SpotifyAuthService
 
-router = APIRouter(prefix="/auth")
+router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
 
 def get_spotify_service() -> SpotifyAuthService:
+    """Dependency injection for SpotifyAuthService."""
     return SpotifyAuthService()
 
 
 @router.get("/login", summary="Begin Spotify OAuth flow")
 async def login(service: SpotifyAuthService = Depends(get_spotify_service)) -> dict[str, str]:
-    state = secrets.token_urlsafe(16)
-    authorize_url = await service.create_authorize_url(state)
-    return {"authorize_url": authorize_url, "state": state}
+    """
+    Generate Spotify authorization URL for user login.
+
+    Returns:
+        Dict containing the authorization URL and state parameter
+    """
+    try:
+        state = secrets.token_urlsafe(16)
+        authorize_url = await service.create_authorize_url(state)
+        logger.info("Login endpoint accessed, returning authorization URL")
+        return {
+            "authorize_url": authorize_url,
+            "state": state,
+            "message": "Navigate to the authorize_url to authenticate with Spotify"
+        }
+    except Exception as e:
+        logger.error(f"Error in login endpoint: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate login URL")
 
 
 @router.get("/callback", summary="Handle Spotify OAuth callback")
-async def callback(code: str, state: str, service: SpotifyAuthService = Depends(get_spotify_service)) -> dict[str, str]:
-    tokens = await service.handle_callback(code=code, state=state)
-    return {"message": "Callback received", "tokens": tokens}  # type: ignore[return-value]
+async def callback(
+    code: Optional[str] = Query(None, description="Authorization code from Spotify"),
+    state: Optional[str] = Query(None, description="State parameter from OAuth flow"),
+    error: Optional[str] = Query(None, description="Error parameter from OAuth flow"),
+    service: SpotifyAuthService = Depends(get_spotify_service),
+) -> RedirectResponse:
+    """
+    Handle OAuth callback from Spotify.
+
+    This endpoint receives the authorization code from Spotify,
+    exchanges it for an access token, and redirects the user
+    back to the frontend with the authentication information.
+
+    Per OAuth spec, this endpoint returns a redirect, not JSON.
+    """
+    try:
+        # Handle OAuth errors
+        if error:
+            logger.error(f"OAuth error in callback: {error}")
+            error_url = f"{settings.frontend_url}/?error={urllib.parse.quote(error)}"
+            return RedirectResponse(url=error_url, status_code=302)
+
+        if not code:
+            logger.error("No authorization code provided in callback")
+            error_url = f"{settings.frontend_url}/?error=no_code"
+            return RedirectResponse(url=error_url, status_code=302)
+
+        if not state:
+            logger.error("No state parameter provided in callback")
+            error_url = f"{settings.frontend_url}/?error=no_state"
+            return RedirectResponse(url=error_url, status_code=302)
+
+        # Exchange code for tokens
+        token_info = await service.handle_callback(code=code, state=state)
+
+        if not token_info:
+            logger.error("Failed to obtain access token")
+            error_url = f"{settings.frontend_url}/?error=token_exchange_failed"
+            return RedirectResponse(url=error_url, status_code=302)
+
+        # Get user info using the access token
+        user_info = await service.get_user_info(token_info["access_token"])
+
+        logger.info(f"OAuth callback successful for user: {user_info.get('id', 'unknown')}")
+
+        # Create success URL with token and user information
+        # Frontend will extract this from URL parameters
+        success_url = (
+            f"{settings.frontend_url}/?auth_success=true"
+            f"&access_token={urllib.parse.quote(token_info['access_token'])}"
+            f"&refresh_token={urllib.parse.quote(token_info.get('refresh_token', ''))}"
+            f"&expires_in={token_info.get('expires_in', 3600)}"
+            f"&user_id={urllib.parse.quote(user_info.get('id', ''))}"
+            f"&display_name={urllib.parse.quote(user_info.get('display_name', ''))}"
+        )
+
+        return RedirectResponse(url=success_url, status_code=302)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in callback endpoint: {e}", exc_info=True)
+        error_url = f"{settings.frontend_url}/?error=callback_failed"
+        return RedirectResponse(url=error_url, status_code=302)
+
+
+@router.post("/refresh", summary="Refresh access token")
+async def refresh(
+    refresh_token: str,
+    service: SpotifyAuthService = Depends(get_spotify_service)
+) -> dict[str, str]:
+    """
+    Refresh an expired access token using a refresh token.
+
+    Args:
+        refresh_token: The refresh token obtained during initial authorization
+
+    Returns:
+        Dict containing the new access token and expiration info
+    """
+    try:
+        token_info = await service.refresh_access_token(refresh_token)
+        logger.info("Successfully refreshed access token")
+        return {
+            "access_token": token_info["access_token"],
+            "expires_in": str(token_info.get("expires_in", 3600)),
+            "token_type": token_info.get("token_type", "Bearer"),
+        }
+    except Exception as e:
+        logger.error(f"Error refreshing token: {e}")
+        raise HTTPException(status_code=400, detail="Failed to refresh access token")
+
+
+@router.post("/logout", summary="Logout user")
+async def logout() -> dict[str, str]:
+    """
+    Logout user and clear session.
+
+    Note: This is primarily handled client-side by clearing tokens.
+    This endpoint is here for future server-side session management.
+    """
+    logger.info("Logout endpoint called")
+    return {"message": "Logged out successfully"}
