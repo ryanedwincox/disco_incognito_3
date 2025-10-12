@@ -254,9 +254,9 @@ The project includes two E2E test suites that test complete user workflows:
 
 **Song Picker (4 tests):**
 6. **Song picker page loads correctly** - "Pick a Pair" heading
-7. **Search input exists** - Spotify search input with placeholder
-8. **Search Results section exists** - Results section present
-9. **Selected Pair section with Save button** - Save Pair button present
+7. **Generate Random Pair button exists (test mode)** - Button to generate random disco songs
+8. **Random Song Pair section exists** - Section shows generated songs
+9. **Actions section with Save button** - Save Pair and Back to Lobby buttons
 
 **Game Play (3 tests):**
 10. **Game play page loads correctly** - "Round In Progress" heading

@@ -216,55 +216,54 @@ async function runTests() {
       failed++;
     }
 
-    // Test 7: Search input exists
-    console.log("Test 7: Search input exists");
+    // Test 7: Generate Random Pair button exists (test mode)
+    console.log("Test 7: Generate Random Pair button exists (test mode)");
     try {
-      const searchInput = await page.$('input[type="search"]');
-      if (!searchInput) {
-        throw new Error('Search input not found');
+      const generateButton = await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        return buttons.some(b => b.textContent.includes('Generate Random Pair'));
+      });
+
+      if (!generateButton) {
+        throw new Error('Generate Random Pair button not found');
       }
 
-      const placeholder = await page.$eval('input[type="search"]', el => el.getAttribute('placeholder'));
-      if (!placeholder.includes('Spotify')) {
-        throw new Error(`Expected placeholder with 'Spotify', got '${placeholder}'`);
-      }
-
-      console.log("   ✅ Search input with correct placeholder\n");
+      console.log("   ✅ Generate Random Pair button is present\n");
       passed++;
     } catch (error) {
       console.log(`   ❌ Failed: ${error.message}\n`);
       failed++;
     }
 
-    // Test 8: Search Results section exists
-    console.log("Test 8: Search Results section exists");
+    // Test 8: Random Song Pair section exists
+    console.log("Test 8: Random Song Pair section exists");
     try {
-      const hasSearchResults = await page.evaluate(() => {
+      const hasRandomPair = await page.evaluate(() => {
         const headings = Array.from(document.querySelectorAll('h3'));
-        return headings.some(h => h.textContent.includes('Search Results'));
+        return headings.some(h => h.textContent.includes('Random Song Pair'));
       });
 
-      if (!hasSearchResults) {
-        throw new Error('Search Results section not found');
+      if (!hasRandomPair) {
+        throw new Error('Random Song Pair section not found');
       }
 
-      console.log("   ✅ Search Results section is present\n");
+      console.log("   ✅ Random Song Pair section is present\n");
       passed++;
     } catch (error) {
       console.log(`   ❌ Failed: ${error.message}\n`);
       failed++;
     }
 
-    // Test 9: Selected Pair section exists with Save button
-    console.log("Test 9: Selected Pair section exists with Save button");
+    // Test 9: Actions section with Save button
+    console.log("Test 9: Actions section with Save button");
     try {
-      const hasSelectedPair = await page.evaluate(() => {
+      const hasActions = await page.evaluate(() => {
         const headings = Array.from(document.querySelectorAll('h3'));
-        return headings.some(h => h.textContent.includes('Selected Pair'));
+        return headings.some(h => h.textContent.includes('Actions'));
       });
 
-      if (!hasSelectedPair) {
-        throw new Error('Selected Pair section not found');
+      if (!hasActions) {
+        throw new Error('Actions section not found');
       }
 
       const savePairButton = await page.evaluate(() => {
@@ -276,7 +275,16 @@ async function runTests() {
         throw new Error('Save Pair button not found');
       }
 
-      console.log("   ✅ Selected Pair section with Save button\n");
+      const backButton = await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        return buttons.some(b => b.textContent.includes('Back to Lobby'));
+      });
+
+      if (!backButton) {
+        throw new Error('Back to Lobby button not found');
+      }
+
+      console.log("   ✅ Actions section with Save and Back buttons\n");
       passed++;
     } catch (error) {
       console.log(`   ❌ Failed: ${error.message}\n`);
