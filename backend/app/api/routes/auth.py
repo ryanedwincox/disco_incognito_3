@@ -136,6 +136,46 @@ async def refresh(
         raise HTTPException(status_code=400, detail="Failed to refresh access token")
 
 
+@router.post("/test-login", summary="Create test user (test mode only)")
+async def test_login(service: SpotifyAuthService = Depends(get_spotify_service)) -> dict[str, str]:
+    """
+    Create a test user with random disco-themed name.
+
+    This endpoint bypasses OAuth and directly returns mock tokens and user info.
+    Only available when SPOTIFY_MODE=test or DEBUG=true.
+
+    Returns:
+        Dict containing access_token, refresh_token, user_id, and display_name
+    """
+    # Check if we're in test mode
+    if settings.spotify_mode.lower() != "test" and not settings.debug:
+        raise HTTPException(
+            status_code=403,
+            detail="Test login is only available in test/debug mode"
+        )
+
+    try:
+        # Generate mock tokens
+        token_info = await service.handle_callback(code="test-code", state="test-state")
+
+        # Get random test user info
+        user_info = await service.get_user_info(token_info["access_token"])
+
+        logger.info(f"Test login successful for user: {user_info.get('display_name', 'unknown')}")
+
+        return {
+            "access_token": token_info["access_token"],
+            "refresh_token": token_info.get("refresh_token", ""),
+            "expires_in": str(token_info.get("expires_in", 3600)),
+            "user_id": user_info.get("id", ""),
+            "display_name": user_info.get("display_name", ""),
+            "email": user_info.get("email", ""),
+        }
+    except Exception as e:
+        logger.error(f"Error in test login: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to create test user")
+
+
 @router.post("/logout", summary="Logout user")
 async def logout() -> dict[str, str]:
     """

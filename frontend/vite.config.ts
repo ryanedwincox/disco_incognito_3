@@ -18,6 +18,12 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       __APP_ENV__: JSON.stringify(env.APP_ENV || "development")
+    },
+    test: {
+      globals: true,
+      environment: "jsdom",
+      include: ["tests/unit/**/*.test.ts"],
+      exclude: ["tests/e2e/**/*"]
     }
   };
 });

@@ -1,25 +1,118 @@
 import { defineStore } from "pinia";
+import axios from "axios";
+
+interface UserInfo {
+  id: string;
+  displayName: string;
+  email: string;
+}
 
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
+  user: UserInfo | null;
   isSpoofedMode: boolean;
+  isTestMode: boolean;
 }
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const useAuthStore = defineStore("auth", {
   state: (): AuthState => ({
     accessToken: null,
     refreshToken: null,
-    isSpoofedMode: import.meta.env.VITE_UI_MODE === "minimal"
+    user: null,
+    isSpoofedMode: import.meta.env.VITE_UI_MODE === "minimal",
+    isTestMode: import.meta.env.VITE_TEST_MODE === "true"
   }),
+
+  getters: {
+    isAuthenticated: (state) => !!state.accessToken,
+    userName: (state) => state.user?.displayName || "Guest"
+  },
+
   actions: {
     setTokens(accessToken: string, refreshToken: string) {
       this.accessToken = accessToken;
       this.refreshToken = refreshToken;
+
+      // Store tokens in localStorage for persistence
+      localStorage.setItem("access_token", accessToken);
+      localStorage.setItem("refresh_token", refreshToken);
     },
+
+    setUser(user: UserInfo) {
+      this.user = user;
+      localStorage.setItem("user", JSON.stringify(user));
+    },
+
     clearTokens() {
       this.accessToken = null;
       this.refreshToken = null;
+      this.user = null;
+
+      localStorage.removeItem("access_token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("user");
+    },
+
+    async testLogin(): Promise<{ success: boolean; error?: string }> {
+      try {
+        const response = await axios.post(`${API_URL}/api/auth/test-login`);
+        const data = response.data;
+
+        // Set tokens
+        this.setTokens(data.access_token, data.refresh_token);
+
+        // Set user info
+        this.setUser({
+          id: data.user_id,
+          displayName: data.display_name,
+          email: data.email
+        });
+
+        console.log(`✅ Test user created: ${data.display_name}`);
+        return { success: true };
+      } catch (error: any) {
+        console.error("Test login failed:", error);
+        return {
+          success: false,
+          error: error.response?.data?.detail || error.message || "Login failed"
+        };
+      }
+    },
+
+    async spotifyLogin(): Promise<void> {
+      try {
+        // Get authorization URL
+        const response = await axios.get(`${API_URL}/api/auth/login`);
+        const authUrl = response.data.authorize_url;
+
+        // Redirect to Spotify authorization
+        window.location.href = authUrl;
+      } catch (error: any) {
+        console.error("Spotify login failed:", error);
+        throw new Error(error.response?.data?.detail || "Failed to initiate login");
+      }
+    },
+
+    loadFromStorage() {
+      const accessToken = localStorage.getItem("access_token");
+      const refreshToken = localStorage.getItem("refresh_token");
+      const userJson = localStorage.getItem("user");
+
+      if (accessToken && refreshToken) {
+        this.accessToken = accessToken;
+        this.refreshToken = refreshToken;
+      }
+
+      if (userJson) {
+        try {
+          this.user = JSON.parse(userJson);
+        } catch (e) {
+          console.error("Failed to parse user from storage");
+        }
+      }
     }
   }
 });

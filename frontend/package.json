@@ -9,8 +9,10 @@
     "preview": "vite preview",
     "test:unit": "vitest --run",
     "test:watch": "vitest",
-    "lint": "eslint . --ext .ts,.vue",
-    "test:screenshots": "node tests/e2e/screenshot-runner.mjs"
+    "test:e2e:login": "node tests/e2e/login-flow.test.mjs",
+    "test:screenshots": "node tests/e2e/screenshot-runner.mjs",
+    "test": "npm run test:unit && npm run test:e2e:login",
+    "lint": "eslint . --ext .ts,.vue"
   },
   "dependencies": {
     "@vueuse/core": "^10.9.0",
