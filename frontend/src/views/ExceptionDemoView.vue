@@ -1,16 +1,21 @@
 <template>
-  <div class="min-h-screen bg-zinc-950 text-white px-6 py-12">
-    <header class="text-center mb-8">
-      <h2 class="text-3xl font-semibold tracking-wide">Exception Display State</h2>
-      <p class="text-zinc-400 text-sm mt-2">Demonstration of error notifications</p>
+  <div class="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white px-6">
+    <header class="text-center mb-10">
+      <h1 class="text-4xl font-bold tracking-[0.3em] uppercase mb-4">Disco Incognito</h1>
     </header>
-
-    <div class="max-w-2xl mx-auto">
-      <div class="bg-zinc-900 rounded-3xl p-8 text-center">
-        <p class="text-zinc-400">
-          Error and warning notifications appear at the top of the screen with appropriate styling and icons.
-        </p>
-      </div>
+    <div class="w-full max-w-sm space-y-3">
+      <button
+        class="w-full bg-disco-pink hover:bg-disco-pink-light text-black font-semibold px-8 py-3 rounded-full transition-colors shadow-lg"
+        type="button"
+      >
+        Log in with Spotify
+      </button>
+      <button
+        class="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-medium px-8 py-3 rounded-full transition-colors"
+        type="button"
+      >
+        Test Playback
+      </button>
     </div>
   </div>
 </template>

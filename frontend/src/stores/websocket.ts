@@ -7,7 +7,7 @@ interface WebSocketState {
 
 export const useWebSocketStore = defineStore("websocket", {
   state: (): WebSocketState => ({
-    status: "disconnected",
+    status: "connected",
     lastMessage: null
   }),
   actions: {
