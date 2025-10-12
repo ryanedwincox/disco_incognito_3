@@ -38,10 +38,6 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Puppeteer to use system Chromium
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
 # Install Claude Code globally
 RUN npm install -g @anthropic-ai/claude-code
 
@@ -60,6 +56,9 @@ RUN chown -R claude:claude /workspace
 
 # Switch to the claude user
 USER claude
+
+# Set Puppeteer to use system Chromium at runtime
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Define the volume for persistent history
 VOLUME /home/claude/.claude
