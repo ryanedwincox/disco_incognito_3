@@ -190,15 +190,18 @@ Test Files  1 passed (1)
 
 ## E2E Tests
 
-### Location
-`frontend/tests/e2e/login-flow.test.mjs`
+The project includes two E2E test suites that test complete user workflows:
 
-### Technology
+### Login Flow Tests
+
+**Location:** `frontend/tests/e2e/login-flow.test.mjs`
+
+**Technology:**
 - **Framework**: Puppeteer
 - **Integration**: Full stack (backend + frontend)
 - **Viewport**: Mobile (390x844) - iPhone 12/13 Pro
 
-### Tests Included
+**Tests Included:**
 
 1. **Page loads with correct UI** - Title, button, helper text
 2. **Test mode indicator visible** - "Test Mode" text present
@@ -208,26 +211,99 @@ Test Files  1 passed (1)
 6. **Tokens stored in localStorage** - Persistence verification
 7. **Multiple logins create unique users** - Randomness verification
 
+### Room Selection & Playback Tests
+
+**Location:** `frontend/tests/e2e/room-selection.test.mjs`
+
+**Technology:**
+- **Framework**: Puppeteer
+- **Integration**: Frontend navigation and UI interactions
+- **Viewport**: Mobile (390x844) - iPhone 12/13 Pro
+
+**Tests Included:**
+
+1. **Navigate to room selection page** - Page loads with correct heading
+2. **Create Room button exists and is clickable** - Button is visible and enabled
+3. **Create Room button navigates to room lobby** - Creates random 3-digit code and navigates to /rooms/:code
+4. **Room code input field exists** - Input has correct maxlength attribute
+5. **Join Room button exists and is clickable** - Button is visible and enabled
+6. **Test Playback button navigates to /test** - Navigation works correctly
+7. **Playback test page loads correctly** - Heading and search input present
+8. **Back button exists on playback test page** - "Back to Room Selection" button is present
+9. **Back button navigates to /rooms** - Returns to room selection page (not login)
+10. **Room code input accepts exactly 3 characters** - Input length validation
+11. **Search functionality on playback test page** - Search shows results
+
+### Complete Game Flow Tests
+
+**Location:** `frontend/tests/e2e/game-flow.test.mjs`
+
+**Technology:**
+- **Framework**: Puppeteer
+- **Integration**: Frontend UI and navigation
+- **Viewport**: Mobile (390x844) - iPhone 12/13 Pro
+
+**Tests Included:**
+
+**Room Lobby (5 tests):**
+1. **Room lobby page loads correctly** - Room code displays
+2. **Leave button exists** - Leave button present
+3. **Pick Songs button exists** - Pick Songs button present
+4. **Players section displays** - Player list shows
+5. **Song Pairs section displays** - Song pairs section present
+
+**Song Picker (4 tests):**
+6. **Song picker page loads correctly** - "Pick a Pair" heading
+7. **Search input exists** - Spotify search input with placeholder
+8. **Search Results section exists** - Results section present
+9. **Selected Pair section with Save button** - Save Pair button present
+
+**Game Play (3 tests):**
+10. **Game play page loads correctly** - "Round In Progress" heading
+11. **Countdown timer displays** - Timer shows remaining time (01:30)
+12. **Music player bar exists** - Music controls present
+
+**Guessing (3 tests):**
+13. **Guessing page loads correctly** - "Who Is The Odd Duck" heading
+14. **Player cards display** - At least 2 player cards shown
+15. **Guess buttons exist** - Guess buttons for each player
+
+**Reveal (5 tests):**
+16. **Reveal page loads correctly** - "Reveal" heading
+17. **Odd Duck section displays** - Shows who was the Odd Duck
+18. **Votes section displays** - Shows voting results
+19. **Next Round button exists** - Button to continue playing
+20. **Vote results show guess outcomes** - Displays correct/incorrect guesses
+
 ### Running E2E Tests
 
 **Prerequisites:**
-1. Backend must be running on http://localhost:8000
+1. Backend must be running on http://localhost:8000 (required for login tests)
 2. Frontend will start automatically
 
 ```bash
-# Start backend first
+# Start backend first (required for login tests)
 cd backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # In another terminal, run E2E tests
 cd frontend
-npm run test:e2e:login
+
+# Run all E2E tests
+npm run test:e2e
+
+# Run specific test suite
+npm run test:e2e:login   # Login workflow tests (7 tests)
+npm run test:e2e:rooms   # Room selection & playback tests (11 tests)
+npm run test:e2e:game    # Complete game flow tests (20 tests)
 
 # Run with visible browser (non-headless)
 HEADLESS=false npm run test:e2e:login
+HEADLESS=false npm run test:e2e:rooms
+HEADLESS=false npm run test:e2e:game
 ```
 
-### Expected Output
+### Expected Output - Login Flow Tests
 
 ```
 🚀 Starting E2E Login Flow Tests
@@ -272,6 +348,58 @@ Test 7: Multiple logins create unique users
 ==================================================
 ```
 
+### Expected Output - Room Selection Tests
+
+```
+🚀 Starting E2E Room Selection Tests
+
+ℹ️  Backend not running (not required for these tests)
+
+Starting Vite dev server...
+✅ Frontend running at http://127.0.0.1:5173
+
+Test 1: Navigate to room selection page
+   ✅ Room selection page loaded successfully
+
+Test 2: Create Room button exists and is clickable
+   ✅ Create Room button is present and clickable
+
+Test 3: Create Room button navigates to room lobby
+   ✅ Create Room navigated to http://127.0.0.1:5173/rooms/342
+
+Test 4: Room code input field exists
+   ✅ Room code input exists with correct attributes
+
+Test 5: Join Room button exists and is clickable
+   ✅ Join Room button is present and clickable
+
+Test 6: Test Playback button navigates to /test
+   ✅ Navigated to http://127.0.0.1:5173/test
+
+Test 7: Playback test page loads correctly
+   ✅ Playback test page loaded with correct UI
+
+Test 8: Back button exists on playback test page
+   ✅ Back to Room Selection button is present
+
+Test 9: Back button navigates to /rooms
+   ✅ Navigated back to room selection page at http://127.0.0.1:5173/rooms
+
+Test 10: Room code input accepts exactly 3 characters
+   ✅ Room code input correctly limits to 3 characters
+
+Test 11: Search functionality on playback test page
+   ✅ Search functionality works correctly
+
+==================================================
+📊 Test Results
+==================================================
+✅ Passed: 11
+❌ Failed: 0
+📈 Total:  11
+==================================================
+```
+
 ## Running All Tests
 
 ### Quick Test (Frontend Only)
@@ -282,8 +410,10 @@ npm test
 ```
 
 This runs:
-1. Unit tests (Vitest)
-2. E2E login tests (Puppeteer)
+1. Unit tests (Vitest) - 19 tests
+2. E2E login tests (Puppeteer) - 7 tests
+3. E2E room selection tests (Puppeteer) - 11 tests
+4. E2E game flow tests (Puppeteer) - 20 tests
 
 ### Full Test Suite (Backend + Frontend)
 
@@ -517,7 +647,23 @@ try {
 
 ✅ **11 Backend API tests** - Comprehensive endpoint validation
 ✅ **19 Frontend unit tests** - Store logic and error handling
-✅ **7 E2E tests** - Complete user workflow simulation
-✅ **37 total automated tests** - Full coverage of login workflow
+✅ **38 E2E tests** - Complete user workflow simulation
+   - 7 login flow tests
+   - 11 room selection & playback tests
+   - 20 complete game flow tests (lobby → picker → play → guess → reveal)
+✅ **68 total automated tests** - Full coverage of authentication, navigation, and game flow
 
-All tests verify that clicking "Create Test User" successfully creates a random disco-themed user and properly handles the authentication flow!
+All tests verify:
+- Test user creation with random disco-themed names
+- Authentication flow with proper error handling
+- All buttons and navigation on room selection page
+- Create Room generates random 3-digit code and navigates to room lobby
+- Join Room functionality with validation
+- Test playback page functionality
+- Back button navigates to room selection (not login)
+- Complete game flow through all phases:
+  - Room lobby with players and song pairs
+  - Song picker with search and selection
+  - Game play with countdown timer
+  - Guessing phase with player selection
+  - Reveal phase with results and next round

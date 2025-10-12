@@ -10,8 +10,11 @@
     "test:unit": "vitest --run",
     "test:watch": "vitest",
     "test:e2e:login": "node tests/e2e/login-flow.test.mjs",
+    "test:e2e:rooms": "node tests/e2e/room-selection.test.mjs",
+    "test:e2e:game": "node tests/e2e/game-flow.test.mjs",
+    "test:e2e": "npm run test:e2e:login && npm run test:e2e:rooms && npm run test:e2e:game",
     "test:screenshots": "node tests/e2e/screenshot-runner.mjs",
-    "test": "npm run test:unit && npm run test:e2e:login",
+    "test": "npm run test:unit && npm run test:e2e",
     "lint": "eslint . --ext .ts,.vue"
   },
   "dependencies": {

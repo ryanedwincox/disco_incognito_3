@@ -151,7 +151,7 @@
           type="button"
           @click="goBack"
         >
-          Back to Login
+          Back to Room Selection
         </button>
       </div>
     </div>
@@ -281,6 +281,6 @@ function formatDuration(ms: number): string {
 }
 
 function goBack() {
-  router.push('/')
+  router.push('/rooms')
 }
 </script>
