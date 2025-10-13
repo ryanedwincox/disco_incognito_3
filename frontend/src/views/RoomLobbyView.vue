@@ -4,14 +4,22 @@
       <div class="flex items-start justify-between mb-6">
         <div>
           <h2 class="text-sm uppercase text-zinc-400">Room Code</h2>
-          <p class="text-4xl font-bold tracking-[0.5em]">123</p>
+          <p class="text-4xl font-bold tracking-[0.5em]">{{ roomCode }}</p>
         </div>
       </div>
       <div class="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-3">
-        <button class="w-full md:w-auto px-6 py-3 rounded-full border border-zinc-700 text-zinc-300 hover:border-zinc-600" type="button">
+        <button
+          class="w-full md:w-auto px-6 py-3 rounded-full border border-zinc-700 text-zinc-300 hover:border-zinc-600 transition-colors"
+          type="button"
+          @click="leaveRoom"
+        >
           Leave
         </button>
-        <button class="w-full md:w-auto px-6 py-3 rounded-full bg-disco-pink text-black font-semibold hover:bg-disco-pink-light" type="button">
+        <button
+          class="w-full md:w-auto px-6 py-3 rounded-full bg-disco-pink text-black font-semibold hover:bg-disco-pink-light transition-colors"
+          type="button"
+          @click="pickSongs"
+        >
           Pick Songs
         </button>
       </div>
@@ -41,5 +49,23 @@
 </template>
 
 <script setup lang="ts">
-// Lobby state will be sourced from Pinia stores using WebSocket updates later.
+import { computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+
+const router = useRouter()
+const route = useRoute()
+
+const roomCode = computed(() => route.params.code || '123')
+
+function leaveRoom() {
+  console.log('Leaving room:', roomCode.value)
+  // Navigate back to room selection
+  router.push('/rooms')
+}
+
+function pickSongs() {
+  console.log('Navigating to song picker for room:', roomCode.value)
+  // Navigate to song picker for this room
+  router.push(`/rooms/${roomCode.value}/songs`)
+}
 </script>

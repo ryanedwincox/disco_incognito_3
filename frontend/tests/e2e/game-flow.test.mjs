@@ -196,6 +196,85 @@ async function runTests() {
       failed++;
     }
 
+    // Test 5a: Pick Songs button navigates to song picker
+    console.log("Test 5a: Pick Songs button navigates to song picker");
+    try {
+      await Promise.all([
+        page.waitForNavigation({ timeout: 5000, waitUntil: "networkidle0" }),
+        page.evaluate(() => {
+          const buttons = Array.from(document.querySelectorAll('button'));
+          const btn = buttons.find(b => b.textContent.includes('Pick Songs'));
+          if (btn) {
+            btn.click();
+          }
+        })
+      ]);
+
+      const currentUrl = page.url();
+      if (!currentUrl.includes('/rooms/123/songs')) {
+        throw new Error(`Expected URL to contain '/rooms/123/songs', got '${currentUrl}'`);
+      }
+
+      console.log(`   ✅ Navigated to song picker: ${currentUrl}\n`);
+      passed++;
+    } catch (error) {
+      console.log(`   ❌ Failed: ${error.message}\n`);
+      failed++;
+    }
+
+    // Test 5b: Back to Lobby button returns to room lobby
+    console.log("Test 5b: Back to Lobby button returns to room lobby");
+    try {
+      await Promise.all([
+        page.waitForNavigation({ timeout: 5000, waitUntil: "networkidle0" }),
+        page.evaluate(() => {
+          const buttons = Array.from(document.querySelectorAll('button'));
+          const btn = buttons.find(b => b.textContent.includes('Back to Lobby'));
+          if (btn) {
+            btn.click();
+          }
+        })
+      ]);
+
+      const currentUrl = page.url();
+      if (!currentUrl.includes('/rooms/123')) {
+        throw new Error(`Expected URL to contain '/rooms/123', got '${currentUrl}'`);
+      }
+
+      console.log(`   ✅ Returned to room lobby: ${currentUrl}\n`);
+      passed++;
+    } catch (error) {
+      console.log(`   ❌ Failed: ${error.message}\n`);
+      failed++;
+    }
+
+    // Test 5c: Leave button navigates to room selection
+    console.log("Test 5c: Leave button navigates to room selection");
+    try {
+      await Promise.all([
+        page.waitForNavigation({ timeout: 5000, waitUntil: "networkidle0" }),
+        page.evaluate(() => {
+          const buttons = Array.from(document.querySelectorAll('button'));
+          const btn = buttons.find(b => b.textContent.trim() === 'Leave');
+          if (btn) {
+            btn.click();
+          }
+        })
+      ]);
+
+      const currentUrl = page.url();
+      const urlPath = new URL(currentUrl).pathname;
+      if (urlPath !== '/rooms') {
+        throw new Error(`Expected URL path '/rooms', got '${urlPath}'`);
+      }
+
+      console.log(`   ✅ Left room and returned to room selection\n`);
+      passed++;
+    } catch (error) {
+      console.log(`   ❌ Failed: ${error.message}\n`);
+      failed++;
+    }
+
     // ===== SONG PICKER TESTS =====
     console.log("📍 Song Picker Tests\n");
 
