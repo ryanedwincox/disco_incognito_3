@@ -155,7 +155,7 @@ async function savePair() {
     setTimeout(() => {
       goBack()
     }, 1500)
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to save pair:', error)
     successMessage.value = 'Failed to save song pair'
   } finally {

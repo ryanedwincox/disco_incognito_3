@@ -73,11 +73,12 @@ export const useAuthStore = defineStore("auth", {
 
         console.log(`✅ Test user created: ${data.display_name}`);
         return { success: true };
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Test login failed:", error);
+        const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
         return {
           success: false,
-          error: error.response?.data?.detail || error.message || "Login failed"
+          error: axiosError.response?.data?.detail || axiosError.message || "Login failed"
         };
       }
     },
@@ -90,9 +91,10 @@ export const useAuthStore = defineStore("auth", {
 
         // Redirect to Spotify authorization
         window.location.href = authUrl;
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Spotify login failed:", error);
-        throw new Error(error.response?.data?.detail || "Failed to initiate login");
+        const axiosError = error as { response?: { data?: { detail?: string } } };
+        throw new Error(axiosError.response?.data?.detail || "Failed to initiate login");
       }
     },
 

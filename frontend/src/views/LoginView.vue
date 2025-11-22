@@ -85,9 +85,9 @@ async function handleLogin() {
       await authStore.spotifyLogin()
       // Note: Will redirect to Spotify, so code after this won't execute
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Login error:', error)
-    errorMessage.value = error.message || 'An error occurred during login'
+    errorMessage.value = (error as Error).message || 'An error occurred during login'
   } finally {
     isLoading.value = false
   }

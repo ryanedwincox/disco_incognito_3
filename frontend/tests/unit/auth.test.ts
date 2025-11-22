@@ -8,7 +8,7 @@ import axios from 'axios'
 
 // Mock axios
 vi.mock('axios')
-const mockedAxios = axios as any
+const mockedAxios = axios as { post: ReturnType<typeof vi.fn> }
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -29,7 +29,7 @@ const localStorageMock = (() => {
 })()
 
 // Set up localStorage mock
-global.localStorage = localStorageMock as any
+global.localStorage = localStorageMock as Storage
 
 describe('Auth Store', () => {
   beforeEach(() => {
