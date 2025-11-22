@@ -4,7 +4,7 @@ import asyncio
 import json
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, Dict, Optional
+from typing import Any
 
 from filelock import FileLock
 
@@ -16,52 +16,52 @@ class JSONFileStorage(StorageAdapter):
 
     def __init__(self, path: Path, lock_timeout: float = 5.0) -> None:
         self._path = path
-        self._lock = FileLock(f"{path}.lock", timeout=lock_timeout)
+        self._lock = FileLock(f'{path}.lock', timeout=lock_timeout)
 
         if not self._path.exists():
             self._path.parent.mkdir(parents=True, exist_ok=True)
-            self._path.write_text("{}", encoding="utf-8")
+            self._path.write_text('{}', encoding='utf-8')
 
     @property
     def path(self) -> Path:
         """Expose the backing file path for maintenance tasks."""
         return self._path
 
-    async def load(self) -> Dict[str, Any]:
+    async def load(self) -> dict[str, Any]:
         return await asyncio.to_thread(self._read_file)
 
-    async def save(self, state: Dict[str, Any]) -> None:
+    async def save(self, state: dict[str, Any]) -> None:
         await asyncio.to_thread(self._write_file, state)
 
-    async def get_room(self, room_code: str) -> Optional[Dict[str, Any]]:
+    async def get_room(self, room_code: str) -> dict[str, Any] | None:
         state = await self.load()
-        rooms = state.get("rooms", {})
+        rooms = state.get('rooms', {})
         return rooms.get(room_code)
 
-    async def upsert_room(self, room_code: str, data: Dict[str, Any]) -> None:
+    async def upsert_room(self, room_code: str, data: dict[str, Any]) -> None:
         state = await self.load()
-        rooms = state.setdefault("rooms", {})
+        rooms = state.setdefault('rooms', {})
         rooms[room_code] = data
         await self.save(state)
 
     async def delete_room(self, room_code: str) -> None:
         state = await self.load()
-        rooms = state.get("rooms", {})
+        rooms = state.get('rooms', {})
         if room_code in rooms:
             del rooms[room_code]
             await self.save(state)
 
-    def _read_file(self) -> Dict[str, Any]:
+    def _read_file(self) -> dict[str, Any]:
         with self._lock:
             if not self._path.exists():
                 return {}
-            raw = self._path.read_text(encoding="utf-8")
-            return json.loads(raw or "{}")
+            raw = self._path.read_text(encoding='utf-8')
+            return json.loads(raw or '{}')
 
-    def _write_file(self, state: Dict[str, Any]) -> None:
+    def _write_file(self, state: dict[str, Any]) -> None:
         serialized = json.dumps(state, indent=2, sort_keys=True)
         with self._lock:
-            with NamedTemporaryFile("w", delete=False, dir=self._path.parent, encoding="utf-8") as tmp:
+            with NamedTemporaryFile('w', delete=False, dir=self._path.parent, encoding='utf-8') as tmp:
                 tmp.write(serialized)
                 tmp.flush()
                 temp_path = Path(tmp.name)

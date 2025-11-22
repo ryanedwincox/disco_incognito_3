@@ -40,3 +40,5 @@ data/*.json
 !data/disco_incognito.json
 
 frontend/tests/e2e/screenshots
+
+.venv_linter/

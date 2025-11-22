@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -26,20 +25,18 @@ class RoomState(BaseModel):
     host_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_active_at: datetime = Field(default_factory=datetime.utcnow)
-    players: List[Player] = Field(default_factory=list)
-    song_pairs: List[SongPair] = Field(default_factory=list)
-    status: str = "lobby"
-    odd_duck_player_id: Optional[str] = None
+    players: list[Player] = Field(default_factory=list)
+    song_pairs: list[SongPair] = Field(default_factory=list)
+    status: str = 'lobby'
+    odd_duck_player_id: str | None = None
 
     class Config:
         json_schema_extra = {
-            "example": {
-                "code": "123",
-                "host_id": "player-1",
-                "players": [
-                    {"id": "player-1", "display_name": "Host", "is_host": True, "is_connected": True}
-                ],
-                "song_pairs": [],
-                "status": "lobby"
+            'example': {
+                'code': '123',
+                'host_id': 'player-1',
+                'players': [{'id': 'player-1', 'display_name': 'Host', 'is_host': True, 'is_connected': True}],
+                'song_pairs': [],
+                'status': 'lobby',
             }
         }

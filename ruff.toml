@@ -1,0 +1,37 @@
+line-length = 180
+
+# Exclude virtual environments and common non-source directories
+exclude = [
+    ".venv",
+    ".venv_linter",
+    "venv",
+    "__pycache__",
+    ".git",
+    "node_modules",
+]
+
+[lint]
+# Enable these rule sets
+select = [
+    "F",    # Pyflakes - catches undefined names, unused imports, etc.
+    "UP",   # pyupgrade - detects outdated Python syntax
+    "FA",   # flake8-future-annotations - enforces modern type annotations
+    #"PLC",  # pylint convention rules
+]
+
+# Specific rules to catch legacy typing and async issues
+extend-select = [
+    "UP007",  # Use `X | Y` for type unions (instead of Union[X, Y])
+    "UP006",  # Use `list` instead of `List` for type annotations  
+    "UP035",  # Import from `collections.abc` instead of `typing`
+    #"PLC0415", # import-outside-top-level - prevents inline imports that block event loop
+]
+
+# Ignore rules
+ignore = [
+    "UP037",  # Allow modern string literal union syntax (Python 3.12+)
+]
+
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "single"

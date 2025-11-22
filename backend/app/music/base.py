@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class MusicStreamingAdapter(ABC):
@@ -28,7 +28,7 @@ class MusicStreamingAdapter(ABC):
         pass
 
     @abstractmethod
-    async def handle_callback(self, code: str, state: str) -> Dict[str, Any]:
+    async def handle_callback(self, code: str, state: str) -> dict[str, Any]:
         """
         Exchange authorization code for access and refresh tokens.
 
@@ -47,7 +47,7 @@ class MusicStreamingAdapter(ABC):
         pass
 
     @abstractmethod
-    async def refresh_access_token(self, refresh_token: str) -> Dict[str, Any]:
+    async def refresh_access_token(self, refresh_token: str) -> dict[str, Any]:
         """
         Refresh an expired access token.
 
@@ -60,7 +60,7 @@ class MusicStreamingAdapter(ABC):
         pass
 
     @abstractmethod
-    async def get_user_info(self, access_token: str) -> Dict[str, Any]:
+    async def get_user_info(self, access_token: str) -> dict[str, Any]:
         """
         Get user profile information.
 
@@ -81,12 +81,7 @@ class MusicStreamingAdapter(ABC):
 
     # Playback Control
     @abstractmethod
-    async def play_track(
-        self,
-        access_token: str,
-        track_uri: str,
-        device_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def play_track(self, access_token: str, track_uri: str, device_id: str | None = None) -> dict[str, Any]:
         """
         Start playback of a specific track.
 
@@ -101,11 +96,7 @@ class MusicStreamingAdapter(ABC):
         pass
 
     @abstractmethod
-    async def pause_playback(
-        self,
-        access_token: str,
-        device_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+    async def pause_playback(self, access_token: str, device_id: str | None = None) -> dict[str, Any]:
         """
         Pause current playback.
 
@@ -119,7 +110,7 @@ class MusicStreamingAdapter(ABC):
         pass
 
     @abstractmethod
-    async def get_playback_state(self, access_token: str) -> Dict[str, Any]:
+    async def get_playback_state(self, access_token: str) -> dict[str, Any]:
         """
         Get current playback state.
 
@@ -133,12 +124,7 @@ class MusicStreamingAdapter(ABC):
 
     # Search and Track Information
     @abstractmethod
-    async def search_tracks(
-        self,
-        access_token: str,
-        query: str,
-        limit: int = 20
-    ) -> List[Dict[str, Any]]:
+    async def search_tracks(self, access_token: str, query: str, limit: int = 20) -> list[dict[str, Any]]:
         """
         Search for tracks.
 
@@ -160,11 +146,7 @@ class MusicStreamingAdapter(ABC):
         pass
 
     @abstractmethod
-    async def get_track_info(
-        self,
-        access_token: str,
-        track_id: str
-    ) -> Dict[str, Any]:
+    async def get_track_info(self, access_token: str, track_id: str) -> dict[str, Any]:
         """
         Get detailed information about a specific track.
 
@@ -179,7 +161,7 @@ class MusicStreamingAdapter(ABC):
 
     # Device Management
     @abstractmethod
-    async def get_available_devices(self, access_token: str) -> List[Dict[str, Any]]:
+    async def get_available_devices(self, access_token: str) -> list[dict[str, Any]]:
         """
         Get list of available playback devices.
 
@@ -197,12 +179,7 @@ class MusicStreamingAdapter(ABC):
         pass
 
     @abstractmethod
-    async def transfer_playback(
-        self,
-        access_token: str,
-        device_id: str,
-        play: bool = False
-    ) -> Dict[str, Any]:
+    async def transfer_playback(self, access_token: str, device_id: str, play: bool = False) -> dict[str, Any]:
         """
         Transfer playback to a different device.
 
