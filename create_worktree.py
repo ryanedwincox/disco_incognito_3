@@ -279,6 +279,10 @@ def create_worktree(branch_name: str, base_path: Path | None = None):
     print_colored(f'  Backend:  http://localhost:{backend_port}', Colors.NC)
     print_colored(f'  Frontend: http://localhost:{frontend_port}', Colors.NC)
 
+    # Open VS Code in the new worktree
+    print_colored('\nOpening VS Code...', Colors.BLUE)
+    subprocess.run(['code', str(worktree_path)])
+
 
 def main():
     parser = argparse.ArgumentParser(
