@@ -15,7 +15,8 @@ const OUTPUT_DIR = resolve("tests/e2e/screenshots");
 // 222: Guessing state
 // 333: Reveal state
 const ROUTES = [
-  { path: "/", label: "1-login" },
+  { path: "/", label: "1a-login" },
+  { path: "/", label: "1b-login-guest-form", action: "click-guest-login" },
   { path: "/rooms", label: "2-room-selection" },
   { path: "/test", label: "3-test-playback" },
   { path: "/rooms/123", label: "4a-room-lobby-empty" },
@@ -111,6 +112,20 @@ async function captureScreenshots(baseUrl) {
 
     // Give a small delay for any animations to settle
     await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Handle special actions
+    if (route.action === "click-guest-login") {
+      // Click the "Continue as Guest" button to show the name input form
+      await page.click('button:has-text("Continue as Guest")').catch(() => {
+        // Fallback: try to find by text content
+        return page.evaluate(() => {
+          const buttons = Array.from(document.querySelectorAll('button'));
+          const guestButton = buttons.find(b => b.textContent.includes('Continue as Guest'));
+          if (guestButton) guestButton.click();
+        });
+      });
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
 
     const filePath = join(OUTPUT_DIR, `${route.label}.png`);
     await page.screenshot({ path: filePath, fullPage: true });

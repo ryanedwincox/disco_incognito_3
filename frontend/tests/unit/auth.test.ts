@@ -64,6 +64,12 @@ describe('Auth Store', () => {
 
       expect(authStore.isAuthenticated).toBe(false)
     })
+
+    it('should have isSpotifyUser as true by default', () => {
+      const authStore = useAuthStore()
+
+      expect(authStore.isSpotifyUser).toBe(true)
+    })
   })
 
   describe('setTokens', () => {
@@ -118,6 +124,20 @@ describe('Auth Store', () => {
       expect(localStorage.getItem('refresh_token')).toBeNull()
       expect(localStorage.getItem('user')).toBeNull()
     })
+
+    it('should reset isSpotifyUser to true', () => {
+      const authStore = useAuthStore()
+
+      // Simulate manual login state
+      authStore.isSpotifyUser = false
+      localStorage.setItem('is_spotify_user', 'false')
+
+      // Clear tokens
+      authStore.clearTokens()
+
+      expect(authStore.isSpotifyUser).toBe(true)
+      expect(localStorage.getItem('is_spotify_user')).toBeNull()
+    })
   })
 
   describe('loadFromStorage', () => {
@@ -155,6 +175,27 @@ describe('Auth Store', () => {
       authStore.loadFromStorage()
 
       expect(authStore.user).toBeNull()
+    })
+
+    it('should restore isSpotifyUser as false when stored', () => {
+      localStorage.setItem('access_token', 'token')
+      localStorage.setItem('refresh_token', 'refresh')
+      localStorage.setItem('is_spotify_user', 'false')
+
+      const authStore = useAuthStore()
+      authStore.loadFromStorage()
+
+      expect(authStore.isSpotifyUser).toBe(false)
+    })
+
+    it('should default isSpotifyUser to true when not stored', () => {
+      localStorage.setItem('access_token', 'token')
+      localStorage.setItem('refresh_token', 'refresh')
+
+      const authStore = useAuthStore()
+      authStore.loadFromStorage()
+
+      expect(authStore.isSpotifyUser).toBe(true)
     })
   })
 
@@ -256,6 +297,115 @@ describe('Auth Store', () => {
         id: 'user-123',
         displayName: 'Test User',
         email: 'test@test.com'
+      })
+    })
+  })
+
+  describe('manualLogin', () => {
+    it('should successfully create a guest user', async () => {
+      const mockResponse = {
+        data: {
+          access_token: 'manual_token_abc123',
+          refresh_token: 'manual_refresh_abc123',
+          user_id: 'manual_user123',
+          display_name: 'Test Guest',
+          email: '',
+          is_spotify_user: 'false'
+        }
+      }
+
+      mockedAxios.post.mockResolvedValue(mockResponse)
+
+      const authStore = useAuthStore()
+      const result = await authStore.manualLogin('Test Guest')
+
+      expect(result.success).toBe(true)
+      expect(authStore.accessToken).toBe('manual_token_abc123')
+      expect(authStore.refreshToken).toBe('manual_refresh_abc123')
+      expect(authStore.user?.displayName).toBe('Test Guest')
+      expect(authStore.user?.id).toBe('manual_user123')
+    })
+
+    it('should set isSpotifyUser to false', async () => {
+      const mockResponse = {
+        data: {
+          access_token: 'token',
+          refresh_token: 'refresh',
+          user_id: 'id',
+          display_name: 'Guest',
+          email: '',
+          is_spotify_user: 'false'
+        }
+      }
+
+      mockedAxios.post.mockResolvedValue(mockResponse)
+
+      const authStore = useAuthStore()
+      expect(authStore.isSpotifyUser).toBe(true) // Default
+
+      await authStore.manualLogin('Guest')
+
+      expect(authStore.isSpotifyUser).toBe(false)
+      expect(localStorage.getItem('is_spotify_user')).toBe('false')
+    })
+
+    it('should call the correct API endpoint with display_name', async () => {
+      const mockResponse = {
+        data: {
+          access_token: 'token',
+          refresh_token: 'refresh',
+          user_id: 'id',
+          display_name: 'My Name',
+          email: ''
+        }
+      }
+
+      mockedAxios.post.mockResolvedValue(mockResponse)
+
+      const authStore = useAuthStore()
+      await authStore.manualLogin('My Name')
+
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        expect.stringContaining('/api/auth/manual-login'),
+        { display_name: 'My Name' }
+      )
+    })
+
+    it('should handle API errors gracefully', async () => {
+      mockedAxios.post.mockRejectedValue(new Error('Network error'))
+
+      const authStore = useAuthStore()
+      const result = await authStore.manualLogin('Guest')
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBeDefined()
+      expect(authStore.accessToken).toBeNull()
+      expect(authStore.isSpotifyUser).toBe(true) // Should remain true on failure
+    })
+
+    it('should store tokens in localStorage', async () => {
+      const mockResponse = {
+        data: {
+          access_token: 'stored-manual-access',
+          refresh_token: 'stored-manual-refresh',
+          user_id: 'manual-user-123',
+          display_name: 'Stored Guest',
+          email: ''
+        }
+      }
+
+      mockedAxios.post.mockResolvedValue(mockResponse)
+
+      const authStore = useAuthStore()
+      await authStore.manualLogin('Stored Guest')
+
+      expect(localStorage.getItem('access_token')).toBe('stored-manual-access')
+      expect(localStorage.getItem('refresh_token')).toBe('stored-manual-refresh')
+      expect(localStorage.getItem('is_spotify_user')).toBe('false')
+      expect(JSON.parse(localStorage.getItem('user') || '{}')).toEqual({
+        id: 'manual-user-123',
+        displayName: 'Stored Guest',
+        email: ''
       })
     })
   })

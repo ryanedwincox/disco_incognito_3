@@ -1,23 +1,7 @@
 #!/bin/bash
-set -e
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 # Disco Incognito - Validation script
-=======
-# Disco Incognito - Validation script (worktree version)
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
-# Disco Incognito - Validation script (worktree version)
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
-# Disco Incognito - Validation script (worktree version)
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
-# Disco Incognito - Validation script (worktree version)
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+
 # Run before commits: linting, unit tests, E2E tests
 # Usage: ./validate.sh [--fix] [--unit] [--e2e] [--backend]
 
@@ -29,6 +13,10 @@ RUN_FIX=false
 RUN_UNIT=false
 RUN_E2E=false
 RUN_BACKEND=false
+
+# Track failures
+FAILED=0
+FAILED_STEPS=""
 
 for arg in "$@"; do
     case $arg in
@@ -63,23 +51,7 @@ for arg in "$@"; do
     esac
 done
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 echo "=== Disco Incognito Validation ==="
-=======
-echo "=== Disco Incognito Validation (Worktree) ==="
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
-echo "=== Disco Incognito Validation (Worktree) ==="
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
-echo "=== Disco Incognito Validation (Worktree) ==="
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
-echo "=== Disco Incognito Validation (Worktree) ==="
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 echo ""
 
 # Backend linting (Python/ruff)
@@ -88,7 +60,11 @@ if $RUN_ALL || $RUN_FIX; then
     if $RUN_FIX; then
         python run_linter.py --fix || true
     else
-        python run_linter.py || { echo "Backend linting failed. Run with --fix to auto-fix."; exit 1; }
+        if ! python run_linter.py; then
+            echo "Backend linting failed. Run with --fix to auto-fix."
+            FAILED=1
+            FAILED_STEPS="$FAILED_STEPS backend-lint"
+        fi
     fi
     echo ""
 fi
@@ -100,7 +76,11 @@ if $RUN_ALL || $RUN_FIX; then
     if $RUN_FIX; then
         npm run lint -- --fix || true
     else
-        npm run lint || { echo "Frontend linting failed. Run with --fix to auto-fix."; exit 1; }
+        if ! npm run lint; then
+            echo "Frontend linting failed. Run with --fix to auto-fix."
+            FAILED=1
+            FAILED_STEPS="$FAILED_STEPS frontend-lint"
+        fi
     fi
     cd ..
     echo ""
@@ -110,35 +90,20 @@ fi
 if $RUN_ALL || $RUN_UNIT; then
     echo ">>> Frontend Unit Tests"
     cd frontend
-    npm run test:unit
+    if ! npm run test:unit; then
+        FAILED=1
+        FAILED_STEPS="$FAILED_STEPS frontend-unit"
+    fi
     cd ..
     echo ""
 fi
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-# Frontend E2E tests (requires running dev server)
-if $RUN_ALL || $RUN_E2E; then
-    echo ">>> Frontend E2E Tests"
-    echo "(Note: Requires dev server running. Start with ./run.sh --detached)"
-    cd frontend
-    npm run test:e2e || echo "E2E tests skipped or failed - ensure dev server is running"
-    cd ..
-=======
-=======
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 # Frontend E2E tests (starts own backend)
 if $RUN_ALL || $RUN_E2E; then
     echo ">>> Frontend E2E Tests"
 
     # Read port from .test_ports
-    TEST_PORT=$(grep TEST_SERVER_PORT .test_ports | cut -d= -f2)
+    TEST_PORT=$(grep TEST_SERVER_PORT .test_ports 2>/dev/null | cut -d= -f2)
     TEST_PORT=${TEST_PORT:-8134}
 
     # Start backend for E2E tests
@@ -159,27 +124,15 @@ if $RUN_ALL || $RUN_E2E; then
 
     # Run E2E tests with BACKEND_URL pointing to our test backend
     cd frontend
-    BACKEND_URL="http://localhost:$TEST_PORT" npm run test:e2e
-    E2E_RESULT=$?
+    if ! BACKEND_URL="http://localhost:$TEST_PORT" npm run test:e2e; then
+        FAILED=1
+        FAILED_STEPS="$FAILED_STEPS frontend-e2e"
+    fi
     cd ..
 
     # Clean up backend
     echo "Stopping test backend..."
     kill $BACKEND_PID 2>/dev/null || true
-
-    if [ $E2E_RESULT -ne 0 ]; then
-        exit $E2E_RESULT
-    fi
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
-=======
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
     echo ""
 fi
 
@@ -187,9 +140,26 @@ fi
 if $RUN_ALL || $RUN_BACKEND; then
     echo ">>> Backend Tests"
     cd backend
-    python -m pytest -v || echo "No backend tests found or tests failed"
+    if ! python -m pytest -v; then
+        FAILED=1
+        FAILED_STEPS="$FAILED_STEPS backend-tests"
+    fi
     cd ..
     echo ""
 fi
 
 echo "=== Validation Complete ==="
+echo ""
+
+if [ $FAILED -eq 0 ]; then
+    echo "==========================================="
+    echo "  ALL TESTS PASSED"
+    echo "==========================================="
+    exit 0
+else
+    echo "==========================================="
+    echo "  VALIDATION FAILED"
+    echo "  Failed steps:$FAILED_STEPS"
+    echo "==========================================="
+    exit 1
+fi
