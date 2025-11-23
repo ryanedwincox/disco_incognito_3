@@ -159,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MusicPlayerBar from '../components/MusicPlayerBar.vue'
 import { useMusicStore, type TrackInfo } from '../stores/music'
@@ -174,6 +174,10 @@ const searchQuery = ref('')
 
 // Debounce timer
 let searchTimeout: ReturnType<typeof setTimeout>
+
+// Polling interval for playback state
+let pollingInterval: ReturnType<typeof setInterval> | null = null
+const POLLING_INTERVAL_MS = 2000
 
 // Computed
 const deviceConnected = computed(() => musicStore.devices.length > 0 && musicStore.hasActiveDevice)
@@ -191,8 +195,35 @@ onMounted(async () => {
   if (authStore.isAuthenticated) {
     await musicStore.getDevices()
     await musicStore.getPlaybackState()
+
+    // Start polling for playback state
+    startPolling()
   }
 })
+
+onUnmounted(() => {
+  // Clean up polling interval
+  stopPolling()
+})
+
+function startPolling() {
+  if (pollingInterval) return // Already polling
+
+  pollingInterval = setInterval(async () => {
+    if (authStore.isAuthenticated) {
+      await musicStore.getPlaybackState()
+    }
+  }, POLLING_INTERVAL_MS)
+  console.log('Started playback state polling')
+}
+
+function stopPolling() {
+  if (pollingInterval) {
+    clearInterval(pollingInterval)
+    pollingInterval = null
+    console.log('Stopped playback state polling')
+  }
+}
 
 // Methods
 async function handleLogin() {
@@ -216,13 +247,17 @@ function handleSearch() {
   }, 300)
 }
 
-function selectTrack(track: TrackInfo) {
+async function selectTrack(track: TrackInfo) {
   // Set selected track in store - will show in bottom bar
   musicStore.setSelectedTrack(track)
   // Clear search results to close the dropdown
   musicStore.searchResults = []
   searchQuery.value = ''
   console.log('Selected track:', track.uri)
+  // Start playing the track
+  await musicStore.playTrack(track.uri, musicStore.activeDeviceId || undefined)
+  // Immediately fetch playback state to update the UI
+  await musicStore.getPlaybackState()
 }
 
 async function refreshDevices() {

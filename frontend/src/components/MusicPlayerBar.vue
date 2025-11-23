@@ -73,10 +73,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useMusicStore } from '../stores/music'
 
 const musicStore = useMusicStore()
+
+// Debug: watch for store changes
+watch(() => musicStore.currentTrack, (newTrack) => {
+  console.log('MusicPlayerBar: currentTrack changed:', newTrack)
+}, { immediate: true })
+
+watch(() => musicStore.selectedTrack, (newTrack) => {
+  console.log('MusicPlayerBar: selectedTrack changed:', newTrack)
+}, { immediate: true })
 
 // Computed properties from store
 const trackTitle = computed(() => musicStore.currentTrack?.name || null)

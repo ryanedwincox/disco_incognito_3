@@ -88,7 +88,10 @@ export const useMusicStore = defineStore("music", {
     },
 
     setSelectedTrack(track: TrackInfo | null) {
+      console.log('setSelectedTrack called:', track);
       this.selectedTrack = track;
+      console.log('selectedTrack is now:', this.selectedTrack);
+      console.log('currentTrack getter returns:', this.currentTrack);
     },
 
     getAuthHeaders() {
