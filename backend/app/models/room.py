@@ -1,3 +1,10 @@
+"""Pydantic models for game rooms, players, and song pairs.
+
+Defines the core domain models: RoomState for room metadata and game status, Player for
+user participation tracking, and SongPair for track submissions. These models are
+serialized for storage and WebSocket communication.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime

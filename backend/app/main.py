@@ -1,3 +1,9 @@
+"""FastAPI application entry point for Disco Incognito backend.
+
+Creates and configures the FastAPI app with CORS middleware, API routers, and WebSocket
+endpoint. Handles application startup including storage file initialization.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

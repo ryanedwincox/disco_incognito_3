@@ -1,3 +1,10 @@
+"""Mock music streaming adapter for development and testing.
+
+Implements MusicStreamingAdapter with mock data for local development without requiring
+real Spotify credentials. Generates random disco-themed usernames and returns mock tracks,
+devices, and playback states for testing all game flows.
+"""
+
 from __future__ import annotations
 
 import logging

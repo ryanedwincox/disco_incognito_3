@@ -1,3 +1,4 @@
+<!-- Toast notification system displaying stacked alerts at screen top. Supports error, warning, info, and success notification types with icons. Handles auto-dismiss timing and manual dismissal with animated transitions. -->
 <template>
   <div class="fixed top-0 left-0 right-0 z-50 flex flex-col items-center pt-4 px-4 pointer-events-none">
     <TransitionGroup name="notification">

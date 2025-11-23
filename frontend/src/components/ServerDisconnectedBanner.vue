@@ -1,3 +1,4 @@
+<!-- Server disconnection banner shown when WebSocket connection is lost. Displays at screen bottom with reconnection status and retry button. Watches WebSocket store status and shows appropriate messaging. -->
 <template>
   <Transition name="slide">
     <div

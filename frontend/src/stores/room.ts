@@ -1,3 +1,8 @@
+/**
+ * Room state store for multiplayer game lobby management.
+ * Tracks room code, player list, game status (lobby/playing/guessing/reveal),
+ * and song pair count. Provides actions for room state updates from WebSocket.
+ */
 import { defineStore } from "pinia";
 
 interface RoomPlayer {

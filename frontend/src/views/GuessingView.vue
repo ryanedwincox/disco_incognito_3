@@ -1,3 +1,4 @@
+<!-- Odd Duck guessing interface where players vote on who heard a different song. Displays all players as cards with guess buttons. Players select who they think is the Odd Duck. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
     <header class="text-center mb-10 space-y-2">

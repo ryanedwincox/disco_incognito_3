@@ -1,3 +1,8 @@
+/**
+ * Authentication store managing Spotify OAuth tokens and user session.
+ * Handles token storage in localStorage, test mode login, live Spotify OAuth flow,
+ * and session persistence. Provides user info and authentication status getters.
+ */
 import { defineStore } from "pinia";
 import axios from "axios";
 

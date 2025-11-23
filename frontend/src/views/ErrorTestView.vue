@@ -1,3 +1,4 @@
+<!-- Development testing view for notification and error state displays. Provides buttons to trigger various notification types (error, warning, info, success), simulate server disconnection, and throw test exceptions. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 py-12">
     <header class="text-center mb-8">
