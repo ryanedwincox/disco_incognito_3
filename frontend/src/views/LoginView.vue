@@ -103,11 +103,11 @@ onMounted(() => {
   const query = route.query
 
   // Check if this is an OAuth callback with tokens
-  if (query.auth_success === 'true' && query.access_token) {
-    const accessToken = query.access_token as string
-    const refreshToken = query.refresh_token as string
-    const userId = query.user_id as string
-    const displayName = query.display_name as string
+  if (query['auth_success'] === 'true' && query['access_token']) {
+    const accessToken = query['access_token'] as string
+    const refreshToken = query['refresh_token'] as string
+    const userId = query['user_id'] as string
+    const userName = query['display_name'] as string
 
     // Store tokens
     authStore.setTokens(accessToken, refreshToken)
@@ -115,20 +115,20 @@ onMounted(() => {
     // Store user info
     authStore.setUser({
       id: userId,
-      displayName: displayName,
+      displayName: userName,
       email: '' // Email not provided in callback
     })
 
-    successMessage.value = `Welcome, ${displayName}!`
-    console.log(`✅ Spotify login successful: ${displayName}`)
+    successMessage.value = `Welcome, ${userName}!`
+    console.log(`✅ Spotify login successful: ${userName}`)
 
     // Clean up URL and redirect to rooms
     setTimeout(() => {
       router.replace('/rooms')
     }, 500)
-  } else if (query.error) {
+  } else if (query['error']) {
     // Handle OAuth error
-    errorMessage.value = query.error as string
+    errorMessage.value = query['error'] as string
   }
 })
 
