@@ -5,8 +5,13 @@
       <!-- Album Art (Left) -->
       <div class="flex-shrink-0">
         <div class="w-14 h-14 bg-gradient-to-br from-disco-pink/20 to-purple-900/20 rounded-lg flex items-center justify-center overflow-hidden">
-          <!-- Placeholder for album art - will be replaced with actual image -->
-          <svg class="w-8 h-8 text-disco-pink/40" fill="currentColor" viewBox="0 0 20 20">
+          <img
+            v-if="albumArt"
+            :src="albumArt"
+            :alt="trackTitle || 'Album art'"
+            class="w-full h-full object-cover"
+          />
+          <svg v-else class="w-8 h-8 text-disco-pink/40" fill="currentColor" viewBox="0 0 20 20">
             <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
           </svg>
         </div>
@@ -68,20 +73,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useMusicStore } from '../stores/music'
 
-// Props (will be wired up to Pinia store later)
-const trackTitle = ref('Unknown Track')
-const artistName = ref('Unknown Artist')
-const isPlaying = ref(false)
-const canPlay = ref(false)
-const deviceConnected = ref(false)
-const deviceName = ref('Web Player')
+const musicStore = useMusicStore()
 
-// Methods (will be connected to music store)
-function togglePlayback() {
-  isPlaying.value = !isPlaying.value
-  // TODO: Connect to Spotify playback control
+// Computed properties from store
+const trackTitle = computed(() => musicStore.currentTrack?.name || null)
+const artistName = computed(() => musicStore.currentTrack?.artist || null)
+const albumArt = computed(() => musicStore.currentTrack?.albumArt)
+const isPlaying = computed(() => musicStore.isPlaying)
+const canPlay = computed(() => musicStore.currentTrack !== null)
+const deviceConnected = computed(() => musicStore.hasActiveDevice)
+const deviceName = computed(() => {
+  const activeDevice = musicStore.devices.find(d => d.isActive)
+  return activeDevice?.name || null
+})
+
+// Methods connected to music store
+async function togglePlayback() {
+  console.log('togglePlayback called', {
+    isPlaying: isPlaying.value,
+    currentTrack: musicStore.currentTrack,
+    canPlay: canPlay.value
+  })
+
+  if (isPlaying.value) {
+    console.log('Pausing playback...')
+    await musicStore.pausePlayback()
+  } else if (musicStore.currentTrack) {
+    console.log('Playing track:', musicStore.currentTrack.uri)
+    await musicStore.playTrack(musicStore.currentTrack.uri, musicStore.activeDeviceId || undefined)
+  } else {
+    console.log('No track to play')
+  }
 }
 
 function openDeviceSelector() {

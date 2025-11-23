@@ -42,6 +42,7 @@ interface MusicState {
   searchResults: TrackInfo[];
   isSearching: boolean;
   playbackState: PlaybackState;
+  selectedTrack: TrackInfo | null;
   error: string | null;
 }
 
@@ -59,12 +60,13 @@ export const useMusicStore = defineStore("music", {
       progressMs: 0,
       durationMs: 0
     },
+    selectedTrack: null,
     error: null
   }),
 
   getters: {
     isPlaying: (state) => state.playbackState.isPlaying,
-    currentTrack: (state) => state.playbackState.track,
+    currentTrack: (state) => state.playbackState.track || state.selectedTrack,
     hasActiveDevice: (state) => state.devices.some(d => d.isActive)
   },
 
@@ -83,6 +85,10 @@ export const useMusicStore = defineStore("music", {
 
     clearError() {
       this.error = null;
+    },
+
+    setSelectedTrack(track: TrackInfo | null) {
+      this.selectedTrack = track;
     },
 
     getAuthHeaders() {
@@ -142,6 +148,7 @@ export const useMusicStore = defineStore("music", {
 
     async playTrack(trackUri: string, deviceId?: string): Promise<boolean> {
       this.error = null;
+      console.log('playTrack called:', { trackUri, deviceId });
 
       try {
         await axios.post(
@@ -161,6 +168,7 @@ export const useMusicStore = defineStore("music", {
 
     async pausePlayback(deviceId?: string): Promise<boolean> {
       this.error = null;
+      console.log('pausePlayback called:', { deviceId });
 
       try {
         await axios.post(
@@ -190,6 +198,7 @@ export const useMusicStore = defineStore("music", {
         });
 
         const data = response.data;
+        console.log('getPlaybackState response:', data);
         this.playbackState = {
           isPlaying: data.is_playing || false,
           track: data.track ? {
@@ -210,6 +219,7 @@ export const useMusicStore = defineStore("music", {
           this.currentTrackTitle = this.playbackState.track.name;
         }
 
+        console.log('playbackState set:', this.playbackState);
         return this.playbackState;
       } catch (error) {
         console.error("Get playback state failed:", error);

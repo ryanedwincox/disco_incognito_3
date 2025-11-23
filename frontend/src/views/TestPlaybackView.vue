@@ -100,69 +100,6 @@
           <p class="text-zinc-500">No results found</p>
         </div>
 
-        <!-- Selected Track Card -->
-        <div v-if="selectedTrack" class="bg-gradient-to-br from-disco-pink/20 to-purple-900/20 rounded-3xl p-6 space-y-4 border border-disco-pink/30">
-          <h3 class="text-lg font-semibold text-disco-pink">Selected Track</h3>
-          <div class="flex items-center gap-4">
-            <div class="flex-shrink-0 w-20 h-20 bg-zinc-800 rounded-xl overflow-hidden">
-              <img
-                v-if="selectedTrack.albumArt"
-                :src="selectedTrack.albumArt"
-                :alt="selectedTrack.name"
-                class="w-full h-full object-cover"
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="font-semibold text-lg">{{ selectedTrack.name }}</p>
-              <p class="text-zinc-300">{{ selectedTrack.artist }}</p>
-              <p class="text-sm text-zinc-400 mt-1">{{ selectedTrack.album }}</p>
-            </div>
-          </div>
-
-          <!-- Playback Controls -->
-          <div class="space-y-3 pt-2">
-            <button
-              class="w-full font-semibold py-4 rounded-full transition-all duration-200 flex items-center justify-center gap-2"
-              :class="musicStore.isPlaying
-                ? 'bg-white text-black hover:bg-gray-100'
-                : 'bg-disco-pink text-black hover:bg-disco-pink-light'"
-              :disabled="isLoading"
-              type="button"
-              @click="togglePlayback"
-            >
-              <svg v-if="isLoading" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              <svg v-else-if="!musicStore.isPlaying" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-              </svg>
-              <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
-              </svg>
-              {{ isLoading ? 'Loading...' : (musicStore.isPlaying ? 'Pause' : 'Play Track') }}
-            </button>
-
-            <div class="flex gap-3">
-              <button
-                class="flex-1 bg-zinc-800 text-white font-medium py-3 rounded-full hover:bg-zinc-700 transition-colors"
-                :disabled="isLoading"
-                type="button"
-                @click="stopPlayback"
-              >
-                Stop
-              </button>
-              <button
-                class="flex-1 bg-zinc-800 text-white font-medium py-3 rounded-full hover:bg-zinc-700 transition-colors"
-                type="button"
-                @click="clearSelection"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        </div>
-
         <!-- Connection Status -->
         <div class="bg-zinc-900 rounded-2xl p-4 space-y-2">
           <div class="flex items-center justify-between">
@@ -234,8 +171,6 @@ const authStore = useAuthStore()
 
 // Search state
 const searchQuery = ref('')
-const selectedTrack = ref<TrackInfo | null>(null)
-const isLoading = ref(false)
 
 // Debounce timer
 let searchTimeout: ReturnType<typeof setTimeout>
@@ -282,36 +217,12 @@ function handleSearch() {
 }
 
 function selectTrack(track: TrackInfo) {
-  selectedTrack.value = track
+  // Set selected track in store - will show in bottom bar
+  musicStore.setSelectedTrack(track)
+  // Clear search results to close the dropdown
+  musicStore.searchResults = []
+  searchQuery.value = ''
   console.log('Selected track:', track.uri)
-}
-
-async function togglePlayback() {
-  if (!selectedTrack.value) return
-
-  isLoading.value = true
-  try {
-    if (musicStore.isPlaying) {
-      await musicStore.pausePlayback()
-    } else {
-      await musicStore.playTrack(selectedTrack.value.uri, musicStore.activeDeviceId || undefined)
-    }
-  } finally {
-    isLoading.value = false
-  }
-}
-
-async function stopPlayback() {
-  isLoading.value = true
-  try {
-    await musicStore.pausePlayback()
-  } finally {
-    isLoading.value = false
-  }
-}
-
-function clearSelection() {
-  selectedTrack.value = null
 }
 
 async function refreshDevices() {
