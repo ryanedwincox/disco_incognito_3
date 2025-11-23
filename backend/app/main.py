@@ -11,9 +11,12 @@ from .dependencies.storage import get_storage_adapter
 
 app = FastAPI(title='Disco Incognito API', version='0.1.0')
 
+# In test/debug mode, allow all origins for E2E testing with dynamic ports
+cors_origins = ['*'] if settings.debug else settings.allowed_origins_list
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
