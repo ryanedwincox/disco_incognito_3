@@ -1,3 +1,10 @@
+"""Application configuration via Pydantic Settings.
+
+Loads and validates configuration from environment variables including Spotify credentials,
+storage settings, CORS origins, and debug flags. Uses Pydantic Settings for automatic
+environment variable parsing and validation.
+"""
+
 from __future__ import annotations
 
 from functools import lru_cache

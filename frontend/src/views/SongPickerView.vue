@@ -1,3 +1,4 @@
+<!-- Song pair selection interface for adding tracks to the game pool. In test mode, generates random disco song pairs. In live mode, provides Spotify search. Handles pair saving and navigation back to lobby. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
     <header class="text-center mb-8 space-y-2">
@@ -8,14 +9,32 @@
     </header>
 
     <div class="max-w-3xl mx-auto space-y-6">
-      <input
-        v-if="!isTestMode"
-        class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg"
-        placeholder="Search Spotify"
-        type="search"
-      />
+      <!-- Spectator mode message for non-Spotify users -->
+      <div v-if="!isSpotifyUser" class="bg-zinc-900 rounded-3xl p-6 text-center space-y-4">
+        <div class="text-5xl mb-2">🎵</div>
+        <h3 class="text-xl font-semibold">Spotify Login Required</h3>
+        <p class="text-zinc-400 text-sm max-w-md mx-auto">
+          You're logged in as a guest. To add songs to the game, you'll need to log in with Spotify.
+        </p>
+        <button
+          class="w-full max-w-xs mx-auto border border-zinc-700 text-zinc-300 font-medium py-3 rounded-full hover:bg-zinc-800 transition-colors"
+          type="button"
+          @click="goBack"
+        >
+          Back to Lobby
+        </button>
+      </div>
 
-      <div class="grid gap-4 md:grid-cols-2">
+      <!-- Song picker for Spotify users -->
+      <template v-else>
+        <input
+          v-if="!isTestMode"
+          class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg"
+          placeholder="Search Spotify"
+          type="search"
+        />
+
+        <div class="grid gap-4 md:grid-cols-2">
         <div class="bg-zinc-900 rounded-3xl p-5">
           <h3 class="text-lg font-semibold mb-3">
             {{ isTestMode ? 'Random Song Pair' : 'Search Results' }}
@@ -60,9 +79,10 @@
         </div>
       </div>
 
-      <div v-if="successMessage" class="bg-green-900/30 border border-green-500 text-green-200 px-4 py-3 rounded-xl text-sm text-center">
-        {{ successMessage }}
-      </div>
+        <div v-if="successMessage" class="bg-green-900/30 border border-green-500 text-green-200 px-4 py-3 rounded-xl text-sm text-center">
+          {{ successMessage }}
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -70,11 +90,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
 const isTestMode = computed(() => import.meta.env.VITE_TEST_MODE === 'true')
+const isSpotifyUser = computed(() => authStore.isSpotifyUser)
 
 interface Song {
   id: string

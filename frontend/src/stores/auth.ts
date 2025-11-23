@@ -1,3 +1,8 @@
+/**
+ * Authentication store managing Spotify OAuth tokens and user session.
+ * Handles token storage in localStorage, test mode login, live Spotify OAuth flow,
+ * and session persistence. Provides user info and authentication status getters.
+ */
 import { defineStore } from "pinia";
 import axios from "axios";
 
@@ -13,6 +18,7 @@ interface AuthState {
   user: UserInfo | null;
   isSpoofedMode: boolean;
   isTestMode: boolean;
+  isSpotifyUser: boolean;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -23,7 +29,8 @@ export const useAuthStore = defineStore("auth", {
     refreshToken: null,
     user: null,
     isSpoofedMode: import.meta.env.VITE_UI_MODE === "minimal",
-    isTestMode: import.meta.env.VITE_TEST_MODE === "true"
+    isTestMode: import.meta.env.VITE_TEST_MODE === "true",
+    isSpotifyUser: true
   }),
 
   getters: {
@@ -50,10 +57,12 @@ export const useAuthStore = defineStore("auth", {
       this.accessToken = null;
       this.refreshToken = null;
       this.user = null;
+      this.isSpotifyUser = true;
 
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("user");
+      localStorage.removeItem("is_spotify_user");
     },
 
     async testLogin(): Promise<{ success: boolean; error?: string }> {
@@ -83,6 +92,39 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
+    async manualLogin(displayName: string): Promise<{ success: boolean; error?: string }> {
+      try {
+        const response = await axios.post(`${API_URL}/api/auth/manual-login`, {
+          display_name: displayName
+        });
+        const data = response.data;
+
+        // Set tokens
+        this.setTokens(data.access_token, data.refresh_token);
+
+        // Set user info
+        this.setUser({
+          id: data.user_id,
+          displayName: data.display_name,
+          email: data.email
+        });
+
+        // Mark as non-Spotify user
+        this.isSpotifyUser = false;
+        localStorage.setItem("is_spotify_user", "false");
+
+        console.log(`✅ Guest user created: ${data.display_name}`);
+        return { success: true };
+      } catch (error: unknown) {
+        console.error("Manual login failed:", error);
+        const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
+        return {
+          success: false,
+          error: axiosError.response?.data?.detail || axiosError.message || "Login failed"
+        };
+      }
+    },
+
     async spotifyLogin(): Promise<void> {
       try {
         // Get authorization URL
@@ -102,6 +144,7 @@ export const useAuthStore = defineStore("auth", {
       const accessToken = localStorage.getItem("access_token");
       const refreshToken = localStorage.getItem("refresh_token");
       const userJson = localStorage.getItem("user");
+      const isSpotifyUser = localStorage.getItem("is_spotify_user");
 
       if (accessToken && refreshToken) {
         this.accessToken = accessToken;
@@ -115,6 +158,9 @@ export const useAuthStore = defineStore("auth", {
           console.error("Failed to parse user from storage");
         }
       }
+
+      // Restore isSpotifyUser flag (defaults to true if not set)
+      this.isSpotifyUser = isSpotifyUser !== "false";
     }
   }
 });

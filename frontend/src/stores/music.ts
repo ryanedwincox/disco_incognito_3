@@ -1,3 +1,8 @@
+/**
+ * Music playback state store for Spotify device management.
+ * Tracks current playing track, available devices, and active device selection.
+ * Provides actions for updating playback state received from Spotify Web API.
+ */
 import { defineStore } from "pinia";
 import axios from "axios";
 import { useAuthStore } from "./auth";

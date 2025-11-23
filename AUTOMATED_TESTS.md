@@ -264,13 +264,13 @@ The project includes two E2E test suites that test complete user workflows:
 12. **Music player bar exists** - Music controls present
 
 **Guessing (3 tests):**
-13. **Guessing page loads correctly** - "Who Is The Odd Duck" heading
+13. **Guessing page loads correctly** - "Who Is The Dancer Incognito" heading
 14. **Player cards display** - At least 2 player cards shown
 15. **Guess buttons exist** - Guess buttons for each player
 
 **Reveal (5 tests):**
 16. **Reveal page loads correctly** - "Reveal" heading
-17. **Odd Duck section displays** - Shows who was the Odd Duck
+17. **Dancer Incognito section displays** - Shows who was the Dancer Incognito
 18. **Votes section displays** - Shows voting results
 19. **Next Round button exists** - Button to continue playing
 20. **Vote results show guess outcomes** - Displays correct/incorrect guesses

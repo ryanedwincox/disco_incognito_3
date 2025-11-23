@@ -1,7 +1,7 @@
 /**
  * E2E Test for Login Workflow
  *
- * Tests the complete login flow from button click to successful authentication.
+ * Tests the complete login flow including Spotify and Guest login options.
  * Uses Puppeteer to simulate real user interaction.
  */
 import http from "node:http";
@@ -26,8 +26,7 @@ async function startViteServer() {
     },
     // Pass BACKEND_URL to Vite so frontend uses the correct API URL
     define: {
-      'import.meta.env.VITE_API_URL': JSON.stringify(BACKEND_URL),
-      'import.meta.env.VITE_TEST_MODE': JSON.stringify('true')
+      'import.meta.env.VITE_API_URL': JSON.stringify(BACKEND_URL)
     }
   });
 
@@ -109,14 +108,14 @@ async function runTests() {
     // Set mobile viewport
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3 });
 
-    // Enable console logging from the page (only show test user creation)
+    // Enable console logging from the page (only show user creation)
     page.on('console', msg => {
-      if (msg.text().includes('Test user created')) {
+      if (msg.text().includes('user created') || msg.text().includes('Guest user')) {
         console.log(`   📝 Browser: ${msg.text()}`);
       }
     });
 
-    // Test 1: Page loads correctly
+    // Test 1: Page loads with correct UI elements
     console.log("Test 1: Page loads with correct UI");
     try {
       await page.goto(baseUrl, { waitUntil: "networkidle0" });
@@ -126,14 +125,19 @@ async function runTests() {
         throw new Error(`Expected title 'DISCO INCOGNITO', got '${title}'`);
       }
 
-      const buttonExists = await page.$('button');
-      if (!buttonExists) {
-        throw new Error('Login button not found');
+      const buttons = await page.$$('button');
+      if (buttons.length < 2) {
+        throw new Error(`Expected at least 2 buttons, got ${buttons.length}`);
       }
 
-      const buttonText = await page.$eval('button', el => el.textContent.trim());
-      if (buttonText !== 'Create Test User') {
-        throw new Error(`Expected button 'Create Test User', got '${buttonText}'`);
+      const buttonTexts = await page.$$eval('button', els => els.map(el => el.textContent.trim()));
+
+      if (!buttonTexts.includes('Login with Spotify')) {
+        throw new Error(`Expected 'Login with Spotify' button, got: ${buttonTexts.join(', ')}`);
+      }
+
+      if (!buttonTexts.includes('Continue as Guest')) {
+        throw new Error(`Expected 'Continue as Guest' button, got: ${buttonTexts.join(', ')}`);
       }
 
       console.log("   ✅ Page loaded with correct UI\n");
@@ -143,48 +147,70 @@ async function runTests() {
       failed++;
     }
 
-    // Test 2: Test mode indicator is visible
-    console.log("Test 2: Test mode indicator visible");
+    // Test 2: Guest info text is visible
+    console.log("Test 2: Guest info text visible");
     try {
-      const helperText = await page.$eval('p', el => el.textContent);
-      if (!helperText.includes('Test Mode')) {
-        throw new Error('Test mode indicator not found');
+      const infoText = await page.$eval('p.text-xs', el => el.textContent);
+      if (!infoText.includes('Guest users can join games but cannot select songs')) {
+        throw new Error('Guest info text not found');
       }
-      console.log("   ✅ Test mode indicator visible\n");
+      console.log("   ✅ Guest info text visible\n");
       passed++;
     } catch (error) {
       console.log(`   ❌ Failed: ${error.message}\n`);
       failed++;
     }
 
-    // Test 3: Click login button and verify loading state
-    console.log("Test 3: Login button click and loading state");
+    // Test 3: Click "Continue as Guest" shows name input form
+    console.log("Test 3: Guest button shows name input form");
     try {
-      const button = await page.$('button');
-
-      // Click the button
-      await button.click();
-
-      // Wait a moment and check for loading state
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const loadingText = await page.$eval('button', el => el.textContent.trim());
-      if (!loadingText.includes('Creating') && !loadingText.includes('Welcome')) {
-        // Button might have already changed to success
-        console.log("   ⚠️  Loading state too fast to capture, checking success state...");
+      // Find and click the "Continue as Guest" button
+      const buttons = await page.$$('button');
+      let guestButton = null;
+      for (const button of buttons) {
+        const text = await button.evaluate(el => el.textContent.trim());
+        if (text === 'Continue as Guest') {
+          guestButton = button;
+          break;
+        }
       }
 
-      console.log("   ✅ Button click successful\n");
+      if (!guestButton) {
+        throw new Error('Continue as Guest button not found');
+      }
+
+      await guestButton.click();
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Check for name input form
+      const nameInput = await page.$('input#displayName');
+      if (!nameInput) {
+        throw new Error('Name input field not found');
+      }
+
+      const joinButton = await page.$eval('button', el => el.textContent.trim());
+      if (!joinButton.includes('Join as Guest')) {
+        throw new Error(`Expected 'Join as Guest' button, got '${joinButton}'`);
+      }
+
+      console.log("   ✅ Guest form displayed correctly\n");
       passed++;
     } catch (error) {
       console.log(`   ❌ Failed: ${error.message}\n`);
       failed++;
     }
 
-    // Test 4: Success message appears
-    console.log("Test 4: Success message appears");
+    // Test 4: Enter name and submit guest login
+    console.log("Test 4: Submit guest login with name");
     try {
-      // Wait for success message to appear
+      const nameInput = await page.$('input#displayName');
+      await nameInput.type('Test Player');
+
+      // Click the "Join as Guest" button
+      const submitButton = await page.$('button.bg-disco-pink');
+      await submitButton.click();
+
+      // Wait for success message
       await page.waitForSelector('div.bg-green-900\\/30', { timeout: 5000 });
 
       const successMessage = await page.$eval('div.bg-green-900\\/30', el => el.textContent);
@@ -192,14 +218,7 @@ async function runTests() {
         throw new Error(`Expected success message with 'Welcome', got '${successMessage}'`);
       }
 
-      // Extract username from message
-      const usernameMatch = successMessage.match(/Welcome, (.+)!/);
-      if (usernameMatch) {
-        console.log(`   ✅ Success message appeared: "${successMessage.trim()}"`);
-      } else {
-        console.log(`   ✅ Success message appeared`);
-      }
-      console.log();
+      console.log(`   ✅ Success message appeared: "${successMessage.trim()}"\n`);
       passed++;
     } catch (error) {
       console.log(`   ❌ Failed: ${error.message}\n`);
@@ -209,7 +228,7 @@ async function runTests() {
     // Test 5: Redirect to /rooms
     console.log("Test 5: Redirect to room selection");
     try {
-      // Poll for URL change instead of waitForNavigation (handles race conditions)
+      // Poll for URL change
       const startTime = Date.now();
       const timeout = 5000;
       let currentUrl = page.url();
@@ -256,41 +275,47 @@ async function runTests() {
       failed++;
     }
 
-    // Test 7: Multiple logins create different users
-    console.log("Test 7: Multiple logins create unique users");
+    // Test 7: Back button returns to main login options
+    console.log("Test 7: Back button returns to main options");
     try {
       // Go back to login page
-      await page.goto(baseUrl);
+      await page.goto(baseUrl, { waitUntil: "networkidle0" });
 
-      const users = [];
+      // Click "Continue as Guest"
+      const buttons = await page.$$('button');
+      for (const button of buttons) {
+        const text = await button.evaluate(el => el.textContent.trim());
+        if (text === 'Continue as Guest') {
+          await button.click();
+          break;
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-      // Create 3 users
-      for (let i = 0; i < 3; i++) {
-        await page.reload({ waitUntil: "networkidle0" });
-        const button = await page.$('button');
-        await button.click();
-
-        // Wait for success message
-        await page.waitForSelector('div.bg-green-900\\/30', { timeout: 5000 });
-
-        // Get user from localStorage
-        const user = await page.evaluate(() => localStorage.getItem('user'));
-        const userData = JSON.parse(user);
-        users.push(userData.displayName);
-
-        console.log(`   User ${i + 1}: ${userData.displayName}`);
-
-        // Small delay between logins
-        await new Promise(resolve => setTimeout(resolve, 500));
+      // Verify we're in the guest form
+      const nameInput = await page.$('input#displayName');
+      if (!nameInput) {
+        throw new Error('Name input not found after clicking Continue as Guest');
       }
 
-      // Check uniqueness
-      const uniqueUsers = new Set(users);
-      if (uniqueUsers.size !== users.length) {
-        throw new Error(`Expected ${users.length} unique users, got ${uniqueUsers.size}`);
+      // Click back button
+      const backButton = await page.$('button.text-zinc-400');
+      if (!backButton) {
+        throw new Error('Back button not found');
+      }
+      await backButton.click();
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Verify we're back to main options
+      const buttonTexts = await page.$$eval('button', els => els.map(el => el.textContent.trim()));
+      if (!buttonTexts.includes('Login with Spotify')) {
+        throw new Error('Login with Spotify button not found after going back');
+      }
+      if (!buttonTexts.includes('Continue as Guest')) {
+        throw new Error('Continue as Guest button not found after going back');
       }
 
-      console.log(`   ✅ All ${users.length} users are unique\n`);
+      console.log("   ✅ Back button works correctly\n");
       passed++;
     } catch (error) {
       console.log(`   ❌ Failed: ${error.message}\n`);

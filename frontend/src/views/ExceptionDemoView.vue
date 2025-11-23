@@ -1,3 +1,4 @@
+<!-- Demo view that displays error notifications on mount. Used for screenshot capture of exception/error notification states. Shows both error and warning notifications automatically. -->
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white px-6">
     <header class="text-center mb-10">

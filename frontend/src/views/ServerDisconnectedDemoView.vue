@@ -1,3 +1,4 @@
+<!-- Demo view that simulates server disconnection state. Sets WebSocket status to disconnected on mount for screenshot capture. Resets connection state when leaving the view. -->
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white px-6">
     <header class="text-center mb-10">

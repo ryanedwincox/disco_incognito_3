@@ -1,3 +1,8 @@
+/**
+ * Current player identity store.
+ * Stores the local player's ID, display name, and avatar URL.
+ * Represents the authenticated user's identity within the game context.
+ */
 import { defineStore } from "pinia";
 
 interface PlayerState {

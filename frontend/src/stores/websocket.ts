@@ -1,3 +1,8 @@
+/**
+ * WebSocket connection state store.
+ * Tracks connection status (disconnected/connecting/connected) and last received message.
+ * Used by components to display connection banners and handle real-time updates.
+ */
 import { defineStore } from "pinia";
 
 interface WebSocketState {

@@ -62,8 +62,8 @@ Song pairs:
 Host clicks "Start Game":
 
 - Randomly selects a song pair from the pool
-- Randomly selects one player to be the Odd Duck
-- Assigns one song to the Odd Duck and the other to everyone else
+- Randomly selects one player to be the Dancer Incognito
+- Assigns one song to the Dancer Incognito and the other to everyone else
 - Countdown appears: 1.5 minutes of listening
 - Songs start playing on each user's Spotify account simultaneously
 - Record start/end timestamps in the JSON file so reconnecting clients can recover
@@ -85,7 +85,7 @@ After 90 seconds, music stops automatically
 Players see:
 
 - All usernames
-- "Guess Who's the Odd Duck" buttons
+- "Guess Who's the Dancer Incognito" buttons
 - Each vote is written to the JSON file before broadcasting updates
 
 Once everyone has voted, show:
@@ -94,7 +94,7 @@ Once everyone has voted, show:
 
 Show:
 
-- The Odd Duck
+- The Dancer Incognito
 - What each person guessed
 - Highlight anyone who guessed correctly
 - Only the host sees a button: Finish Round

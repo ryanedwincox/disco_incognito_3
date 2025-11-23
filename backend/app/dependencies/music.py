@@ -1,3 +1,10 @@
+"""Music streaming adapter dependency injection.
+
+Provides a singleton MusicStreamingAdapter instance based on configuration. Returns
+TestMusicAdapter for development/test mode or SpotifyAdapter for production. Responsible
+for adapter instantiation and lifecycle management.
+"""
+
 from functools import lru_cache
 
 from ..core.settings import settings

@@ -1,3 +1,4 @@
+<!-- Room selection hub for creating or joining game rooms. Provides Create Room button to generate random 3-digit codes, and Join Room form for entering existing codes. Also includes navigation to playback test page. -->
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white px-6 py-10">
     <h2 class="text-3xl font-semibold uppercase tracking-wide mb-10">Choose Your Room</h2>
