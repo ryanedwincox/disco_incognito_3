@@ -1,7 +1,11 @@
 #!/bin/bash
 set -e
 
+<<<<<<< HEAD
 # Disco Incognito - Validation script
+=======
+# Disco Incognito - Validation script (worktree version)
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 # Run before commits: linting, unit tests, E2E tests
 # Usage: ./validate.sh [--fix] [--unit] [--e2e] [--backend]
 
@@ -47,7 +51,11 @@ for arg in "$@"; do
     esac
 done
 
+<<<<<<< HEAD
 echo "=== Disco Incognito Validation ==="
+=======
+echo "=== Disco Incognito Validation (Worktree) ==="
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 echo ""
 
 # Backend linting (Python/ruff)
@@ -83,6 +91,7 @@ if $RUN_ALL || $RUN_UNIT; then
     echo ""
 fi
 
+<<<<<<< HEAD
 # Frontend E2E tests (requires running dev server)
 if $RUN_ALL || $RUN_E2E; then
     echo ">>> Frontend E2E Tests"
@@ -90,6 +99,45 @@ if $RUN_ALL || $RUN_E2E; then
     cd frontend
     npm run test:e2e || echo "E2E tests skipped or failed - ensure dev server is running"
     cd ..
+=======
+# Frontend E2E tests (starts own backend)
+if $RUN_ALL || $RUN_E2E; then
+    echo ">>> Frontend E2E Tests"
+
+    # Read port from .test_ports
+    TEST_PORT=$(grep TEST_SERVER_PORT .test_ports | cut -d= -f2)
+    TEST_PORT=${TEST_PORT:-8134}
+
+    # Start backend for E2E tests
+    echo "Starting backend on port $TEST_PORT..."
+    cd backend
+    python -m uvicorn app.main:app --host 0.0.0.0 --port "$TEST_PORT" &
+    BACKEND_PID=$!
+    cd ..
+
+    # Wait for backend to be ready
+    for i in {1..30}; do
+        if curl -s "http://localhost:$TEST_PORT/api/health" > /dev/null 2>&1; then
+            echo "Backend ready on port $TEST_PORT"
+            break
+        fi
+        sleep 0.5
+    done
+
+    # Run E2E tests with BACKEND_URL pointing to our test backend
+    cd frontend
+    BACKEND_URL="http://localhost:$TEST_PORT" npm run test:e2e
+    E2E_RESULT=$?
+    cd ..
+
+    # Clean up backend
+    echo "Stopping test backend..."
+    kill $BACKEND_PID 2>/dev/null || true
+
+    if [ $E2E_RESULT -ne 0 ]; then
+        exit $E2E_RESULT
+    fi
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
     echo ""
 fi
 
