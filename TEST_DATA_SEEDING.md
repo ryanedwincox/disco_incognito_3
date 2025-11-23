@@ -67,21 +67,21 @@ The seeding system creates 6 different room scenarios for comprehensive screensh
 - **Players:** 7
 - **Song Pairs:** 3
 - **Status:** playing
-- **Odd Duck:** Randomly selected
+- **Dancer Incognito:** Randomly selected
 - **Use Case:** Active game round with music playing
 
 ### Scenario 5: Guessing (Room 222)
 - **Players:** 7
 - **Song Pairs:** 3
 - **Status:** guessing
-- **Odd Duck:** Randomly selected
-- **Use Case:** Players voting for the odd duck
+- **Dancer Incognito:** Randomly selected
+- **Use Case:** Players voting for the dancer incognito
 
 ### Scenario 6: Reveal (Room 333)
 - **Players:** 7
 - **Song Pairs:** 3
 - **Status:** reveal
-- **Odd Duck:** Randomly selected
+- **Dancer Incognito:** Randomly selected
 - **Use Case:** Showing results and correct answer
 
 ## Mock Song Pairs

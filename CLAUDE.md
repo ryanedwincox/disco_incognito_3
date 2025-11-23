@@ -4,7 +4,7 @@ Guidance for Claude Code when working with this repository.
 
 ## Project Overview
 
-**Disco Incognito** - Multiplayer music guessing game powered by Spotify. One "Odd Duck" hears a different track while others hear the same song. Players vote to identify the Odd Duck.
+**Disco Incognito** is a multiplayer web-based music guessing game powered by Spotify. Players listen to songs simultaneously, with one "Dancer Incognito" hearing a different track. The game uses real-time WebSockets for multiplayer coordination and the Spotify Web API for music playback control.
 
 **Status**: Early development. Core OAuth working, multiplayer features in progress.
 
@@ -49,20 +49,38 @@ State transitions: `lobby` → `playing` → `guessing` → `reveal` → `lobby`
 ### Frontend Stores
 
 Located in `frontend/src/stores/`:
-- `auth.ts` - OAuth tokens, user profile
-- `room.ts` - Room state, players
-- `game.ts` - Game phase, voting
-- `player.ts` - Current user
-- `music.ts` - Playback control
-- `websocket.ts` - Real-time updates
+
+- **`auth.ts`** - Spotify OAuth tokens, user profile, login/logout
+- **`room.ts`** - Current room state, players list, room actions
+- **`game.ts`** - Game phase, dancer incognito selection, voting state
+- **`player.ts`** - Current user information
+- **`music.ts`** - Spotify playback control, device management
+- **`websocket.ts`** - WebSocket connection management, real-time updates
+
+Stores interact with backend API via axios and maintain WebSocket connections for real-time synchronization.
+
+### WebSocket Communication
+
+- **Endpoint**: `ws://localhost:8000/api/ws/rooms/{room_code}/ws`
+- **Current state**: Placeholder implementation in `backend/app/main.py:39`
+- **TODO**: Full implementation needed in Phase 3 for:
+  - Room-based message broadcasting
+  - Real-time player updates
+  - Game state synchronization
+  - Reconnection handling with heartbeat mechanism
 
 ### Route Structure
 
 **Backend** (`backend/app/api/routes/`): `auth.py`, `health.py`
 
 **Frontend views** (`frontend/src/views/`):
-- `LoginView.vue` → `RoomSelectionView.vue` → `RoomLobbyView.vue`
-- `SongPickerView.vue` → `GameView.vue` → `GuessingView.vue` → `RevealView.vue`
+- `LoginView.vue` - Spotify authentication
+- `RoomSelectionView.vue` - Create/join room
+- `RoomLobbyView.vue` - Player list, song pairs, host controls
+- `SongPickerView.vue` - Spotify search and song pair selection
+- `GameView.vue` - Active game play with countdown
+- `GuessingView.vue` - Vote for the dancer incognito
+- `RevealView.vue` - Results and round progression
 
 ## Environment Variables
 
@@ -88,6 +106,66 @@ VITE_UI_MODE=minimal
 
 ### Mobile-First UI
 
+### Phase-Based Development (from spec)
+
+The project follows a phased implementation plan defined in `spec/disco_incognito_spec.md`:
+
+1. **Phase 1**: Project setup, infrastructure, storage adapter
+2. **Phase 2**: Authentication & OAuth (currently implemented with test mode)
+3. **Phase 3**: Multiplayer backend (rooms, game state, WebSockets)
+4. **Phase 4**: Frontend game implementation
+5. **Phase 5**: Live Spotify integration & polish
+
+**Current status:** Phases 1-2 foundation is in place. Phase 3-4 multiplayer features are partially implemented.
+
+### Commit Workflow
+
+Per project specification:
+- Make local commits after completing each checklist item
+- Run automated test suite after every phase
+- Capture Puppeteer screenshots to validate UI state
+- Review screenshots before advancing to next section
+- **DO NOT push** until end of project/phase
+
+### Game Flow
+
+Detailed in `spec/gameflow.md`:
+
+1. **Login** → Spotify OAuth
+2. **Room Selection** → Create (3-digit code) or Join
+3. **Room Lobby** → Players join, add song pairs, host starts game
+4. **Song Selection** → Players search Spotify and add 2-song pairs
+5. **Game Start** → Random dancer incognito selection, music assignment, synchronized playback (90 seconds)
+6. **Guessing** → Players vote on who is the dancer incognito
+7. **Reveal** → Show results, highlight correct guesses
+8. **Loop** → Return to lobby, remove used song pair, repeat
+
+### UI/UX Guidelines
+
+From specifications:
+- **Mobile-First Design**: All layouts are designed for mobile (390px width) first, then scale up
+- **Theme**: Dark background (zinc-950 / near-black) with vibrant pink accents
+  - Primary pink: `#FF1493` (disco-pink)
+  - Light pink: `#FF69B4` (disco-pink-light)
+  - Background: zinc-950, zinc-900 for cards/containers
+- **Minimalist**: No extra chrome beyond described controls
+- **Typography**: Large, bold headings with generous letter-spacing for impact on mobile
+- **Spacing**: Consistent padding (`px-6`, `py-10`) and generous gaps for touch targets
+- **Buttons**: Full-width on mobile, rounded-full style, minimum 48px height for touch
+- **Bottom music bar** (persistent during gameplay):
+  - Left: Current song title (only during playback)
+  - Center: Play/pause button (disabled during game rounds)
+  - Right: Spotify device status/selector
+- **Responsive Breakpoints**: Uses Tailwind's `md:` prefix for tablet/desktop (768px+)
+  - Example: `grid md:grid-cols-2` stacks on mobile, 2 columns on desktop
+
+## Mobile-First Implementation
+
+### Vue Component Mobile Patterns
+
+All Vue components follow mobile-first responsive patterns:
+
+**Common Mobile-Friendly Patterns:**
 ```vue
 <!-- Full-screen container -->
 <div class="min-h-screen bg-zinc-950 text-white px-6 py-10">

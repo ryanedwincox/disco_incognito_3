@@ -442,8 +442,8 @@ async function runTests() {
       await page.goto(`${baseUrl}/rooms/123/guess`, { waitUntil: "networkidle0" });
 
       const heading = await page.$eval('h2', el => el.textContent);
-      if (!heading.includes('Who Is The Odd Duck')) {
-        throw new Error(`Expected heading with 'Odd Duck', got '${heading}'`);
+      if (!heading.includes('Who Is The Dancer Incognito')) {
+        throw new Error(`Expected heading with 'Dancer Incognito', got '${heading}'`);
       }
 
       console.log("   ✅ Guessing page loaded\n");
@@ -511,19 +511,19 @@ async function runTests() {
       failed++;
     }
 
-    // Test 17: Odd Duck section displays
-    console.log("Test 17: Odd Duck section displays");
+    // Test 17: Dancer Incognito section displays
+    console.log("Test 17: Dancer Incognito section displays");
     try {
-      const hasOddDuck = await page.evaluate(() => {
+      const hasDancerIncognito = await page.evaluate(() => {
         const headings = Array.from(document.querySelectorAll('h3'));
-        return headings.some(h => h.textContent.includes('Odd Duck'));
+        return headings.some(h => h.textContent.includes('Dancer Incognito'));
       });
 
-      if (!hasOddDuck) {
-        throw new Error('Odd Duck section not found');
+      if (!hasDancerIncognito) {
+        throw new Error('Dancer Incognito section not found');
       }
 
-      console.log("   ✅ Odd Duck section is present\n");
+      console.log("   ✅ Dancer Incognito section is present\n");
       passed++;
     } catch (error) {
       console.log(`   ❌ Failed: ${error.message}\n`);
