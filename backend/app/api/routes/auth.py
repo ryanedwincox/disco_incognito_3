@@ -3,12 +3,20 @@ from __future__ import annotations
 import logging
 import secrets
 import urllib.parse
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel, Field
 
 from ...core.settings import settings
 from ...services.spotify import SpotifyAuthService
+
+
+class ManualLoginRequest(BaseModel):
+    """Request model for manual (non-Spotify) login."""
+
+    display_name: str = Field(..., min_length=1, max_length=50, description='Display name for the user')
 
 router = APIRouter(prefix='/auth', tags=['Authentication'])
 logger = logging.getLogger(__name__)
@@ -163,6 +171,41 @@ async def test_login(service: SpotifyAuthService = Depends(get_spotify_service))
     except Exception as e:
         logger.error(f'Error in test login: {e}', exc_info=True)
         raise HTTPException(status_code=500, detail='Failed to create test user')
+
+
+@router.post('/manual-login', summary='Manual login with display name')
+async def manual_login(body: ManualLoginRequest) -> dict[str, str]:
+    """
+    Create a guest user with the provided display name.
+
+    This endpoint allows users to join without Spotify authentication.
+    These users can participate in games but cannot select songs or control playback.
+
+    Returns:
+        Dict containing access_token, refresh_token, user_id, display_name, and is_spotify_user flag
+    """
+    try:
+        # Generate unique user ID with manual prefix
+        user_id = f'manual_{uuid.uuid4().hex[:12]}'
+
+        # Generate mock tokens for session management
+        access_token = f'manual_token_{secrets.token_urlsafe(32)}'
+        refresh_token = f'manual_refresh_{secrets.token_urlsafe(32)}'
+
+        logger.info(f'Manual login successful for user: {body.display_name}')
+
+        return {
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'expires_in': '3600',
+            'user_id': user_id,
+            'display_name': body.display_name,
+            'email': '',
+            'is_spotify_user': 'false',
+        }
+    except Exception as e:
+        logger.error(f'Error in manual login: {e}', exc_info=True)
+        raise HTTPException(status_code=500, detail='Failed to create guest user')
 
 
 @router.post('/logout', summary='Logout user')
