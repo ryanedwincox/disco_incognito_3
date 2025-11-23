@@ -37,7 +37,6 @@ frontend/.env.*
 
 # Data files generated at runtime
 data/*.json
-!data/disco_incognito.json
 
 frontend/tests/e2e/screenshots
 
@@ -46,3 +45,6 @@ frontend/tests/e2e/screenshots
 artifacts/
 scratchpad.txt
 .test_ports
+
+backend/data
+backend/.cache

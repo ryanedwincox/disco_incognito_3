@@ -1,7 +1,23 @@
 #!/bin/bash
 set -e
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+# Disco Incognito - Validation script
+=======
 # Disco Incognito - Validation script (worktree version)
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+# Disco Incognito - Validation script (worktree version)
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+# Disco Incognito - Validation script (worktree version)
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+# Disco Incognito - Validation script (worktree version)
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 # Run before commits: linting, unit tests, E2E tests
 # Usage: ./validate.sh [--fix] [--unit] [--e2e] [--backend]
 
@@ -47,7 +63,23 @@ for arg in "$@"; do
     esac
 done
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+echo "=== Disco Incognito Validation ==="
+=======
 echo "=== Disco Incognito Validation (Worktree) ==="
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+echo "=== Disco Incognito Validation (Worktree) ==="
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+echo "=== Disco Incognito Validation (Worktree) ==="
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+echo "=== Disco Incognito Validation (Worktree) ==="
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 echo ""
 
 # Backend linting (Python/ruff)
@@ -83,6 +115,24 @@ if $RUN_ALL || $RUN_UNIT; then
     echo ""
 fi
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+# Frontend E2E tests (requires running dev server)
+if $RUN_ALL || $RUN_E2E; then
+    echo ">>> Frontend E2E Tests"
+    echo "(Note: Requires dev server running. Start with ./run.sh --detached)"
+    cd frontend
+    npm run test:e2e || echo "E2E tests skipped or failed - ensure dev server is running"
+    cd ..
+=======
+=======
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 # Frontend E2E tests (starts own backend)
 if $RUN_ALL || $RUN_E2E; then
     echo ">>> Frontend E2E Tests"
@@ -120,6 +170,16 @@ if $RUN_ALL || $RUN_E2E; then
     if [ $E2E_RESULT -ne 0 ]; then
         exit $E2E_RESULT
     fi
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
     echo ""
 fi
 
