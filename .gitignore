@@ -38,7 +38,10 @@ frontend/.env.*
 # Data files generated at runtime
 data/*.json
 
-frontend/tests/e2e/screenshots
+# Screenshot comparison test artifacts (current/diff are generated, baseline is tracked)
+frontend/tests/e2e/screenshots/current/
+frontend/tests/e2e/screenshots/diff/
+frontend/tests/e2e/screenshots/*.json
 
 .venv_linter/
 
