@@ -9,7 +9,8 @@ export default defineConfig(({ mode }) => {
     plugins: [vue()],
     server: {
       port: parseInt(env.VITE_PORT || "3000"),
-      host: "0.0.0.0"
+      host: "0.0.0.0",
+      strictPort: true
     },
     resolve: {
       alias: {
