@@ -35,7 +35,10 @@ All persistence uses swappable `StorageAdapter` interface:
 
 - `SPOTIFY_MODE=test` (default) - Mock tokens/data for local dev
 - `SPOTIFY_MODE=live` - Real Spotify API (requires credentials)
-- Test mode adapter: `backend/app/services/spotify.py`
+- Music adapters in `backend/app/music/`:
+  - **Interface**: `base.py` - Abstract `MusicAdapter` base class
+  - **Test**: `test_adapter.py` - Mock implementation for local dev
+  - **Live**: `spotify_adapter.py` - Real Spotify API integration
 
 ### Game State
 
@@ -44,17 +47,20 @@ Models in `backend/app/models/room.py`:
 - `Player` - User in room (id, display_name, is_host, is_connected)
 - `SongPair` - Two tracks submitted by player
 
-State transitions: `lobby` → `playing` → `guessing` → `reveal` → `lobby`
+State transitions: `lobby` → `song_selection` → `playing` → `guessing` → `reveal` → `lobby`
+
+> **Tip**: Consider using `Literal["lobby", "song_selection", "playing", "guessing", "reveal"]` for `RoomState.status` to get type-safe state handling.
 
 ### Frontend Stores
 
 Located in `frontend/src/stores/`:
 
 - **`auth.ts`** - Spotify OAuth tokens, user profile, login/logout
-- **`room.ts`** - Current room state, players list, room actions
 - **`game.ts`** - Game phase, dancer incognito selection, voting state
-- **`player.ts`** - Current user information
 - **`music.ts`** - Spotify playback control, device management
+- **`notifications.ts`** - Toast notifications, user feedback messages
+- **`player.ts`** - Current user information
+- **`room.ts`** - Current room state, players list, room actions
 - **`websocket.ts`** - WebSocket connection management, real-time updates
 
 Stores interact with backend API via axios and maintain WebSocket connections for real-time synchronization.
@@ -168,7 +174,7 @@ All Vue components follow mobile-first responsive patterns:
 **Common Mobile-Friendly Patterns:**
 ```vue
 <!-- Full-screen container -->
-<div class="min-h-screen bg-zinc-950 text-white px-6 py-10">
+<div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
 
 <!-- Full-width buttons -->
 <button class="w-full bg-disco-pink text-black py-3 rounded-full">
@@ -229,6 +235,7 @@ backend/app/
 ├── core/            # Settings
 ├── dependencies/    # DI (storage)
 ├── models/          # Pydantic models
+├── music/           # Music adapters (Spotify/test)
 ├── services/        # Business logic
 ├── storage/         # Storage adapters
 └── main.py          # FastAPI entry
