@@ -8,6 +8,20 @@
         <p class="text-zinc-400 text-sm max-w-md mx-auto">Search for a song and test Spotify playback integration</p>
       </header>
 
+      <!-- Auth Status -->
+      <div v-if="!authStore.isAuthenticated" class="max-w-2xl mx-auto mb-6">
+        <div class="bg-yellow-900/30 border border-yellow-600/50 rounded-2xl p-4 text-center">
+          <p class="text-yellow-400 text-sm mb-3">You need to be logged in to test Spotify playback</p>
+          <button
+            class="bg-disco-pink text-black font-medium px-6 py-2 rounded-full hover:bg-disco-pink-light transition-colors"
+            type="button"
+            @click="handleLogin"
+          >
+            Login with Spotify
+          </button>
+        </div>
+      </div>
+
       <div class="max-w-2xl mx-auto space-y-6">
         <!-- Search Input -->
         <div class="relative">
@@ -16,10 +30,11 @@
             class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-disco-pink/50"
             placeholder="Search for a song..."
             type="search"
+            :disabled="!authStore.isAuthenticated"
             @input="handleSearch"
           />
           <svg
-            v-if="isSearching"
+            v-if="musicStore.isSearching"
             class="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-disco-pink animate-spin"
             fill="none"
             viewBox="0 0 24 24"
@@ -29,11 +44,23 @@
           </svg>
         </div>
 
+        <!-- Error Message -->
+        <div v-if="musicStore.error" class="bg-red-900/30 border border-red-600/50 rounded-2xl p-4 text-center">
+          <p class="text-red-400 text-sm">{{ musicStore.error }}</p>
+          <button
+            class="text-red-300 text-xs underline mt-2"
+            type="button"
+            @click="musicStore.clearError()"
+          >
+            Dismiss
+          </button>
+        </div>
+
         <!-- Search Results -->
-        <div v-if="searchResults.length > 0" class="bg-zinc-900 rounded-3xl p-5 space-y-3">
+        <div v-if="musicStore.searchResults.length > 0" class="bg-zinc-900 rounded-3xl p-5 space-y-3">
           <h3 class="text-lg font-semibold mb-4">Search Results</h3>
           <div
-            v-for="track in searchResults"
+            v-for="track in musicStore.searchResults"
             :key="track.id"
             class="flex items-center gap-4 p-3 rounded-xl hover:bg-zinc-800 transition-colors cursor-pointer"
             @click="selectTrack(track)"
@@ -65,85 +92,12 @@
         </div>
 
         <!-- Empty State -->
-        <div v-else-if="searchQuery && !isSearching" class="bg-zinc-900 rounded-3xl p-8 text-center">
+        <div v-else-if="searchQuery && !musicStore.isSearching" class="bg-zinc-900 rounded-3xl p-8 text-center">
           <svg class="w-16 h-16 text-zinc-700 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
             <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
             <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
           </svg>
           <p class="text-zinc-500">No results found</p>
-        </div>
-
-        <!-- Selected Track Card -->
-        <div v-if="selectedTrack" class="bg-gradient-to-br from-disco-pink/20 to-purple-900/20 rounded-3xl p-6 space-y-4 border border-disco-pink/30">
-          <h3 class="text-lg font-semibold text-disco-pink">Selected Track</h3>
-          <div class="flex items-center gap-4">
-            <div class="flex-shrink-0 w-20 h-20 bg-zinc-800 rounded-xl overflow-hidden">
-              <img
-                v-if="selectedTrack.albumArt"
-                :src="selectedTrack.albumArt"
-                :alt="selectedTrack.name"
-                class="w-full h-full object-cover"
-              />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="font-semibold text-lg">{{ selectedTrack.name }}</p>
-              <p class="text-zinc-300">{{ selectedTrack.artist }}</p>
-              <p class="text-sm text-zinc-400 mt-1">{{ selectedTrack.album }}</p>
-            </div>
-          </div>
-
-          <!-- Playback Controls -->
-          <div class="space-y-3 pt-2">
-            <button
-              class="w-full font-semibold py-4 rounded-full transition-all duration-200 flex items-center justify-center gap-2"
-              :class="isPlaying
-                ? 'bg-white text-black hover:bg-gray-100'
-                : 'bg-disco-pink text-black hover:bg-disco-pink-light'"
-              type="button"
-              @click="togglePlayback"
-            >
-              <svg v-if="!isPlaying" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-              </svg>
-              <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
-              </svg>
-              {{ isPlaying ? 'Pause' : 'Play Track' }}
-            </button>
-
-            <div class="flex gap-3">
-              <button
-                class="flex-1 bg-zinc-800 text-white font-medium py-3 rounded-full hover:bg-zinc-700 transition-colors"
-                type="button"
-                @click="stopPlayback"
-              >
-                Stop
-              </button>
-              <button
-                class="flex-1 bg-zinc-800 text-white font-medium py-3 rounded-full hover:bg-zinc-700 transition-colors"
-                type="button"
-                @click="clearSelection"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Connection Status -->
-        <div class="bg-zinc-900 rounded-2xl p-4 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-zinc-400">Spotify Device</span>
-            <span
-              class="text-xs px-2 py-1 rounded-full"
-              :class="deviceConnected
-                ? 'bg-disco-pink/20 text-disco-pink'
-                : 'bg-zinc-800 text-zinc-500'"
-            >
-              {{ deviceConnected ? 'Connected' : 'Not Connected' }}
-            </span>
-          </div>
-          <p class="text-xs text-zinc-500">{{ deviceName || 'No device selected' }}</p>
         </div>
 
         <!-- Back Button -->
@@ -165,114 +119,98 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MusicPlayerBar from '../components/MusicPlayerBar.vue'
+import { useMusicStore, type TrackInfo } from '../stores/music'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const musicStore = useMusicStore()
+const authStore = useAuthStore()
 
 // Search state
 const searchQuery = ref('')
-const isSearching = ref(false)
-const searchResults = ref<Array<{
-  id: string
-  name: string
-  artist: string
-  album: string
-  duration: number
-  albumArt?: string
-  uri: string
-}>>([])
 
-// Playback state
-const selectedTrack = ref<typeof searchResults.value[0] | null>(null)
-const isPlaying = ref(false)
-const deviceConnected = ref(false)
-const deviceName = ref('Web Player')
-
-// Mock search function (will be replaced with real Spotify API)
+// Debounce timer
 let searchTimeout: ReturnType<typeof setTimeout>
+
+// Polling interval for playback state
+let pollingInterval: ReturnType<typeof setInterval> | null = null
+const POLLING_INTERVAL_MS = 2000
+
+// Lifecycle
+onMounted(async () => {
+  // Load auth from storage
+  authStore.loadFromStorage()
+
+  // Fetch devices if authenticated
+  if (authStore.isAuthenticated) {
+    await musicStore.getDevices()
+    await musicStore.getPlaybackState()
+
+    // Start polling for playback state
+    startPolling()
+  }
+})
+
+onUnmounted(() => {
+  // Clean up polling interval
+  stopPolling()
+})
+
+function startPolling() {
+  if (pollingInterval) return // Already polling
+
+  pollingInterval = setInterval(async () => {
+    if (authStore.isAuthenticated) {
+      await musicStore.getPlaybackState()
+    }
+  }, POLLING_INTERVAL_MS)
+  console.log('Started playback state polling')
+}
+
+function stopPolling() {
+  if (pollingInterval) {
+    clearInterval(pollingInterval)
+    pollingInterval = null
+    console.log('Stopped playback state polling')
+  }
+}
+
+// Methods
+async function handleLogin() {
+  await authStore.testLogin()
+  if (authStore.isAuthenticated) {
+    await musicStore.getDevices()
+  }
+}
+
 function handleSearch() {
   clearTimeout(searchTimeout)
 
   if (!searchQuery.value.trim()) {
-    searchResults.value = []
+    musicStore.searchResults = []
     return
   }
 
-  isSearching.value = true
-
-  // Simulate API delay
-  searchTimeout = setTimeout(() => {
-    // Mock data - replace with real Spotify search in Phase 5
-    searchResults.value = [
-      {
-        id: '1',
-        name: 'Stayin\' Alive',
-        artist: 'Bee Gees',
-        album: 'Saturday Night Fever',
-        duration: 285000,
-        albumArt: 'https://i.scdn.co/image/ab67616d0000b273f98d90cb3a9e82e797024e32',
-        uri: 'spotify:track:mock1'
-      },
-      {
-        id: '2',
-        name: 'September',
-        artist: 'Earth, Wind & Fire',
-        album: 'The Best of Earth, Wind & Fire Vol. 1',
-        duration: 215000,
-        albumArt: 'https://i.scdn.co/image/ab67616d0000b273b7b169a4fef5a9247f0e4021',
-        uri: 'spotify:track:mock2'
-      },
-      {
-        id: '3',
-        name: 'I Wanna Dance with Somebody',
-        artist: 'Whitney Houston',
-        album: 'Whitney',
-        duration: 291000,
-        albumArt: 'https://i.scdn.co/image/ab67616d0000b273f7f1b7e42f3b8f8ddac3a0e1',
-        uri: 'spotify:track:mock3'
-      },
-      {
-        id: '4',
-        name: 'Don\'t Stop Believin\'',
-        artist: 'Journey',
-        album: 'Escape',
-        duration: 251000,
-        albumArt: 'https://i.scdn.co/image/ab67616d0000b273c5653f9038e42efba85151ee',
-        uri: 'spotify:track:mock4'
-      }
-    ].filter(track =>
-      track.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      track.artist.toLowerCase().includes(searchQuery.value.toLowerCase())
-    )
-
-    isSearching.value = false
-  }, 500)
+  // Debounce search
+  searchTimeout = setTimeout(async () => {
+    await musicStore.searchTracks(searchQuery.value)
+  }, 300)
 }
 
-function selectTrack(track: typeof searchResults.value[0]) {
-  selectedTrack.value = track
+async function selectTrack(track: TrackInfo) {
+  // Set selected track in store - will show in bottom bar
+  musicStore.setSelectedTrack(track)
+  // Clear search results to close the dropdown
+  musicStore.searchResults = []
+  searchQuery.value = ''
   console.log('Selected track:', track.uri)
-}
-
-function togglePlayback() {
-  if (!selectedTrack.value) return
-
-  isPlaying.value = !isPlaying.value
-  console.log(isPlaying.value ? 'Playing:' : 'Paused:', selectedTrack.value.uri)
-  // TODO: Connect to Spotify Web Playback SDK
-}
-
-function stopPlayback() {
-  isPlaying.value = false
-  console.log('Stopped playback')
-  // TODO: Connect to Spotify Web Playback SDK
-}
-
-function clearSelection() {
-  selectedTrack.value = null
-  isPlaying.value = false
+  // Start playing the track
+  await musicStore.playTrack(track.uri, musicStore.activeDeviceId || undefined)
+  // Immediately fetch playback state to update the UI
+  await musicStore.getPlaybackState()
 }
 
 function formatDuration(ms: number): string {

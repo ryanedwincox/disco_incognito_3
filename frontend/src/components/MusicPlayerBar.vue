@@ -5,8 +5,13 @@
       <!-- Album Art (Left) -->
       <div class="flex-shrink-0">
         <div class="w-14 h-14 bg-gradient-to-br from-disco-pink/20 to-purple-900/20 rounded-lg flex items-center justify-center overflow-hidden">
-          <!-- Placeholder for album art - will be replaced with actual image -->
-          <svg class="w-8 h-8 text-disco-pink/40" fill="currentColor" viewBox="0 0 20 20">
+          <img
+            v-if="albumArt"
+            :src="albumArt"
+            :alt="trackTitle || 'Album art'"
+            class="w-full h-full object-cover"
+          />
+          <svg v-else class="w-8 h-8 text-disco-pink/40" fill="currentColor" viewBox="0 0 20 20">
             <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
           </svg>
         </div>
@@ -46,14 +51,14 @@
       </div>
 
       <!-- Device Selector (Right) -->
-      <div class="flex-shrink-0">
+      <div class="flex-shrink-0 relative">
         <button
           class="px-3 py-2 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5"
           :class="deviceConnected
             ? 'bg-disco-pink/10 text-disco-pink hover:bg-disco-pink/20'
             : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'"
           type="button"
-          @click="openDeviceSelector"
+          @click="toggleDeviceSelector"
         >
           <!-- Speaker Device Icon -->
           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -62,30 +67,115 @@
           </svg>
           <span class="hidden sm:inline">{{ deviceName || 'Connect' }}</span>
         </button>
+
+        <!-- Device Dropdown -->
+        <div
+          v-if="showDeviceSelector"
+          class="absolute bottom-full right-0 mb-2 w-64 bg-zinc-800 rounded-xl shadow-lg border border-zinc-700 overflow-hidden"
+        >
+          <div class="p-3 border-b border-zinc-700 flex items-center justify-between">
+            <span class="text-sm font-medium text-white">Select Device</span>
+            <button
+              class="text-xs text-disco-pink hover:text-disco-pink-light"
+              type="button"
+              @click="refreshDevices"
+            >
+              Refresh
+            </button>
+          </div>
+          <div class="max-h-48 overflow-y-auto">
+            <div
+              v-if="musicStore.devices.length === 0"
+              class="p-4 text-center text-zinc-500 text-sm"
+            >
+              No devices found. Open Spotify on a device.
+            </div>
+            <button
+              v-for="device in musicStore.devices"
+              :key="device.id"
+              class="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-700/50 transition-colors text-left"
+              type="button"
+              @click="selectDevice(device.id)"
+            >
+              <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-zinc-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 3.75a.75.75 0 00-1.264-.546L4.703 7H3.167a.75.75 0 00-.7.48A6.985 6.985 0 002 10c0 .887.165 1.737.468 2.52.111.29.39.48.7.48h1.535l4.033 3.796A.75.75 0 0010 16.25V3.75z" />
+                </svg>
+                <span class="text-sm text-white">{{ device.name }}</span>
+              </div>
+              <span v-if="device.isActive" class="text-xs text-disco-pink">Active</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useMusicStore } from '../stores/music'
 
-// Props (will be wired up to Pinia store later)
-const trackTitle = ref('Unknown Track')
-const artistName = ref('Unknown Artist')
-const isPlaying = ref(false)
-const canPlay = ref(false)
-const deviceConnected = ref(false)
-const deviceName = ref('Web Player')
+const musicStore = useMusicStore()
 
-// Methods (will be connected to music store)
-function togglePlayback() {
-  isPlaying.value = !isPlaying.value
-  // TODO: Connect to Spotify playback control
+// Device selector state
+const showDeviceSelector = ref(false)
+
+// Debug: watch for store changes
+watch(() => musicStore.currentTrack, (newTrack) => {
+  console.log('MusicPlayerBar: currentTrack changed:', newTrack)
+}, { immediate: true })
+
+watch(() => musicStore.selectedTrack, (newTrack) => {
+  console.log('MusicPlayerBar: selectedTrack changed:', newTrack)
+}, { immediate: true })
+
+// Computed properties from store
+const trackTitle = computed(() => musicStore.currentTrack?.name || null)
+const artistName = computed(() => musicStore.currentTrack?.artist || null)
+const albumArt = computed(() => musicStore.currentTrack?.albumArt)
+const isPlaying = computed(() => musicStore.isPlaying)
+const canPlay = computed(() => musicStore.currentTrack !== null)
+const deviceConnected = computed(() => musicStore.hasActiveDevice)
+const deviceName = computed(() => {
+  const activeDevice = musicStore.devices.find(d => d.isActive)
+  return activeDevice?.name || null
+})
+
+// Methods connected to music store
+async function togglePlayback() {
+  console.log('togglePlayback called', {
+    isPlaying: isPlaying.value,
+    currentTrack: musicStore.currentTrack,
+    canPlay: canPlay.value
+  })
+
+  if (isPlaying.value) {
+    console.log('Pausing playback...')
+    await musicStore.pausePlayback()
+  } else if (musicStore.currentTrack) {
+    console.log('Playing track:', musicStore.currentTrack.uri)
+    await musicStore.playTrack(musicStore.currentTrack.uri, musicStore.activeDeviceId || undefined)
+  } else {
+    console.log('No track to play')
+  }
 }
 
-function openDeviceSelector() {
-  // TODO: Open device selection modal/dropdown
-  console.log('Opening device selector')
+function toggleDeviceSelector() {
+  showDeviceSelector.value = !showDeviceSelector.value
+  if (showDeviceSelector.value) {
+    // Refresh devices when opening
+    refreshDevices()
+  }
+}
+
+async function refreshDevices() {
+  await musicStore.getDevices()
+}
+
+async function selectDevice(deviceId: string) {
+  await musicStore.transferPlayback(deviceId, true)
+  await musicStore.getDevices()
+  showDeviceSelector.value = false
 }
 </script>
