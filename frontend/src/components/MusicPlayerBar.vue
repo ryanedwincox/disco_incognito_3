@@ -51,14 +51,14 @@
       </div>
 
       <!-- Device Selector (Right) -->
-      <div class="flex-shrink-0">
+      <div class="flex-shrink-0 relative">
         <button
           class="px-3 py-2 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5"
           :class="deviceConnected
             ? 'bg-disco-pink/10 text-disco-pink hover:bg-disco-pink/20'
             : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'"
           type="button"
-          @click="openDeviceSelector"
+          @click="toggleDeviceSelector"
         >
           <!-- Speaker Device Icon -->
           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -67,16 +67,59 @@
           </svg>
           <span class="hidden sm:inline">{{ deviceName || 'Connect' }}</span>
         </button>
+
+        <!-- Device Dropdown -->
+        <div
+          v-if="showDeviceSelector"
+          class="absolute bottom-full right-0 mb-2 w-64 bg-zinc-800 rounded-xl shadow-lg border border-zinc-700 overflow-hidden"
+        >
+          <div class="p-3 border-b border-zinc-700 flex items-center justify-between">
+            <span class="text-sm font-medium text-white">Select Device</span>
+            <button
+              class="text-xs text-disco-pink hover:text-disco-pink-light"
+              type="button"
+              @click="refreshDevices"
+            >
+              Refresh
+            </button>
+          </div>
+          <div class="max-h-48 overflow-y-auto">
+            <div
+              v-if="musicStore.devices.length === 0"
+              class="p-4 text-center text-zinc-500 text-sm"
+            >
+              No devices found. Open Spotify on a device.
+            </div>
+            <button
+              v-for="device in musicStore.devices"
+              :key="device.id"
+              class="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-700/50 transition-colors text-left"
+              type="button"
+              @click="selectDevice(device.id)"
+            >
+              <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-zinc-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 3.75a.75.75 0 00-1.264-.546L4.703 7H3.167a.75.75 0 00-.7.48A6.985 6.985 0 002 10c0 .887.165 1.737.468 2.52.111.29.39.48.7.48h1.535l4.033 3.796A.75.75 0 0010 16.25V3.75z" />
+                </svg>
+                <span class="text-sm text-white">{{ device.name }}</span>
+              </div>
+              <span v-if="device.isActive" class="text-xs text-disco-pink">Active</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useMusicStore } from '../stores/music'
 
 const musicStore = useMusicStore()
+
+// Device selector state
+const showDeviceSelector = ref(false)
 
 // Debug: watch for store changes
 watch(() => musicStore.currentTrack, (newTrack) => {
@@ -118,8 +161,21 @@ async function togglePlayback() {
   }
 }
 
-function openDeviceSelector() {
-  // TODO: Open device selection modal/dropdown
-  console.log('Opening device selector')
+function toggleDeviceSelector() {
+  showDeviceSelector.value = !showDeviceSelector.value
+  if (showDeviceSelector.value) {
+    // Refresh devices when opening
+    refreshDevices()
+  }
+}
+
+async function refreshDevices() {
+  await musicStore.getDevices()
+}
+
+async function selectDevice(deviceId: string) {
+  await musicStore.transferPlayback(deviceId, true)
+  await musicStore.getDevices()
+  showDeviceSelector.value = false
 }
 </script>

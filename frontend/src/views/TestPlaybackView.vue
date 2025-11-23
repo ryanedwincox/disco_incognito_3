@@ -100,46 +100,6 @@
           <p class="text-zinc-500">No results found</p>
         </div>
 
-        <!-- Connection Status -->
-        <div class="bg-zinc-900 rounded-2xl p-4 space-y-2">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-zinc-400">Spotify Device</span>
-            <div class="flex items-center gap-2">
-              <button
-                v-if="authStore.isAuthenticated"
-                class="text-xs text-disco-pink hover:text-disco-pink-light"
-                type="button"
-                @click="refreshDevices"
-              >
-                Refresh
-              </button>
-              <span
-                class="text-xs px-2 py-1 rounded-full"
-                :class="deviceConnected
-                  ? 'bg-disco-pink/20 text-disco-pink'
-                  : 'bg-zinc-800 text-zinc-500'"
-              >
-                {{ deviceConnected ? 'Connected' : 'Not Connected' }}
-              </span>
-            </div>
-          </div>
-          <p class="text-xs text-zinc-500">{{ deviceName || 'No device selected' }}</p>
-
-          <!-- Device List -->
-          <div v-if="musicStore.devices.length > 1" class="pt-2 space-y-2">
-            <p class="text-xs text-zinc-400">Available devices:</p>
-            <div
-              v-for="device in musicStore.devices"
-              :key="device.id"
-              class="flex items-center justify-between p-2 rounded-lg bg-zinc-800/50 cursor-pointer hover:bg-zinc-800"
-              @click="selectDevice(device.id)"
-            >
-              <span class="text-sm">{{ device.name }}</span>
-              <span v-if="device.isActive" class="text-xs text-disco-pink">Active</span>
-            </div>
-          </div>
-        </div>
-
         <!-- Back Button -->
         <button
           class="w-full bg-zinc-800 text-white font-medium py-3 rounded-full hover:bg-zinc-700 transition-colors"
@@ -159,7 +119,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import MusicPlayerBar from '../components/MusicPlayerBar.vue'
 import { useMusicStore, type TrackInfo } from '../stores/music'
@@ -178,13 +138,6 @@ let searchTimeout: ReturnType<typeof setTimeout>
 // Polling interval for playback state
 let pollingInterval: ReturnType<typeof setInterval> | null = null
 const POLLING_INTERVAL_MS = 2000
-
-// Computed
-const deviceConnected = computed(() => musicStore.devices.length > 0 && musicStore.hasActiveDevice)
-const deviceName = computed(() => {
-  const activeDevice = musicStore.devices.find(d => d.isActive)
-  return activeDevice?.name || (musicStore.devices.length > 0 ? musicStore.devices[0].name : 'No device')
-})
 
 // Lifecycle
 onMounted(async () => {
@@ -258,15 +211,6 @@ async function selectTrack(track: TrackInfo) {
   await musicStore.playTrack(track.uri, musicStore.activeDeviceId || undefined)
   // Immediately fetch playback state to update the UI
   await musicStore.getPlaybackState()
-}
-
-async function refreshDevices() {
-  await musicStore.getDevices()
-}
-
-async function selectDevice(deviceId: string) {
-  await musicStore.transferPlayback(deviceId)
-  await musicStore.getDevices()
 }
 
 function formatDuration(ms: number): string {
