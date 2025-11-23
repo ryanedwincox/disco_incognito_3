@@ -218,12 +218,13 @@ def create_worktree(branch_name: str, base_path: Path | None = None):
     print_colored(f'Git root: {git_root}', Colors.BLUE)
     print_colored(f'Found {len(worktrees)} existing worktree(s)', Colors.BLUE)
 
-    # Determine worktree path
+    # Determine worktree path (replace / with _ in branch names for folder)
+    folder_name = branch_name.replace('/', '_')
     if base_path:
-        worktree_path = base_path / branch_name
+        worktree_path = base_path / folder_name
     else:
         # Place worktree as sibling to main repo
-        worktree_path = git_root.parent / f'{git_root.name}_{branch_name}'
+        worktree_path = git_root.parent / f'{git_root.name}_{folder_name}'
 
     print_colored(f'New worktree path: {worktree_path}', Colors.BLUE)
 
