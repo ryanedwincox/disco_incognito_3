@@ -83,18 +83,53 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const showNameInput = ref(false)
 const displayName = ref('')
+
+// Handle OAuth callback on mount
+onMounted(() => {
+  const query = route.query
+
+  // Check if this is an OAuth callback with tokens
+  if (query.auth_success === 'true' && query.access_token) {
+    const accessToken = query.access_token as string
+    const refreshToken = query.refresh_token as string
+    const userId = query.user_id as string
+    const displayName = query.display_name as string
+
+    // Store tokens
+    authStore.setTokens(accessToken, refreshToken)
+
+    // Store user info
+    authStore.setUser({
+      id: userId,
+      displayName: displayName,
+      email: '' // Email not provided in callback
+    })
+
+    successMessage.value = `Welcome, ${displayName}!`
+    console.log(`✅ Spotify login successful: ${displayName}`)
+
+    // Clean up URL and redirect to rooms
+    setTimeout(() => {
+      router.replace('/rooms')
+    }, 500)
+  } else if (query.error) {
+    // Handle OAuth error
+    errorMessage.value = query.error as string
+  }
+})
 
 async function handleSpotifyLogin() {
   isLoading.value = true

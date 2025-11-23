@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Disco Incognito - Validation script (worktree version)
+# Disco Incognito - Validation script
+
 # Run before commits: linting, unit tests, E2E tests
 # Usage: ./validate.sh [--fix] [--unit] [--e2e] [--backend]
 
@@ -50,7 +51,7 @@ for arg in "$@"; do
     esac
 done
 
-echo "=== Disco Incognito Validation (Worktree) ==="
+echo "=== Disco Incognito Validation ==="
 echo ""
 
 # Backend linting (Python/ruff)
