@@ -12,15 +12,6 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/app/data
-    environment:
-      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
-      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
-      - SPOTIFY_REDIRECT_URI=http://localhost:8000/api/auth/callback
-      - SPOTIFY_MODE=live
-      - MUSIC_SERVICE=spotify
-      - SESSION_STORAGE=json_file
-      - SESSION_STORAGE_FILE=/app/data/disco_incognito.json
-      - DEBUG=true
 
   frontend:
     build:
@@ -28,10 +19,8 @@ services:
       dockerfile: dev.Dockerfile
       target: dev-frontend
     network_mode: host
+    env_file:
+      - ./frontend/.env
     volumes:
       - ./frontend:/app/frontend
       - /app/frontend/node_modules
-    environment:
-      - VITE_API_URL=http://localhost:7999
-      - VITE_UI_MODE=minimal
-      - VITE_TEST_MODE=false
