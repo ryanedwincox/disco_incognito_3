@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white px-6">
     <header class="text-center mb-10">
-      <h1 class="text-4xl font-bold tracking-[0.3em] uppercase mb-4">Disco Incognito</h1>
+      <h1 class="text-4xl font-bold tracking-[0.3em] uppercase mb-4">DISCO INCOGNITO</h1>
       <p v-if="isTestMode" class="text-sm text-zinc-400 mt-2">
         Test Mode: Each login creates a new random user
       </p>

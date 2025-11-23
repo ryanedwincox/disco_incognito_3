@@ -23,6 +23,11 @@ async function startViteServer() {
     configFile: resolve("vite.config.ts"),
     server: {
       middlewareMode: true
+    },
+    // Pass BACKEND_URL to Vite so frontend uses the correct API URL
+    define: {
+      'import.meta.env.VITE_API_URL': JSON.stringify(BACKEND_URL),
+      'import.meta.env.VITE_TEST_MODE': JSON.stringify('true')
     }
   });
 
@@ -34,7 +39,7 @@ async function startViteServer() {
   });
 
   await new Promise((resolvePromise) => {
-    httpServer.listen(0, "127.0.0.1", resolvePromise);
+    httpServer.listen(0, "localhost", resolvePromise);
   });
 
   const address = httpServer.address();
@@ -42,7 +47,7 @@ async function startViteServer() {
     throw new Error("Unable to determine server address");
   }
 
-  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const baseUrl = `http://localhost:${address.port}`;
   return { vite, httpServer, baseUrl };
 }
 
@@ -104,7 +109,7 @@ async function runTests() {
     // Set mobile viewport
     await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3 });
 
-    // Enable console logging from the page
+    // Enable console logging from the page (only show test user creation)
     page.on('console', msg => {
       if (msg.text().includes('Test user created')) {
         console.log(`   📝 Browser: ${msg.text()}`);
@@ -204,10 +209,16 @@ async function runTests() {
     // Test 5: Redirect to /rooms
     console.log("Test 5: Redirect to room selection");
     try {
-      // Wait for navigation (with timeout)
-      await page.waitForNavigation({ timeout: 3000, waitUntil: "networkidle0" });
+      // Poll for URL change instead of waitForNavigation (handles race conditions)
+      const startTime = Date.now();
+      const timeout = 5000;
+      let currentUrl = page.url();
 
-      const currentUrl = page.url();
+      while (!currentUrl.includes('/rooms') && Date.now() - startTime < timeout) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        currentUrl = page.url();
+      }
+
       if (!currentUrl.includes('/rooms')) {
         throw new Error(`Expected URL to contain '/rooms', got '${currentUrl}'`);
       }
