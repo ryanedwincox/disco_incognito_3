@@ -3,7 +3,11 @@ set -e
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Disco Incognito - Validation script
+=======
+# Disco Incognito - Validation script (worktree version)
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 =======
 # Disco Incognito - Validation script (worktree version)
 >>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
@@ -57,7 +61,11 @@ done
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 echo "=== Disco Incognito Validation ==="
+=======
+echo "=== Disco Incognito Validation (Worktree) ==="
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 =======
 echo "=== Disco Incognito Validation (Worktree) ==="
 >>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
@@ -101,6 +109,7 @@ fi
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Frontend E2E tests (requires running dev server)
 if $RUN_ALL || $RUN_E2E; then
     echo ">>> Frontend E2E Tests"
@@ -109,6 +118,8 @@ if $RUN_ALL || $RUN_E2E; then
     npm run test:e2e || echo "E2E tests skipped or failed - ensure dev server is running"
     cd ..
 =======
+=======
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 =======
 >>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 # Frontend E2E tests (starts own backend)
@@ -149,6 +160,9 @@ if $RUN_ALL || $RUN_E2E; then
         exit $E2E_RESULT
     fi
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
+=======
 >>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
 =======
 >>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
