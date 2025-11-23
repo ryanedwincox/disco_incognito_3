@@ -28,7 +28,7 @@ class RoomState(BaseModel):
     players: list[Player] = Field(default_factory=list)
     song_pairs: list[SongPair] = Field(default_factory=list)
     status: str = 'lobby'
-    odd_duck_player_id: str | None = None
+    dancer_incognito_player_id: str | None = None
 
     class Config:
         json_schema_extra = {

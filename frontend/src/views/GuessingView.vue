@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
     <header class="text-center mb-10 space-y-2">
-      <h2 class="text-3xl font-semibold uppercase tracking-wide">Who Is The Odd Duck?</h2>
+      <h2 class="text-3xl font-semibold uppercase tracking-wide">Who Is The Dancer Incognito?</h2>
       <p class="text-zinc-400 text-sm">Pick the player you think heard a different song.</p>
     </header>
 

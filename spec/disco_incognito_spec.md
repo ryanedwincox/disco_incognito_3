@@ -11,7 +11,7 @@
 
 ## Project Overview
 
-🎧 **Disco Incognito** is a multiplayer web game powered by Spotify where players must guess which player is hearing a different song than everyone else. One player becomes the "Odd Duck" and hears a different track while all other players hear the same song. After 90 seconds of listening, players vote on who they think the Odd Duck is.
+🎧 **Disco Incognito** is a multiplayer web game powered by Spotify where players must guess which player is hearing a different song than everyone else. One player becomes the "Dancer Incognito" and hears a different track while all other players hear the same song. After 90 seconds of listening, players vote on who they think the Dancer Incognito is.
 
 ## Technology Stack
 
@@ -137,7 +137,7 @@
 
 - [ ] Create GameState model with phases (lobby, song_selection, playing, guessing, reveal)
 - [ ] Implement song pair management system
-- [ ] Add "Odd Duck" selection logic
+- [ ] Add "Dancer Incognito" selection logic
 - [ ] Create round management with song assignment
 - [ ] Implement voting system for guessing phase
 - [ ] Add game progression and cleanup
@@ -155,7 +155,7 @@
 
 - [ ] Create simultaneous playback coordination
 - [ ] Implement device management for multiple users
-- [ ] Add track assignment (different songs for Odd Duck vs others)
+- [ ] Add track assignment (different songs for Dancer Incognito vs others)
 - [ ] Create playback synchronization timing
 - [ ] Handle Spotify API rate limits for multiple users
 - [ ] Add fallback mechanisms for playback failures

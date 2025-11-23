@@ -130,13 +130,13 @@ async def seed_room_playing() -> None:
         song_pair = generate_song_pair(player_id=players[i].id, song_a=song_a, song_b=song_b)
         song_pairs.append(song_pair)
 
-    # Pick a random player as the odd duck
-    odd_duck = random.choice(players)
+    # Pick a random player as the dancer incognito
+    dancer_incognito = random.choice(players)
 
-    room = RoomState(code='111', host_id=players[0].id, players=players, song_pairs=song_pairs, status='playing', odd_duck_player_id=odd_duck.id)
+    room = RoomState(code='111', host_id=players[0].id, players=players, song_pairs=song_pairs, status='playing', dancer_incognito_player_id=dancer_incognito.id)
 
     await storage.upsert_room('111', room.model_dump())
-    logger.info(f'Seeded room 111: playing with 7 players, odd duck is {odd_duck.display_name}')
+    logger.info(f'Seeded room 111: playing with 7 players, dancer incognito is {dancer_incognito.display_name}')
 
 
 async def seed_room_guessing() -> None:
@@ -153,12 +153,12 @@ async def seed_room_guessing() -> None:
         song_pair = generate_song_pair(player_id=players[i].id, song_a=song_a, song_b=song_b)
         song_pairs.append(song_pair)
 
-    odd_duck = random.choice(players)
+    dancer_incognito = random.choice(players)
 
-    room = RoomState(code='222', host_id=players[0].id, players=players, song_pairs=song_pairs, status='guessing', odd_duck_player_id=odd_duck.id)
+    room = RoomState(code='222', host_id=players[0].id, players=players, song_pairs=song_pairs, status='guessing', dancer_incognito_player_id=dancer_incognito.id)
 
     await storage.upsert_room('222', room.model_dump())
-    logger.info(f'Seeded room 222: guessing with 7 players, odd duck is {odd_duck.display_name}')
+    logger.info(f'Seeded room 222: guessing with 7 players, dancer incognito is {dancer_incognito.display_name}')
 
 
 async def seed_room_reveal() -> None:
@@ -175,12 +175,12 @@ async def seed_room_reveal() -> None:
         song_pair = generate_song_pair(player_id=players[i].id, song_a=song_a, song_b=song_b)
         song_pairs.append(song_pair)
 
-    odd_duck = random.choice(players)
+    dancer_incognito = random.choice(players)
 
-    room = RoomState(code='333', host_id=players[0].id, players=players, song_pairs=song_pairs, status='reveal', odd_duck_player_id=odd_duck.id)
+    room = RoomState(code='333', host_id=players[0].id, players=players, song_pairs=song_pairs, status='reveal', dancer_incognito_player_id=dancer_incognito.id)
 
     await storage.upsert_room('333', room.model_dump())
-    logger.info(f'Seeded room 333: reveal with 7 players, odd duck is {odd_duck.display_name}')
+    logger.info(f'Seeded room 333: reveal with 7 players, dancer incognito is {dancer_incognito.display_name}')
 
 
 async def seed_test_data() -> None:

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Disco Incognito** is a multiplayer web-based music guessing game powered by Spotify. Players listen to songs simultaneously, with one "Odd Duck" hearing a different track. The game uses real-time WebSockets for multiplayer coordination and the Spotify Web API for music playback control.
+**Disco Incognito** is a multiplayer web-based music guessing game powered by Spotify. Players listen to songs simultaneously, with one "Dancer Incognito" hearing a different track. The game uses real-time WebSockets for multiplayer coordination and the Spotify Web API for music playback control.
 
 **Tech Stack:**
 - **Backend**: FastAPI (Python 3.10+) with WebSockets
@@ -131,7 +131,7 @@ Located in `frontend/src/stores/`:
 
 - **`auth.ts`** - Spotify OAuth tokens, user profile, login/logout
 - **`room.ts`** - Current room state, players list, room actions
-- **`game.ts`** - Game phase, odd duck selection, voting state
+- **`game.ts`** - Game phase, dancer incognito selection, voting state
 - **`player.ts`** - Current user information
 - **`music.ts`** - Spotify playback control, device management
 - **`websocket.ts`** - WebSocket connection management, real-time updates
@@ -161,7 +161,7 @@ Stores interact with backend API via axios and maintain WebSocket connections fo
 - `RoomLobbyView.vue` - Player list, song pairs, host controls
 - `SongPickerView.vue` - Spotify search and song pair selection
 - `GameView.vue` - Active game play with countdown
-- `GuessingView.vue` - Vote for the odd duck
+- `GuessingView.vue` - Vote for the dancer incognito
 - `RevealView.vue` - Results and round progression
 
 **Routing**: See `frontend/src/router/index.ts` for full route definitions.
@@ -228,8 +228,8 @@ Detailed in `spec/gameflow.md`:
 2. **Room Selection** → Create (3-digit code) or Join
 3. **Room Lobby** → Players join, add song pairs, host starts game
 4. **Song Selection** → Players search Spotify and add 2-song pairs
-5. **Game Start** → Random odd duck selection, music assignment, synchronized playback (90 seconds)
-6. **Guessing** → Players vote on who is the odd duck
+5. **Game Start** → Random dancer incognito selection, music assignment, synchronized playback (90 seconds)
+6. **Guessing** → Players vote on who is the dancer incognito
 7. **Reveal** → Show results, highlight correct guesses
 8. **Loop** → Return to lobby, remove used song pair, repeat
 
