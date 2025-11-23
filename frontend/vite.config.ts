@@ -23,7 +23,10 @@ export default defineConfig(({ mode }) => {
       globals: true,
       environment: "jsdom",
       include: ["tests/unit/**/*.test.ts"],
-      exclude: ["tests/e2e/**/*"]
+      exclude: ["tests/e2e/**/*"],
+      env: {
+        VITE_TEST_MODE: "true"
+      }
     }
   };
 });
