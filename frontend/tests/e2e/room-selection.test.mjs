@@ -24,6 +24,10 @@ async function startViteServer() {
     configFile: resolve("vite.config.ts"),
     server: {
       middlewareMode: true
+    },
+    // Pass BACKEND_URL to Vite so frontend uses the correct API URL
+    define: {
+      'import.meta.env.VITE_API_URL': JSON.stringify(BACKEND_URL)
     }
   });
 
@@ -353,10 +357,39 @@ async function runTests() {
     // Test 11: Search functionality on playback test page
     console.log("Test 11: Search functionality on playback test page");
     try {
-      // Navigate to test page
+      // First, authenticate by calling the test login endpoint
+      const loginResponse = await fetch(`${BACKEND_URL}/api/auth/test-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!loginResponse.ok) {
+        throw new Error(`Failed to authenticate: ${loginResponse.status}`);
+      }
+
+      const loginData = await loginResponse.json();
+
+      // Store tokens in localStorage via page context
+      await page.evaluate((data) => {
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('refresh_token', data.refresh_token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }, loginData);
+
+      // Navigate to test page (will load auth from localStorage)
       await page.goto(`${baseUrl}/test`, { waitUntil: "networkidle0" });
 
+      // Wait for the page to fully initialize with auth
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       const searchInput = await page.$('input[type="search"]');
+
+      // Verify input is not disabled
+      const isDisabled = await searchInput.evaluate(el => el.disabled);
+      if (isDisabled) {
+        throw new Error('Search input is disabled - authentication may have failed');
+      }
+
       await searchInput.click();
       await searchInput.type('dance');
 
