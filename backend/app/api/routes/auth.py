@@ -39,10 +39,29 @@ async def login(service: SpotifyAuthService = Depends(get_spotify_service)) -> d
     """
     Generate Spotify authorization URL for user login.
 
+    In test mode (SPOTIFY_MODE=test), returns mock authentication data directly
+    without requiring an OAuth redirect.
+
     Returns:
-        Dict containing the authorization URL and state parameter
+        Dict containing the authorization URL and state parameter (live mode),
+        or mock auth data directly (test mode)
     """
     try:
+        # In test mode, return mock auth data directly without OAuth redirect
+        if settings.spotify_mode.lower() == 'test':
+            token_info = await service.handle_callback(code='test-code', state='test-state')
+            user_info = await service.get_user_info(token_info['access_token'])
+            logger.info(f'Test mode login successful for user: {user_info.get("display_name", "unknown")}')
+            return {
+                'access_token': token_info['access_token'],
+                'refresh_token': token_info.get('refresh_token', ''),
+                'expires_in': str(token_info.get('expires_in', 3600)),
+                'user_id': user_info.get('id', ''),
+                'display_name': user_info.get('display_name', ''),
+                'email': user_info.get('email', ''),
+            }
+
+        # Live mode: return OAuth authorization URL
         state = secrets.token_urlsafe(16)
         authorize_url = await service.create_authorize_url(state)
         logger.info('Login endpoint accessed, returning authorization URL')
