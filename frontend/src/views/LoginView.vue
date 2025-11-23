@@ -138,9 +138,16 @@ async function handleSpotifyLogin() {
   successMessage.value = ''
 
   try {
-    // Redirect to Spotify OAuth
+    // Attempt Spotify login (redirects in live mode, returns in test mode)
     await authStore.spotifyLogin()
-    // Note: Will redirect to Spotify, so code after this won't execute
+
+    // If we get here, test mode login succeeded (live mode would have redirected)
+    if (authStore.isAuthenticated) {
+      successMessage.value = `Welcome, ${authStore.userName}!`
+      setTimeout(() => {
+        router.push('/rooms')
+      }, 500)
+    }
   } catch (error: unknown) {
     console.error('Login error:', error)
     errorMessage.value = (error as Error).message || 'An error occurred during login'
