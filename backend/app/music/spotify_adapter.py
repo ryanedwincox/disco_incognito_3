@@ -159,7 +159,39 @@ class SpotifyAdapter(MusicStreamingAdapter):
             sp = self._create_client(access_token)
             playback = sp.current_playback()
             logger.info('Retrieved playback state')
-            return playback or {}
+
+            if not playback:
+                return {
+                    'is_playing': False,
+                    'track': None,
+                    'device_id': None,
+                    'progress_ms': 0,
+                    'duration_ms': 0,
+                }
+
+            # Transform Spotify API response to our format
+            track_data = None
+            item = playback.get('item')
+            if item:
+                track_data = {
+                    'id': item['id'],
+                    'uri': item['uri'],
+                    'name': item['name'],
+                    'artist': ', '.join(artist['name'] for artist in item.get('artists', [])),
+                    'album': item.get('album', {}).get('name', ''),
+                    'duration_ms': item.get('duration_ms', 0),
+                    'album_art': item['album']['images'][0]['url'] if item.get('album', {}).get('images') else None,
+                }
+
+            device = playback.get('device', {})
+
+            return {
+                'is_playing': playback.get('is_playing', False),
+                'track': track_data,
+                'device_id': device.get('id'),
+                'progress_ms': playback.get('progress_ms', 0),
+                'duration_ms': item.get('duration_ms', 0) if item else 0,
+            }
         except spotipy.SpotifyException as e:
             logger.error(f'Spotify API error getting playback state: {e}')
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Spotify API error: {str(e)}')

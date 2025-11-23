@@ -171,14 +171,10 @@ class TestMusicAdapter(MusicStreamingAdapter):
         logger.info('Returning test mode playback state')
         return {
             'is_playing': False,
-            'device': {
-                'id': 'test-device-id',
-                'name': 'Test Device',
-                'type': 'Computer',
-                'volume_percent': 50,
-            },
             'track': None,
+            'device_id': 'test-device-id',
             'progress_ms': 0,
+            'duration_ms': 0,
         }
 
     # Search and Track Information

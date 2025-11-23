@@ -11,6 +11,9 @@ services:
       - ./backend:/app
       - ./data:/app/data
     environment:
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - SPOTIFY_REDIRECT_URI=http://localhost:8000/api/auth/callback
       - SPOTIFY_MODE=live
       - MUSIC_SERVICE=spotify
       - SESSION_STORAGE=json_file
