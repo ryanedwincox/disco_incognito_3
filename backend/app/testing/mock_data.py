@@ -74,7 +74,7 @@ async def seed_room_lobby_empty() -> None:
 
     room = RoomState(code='123', host_id=host.id, players=[host], song_pairs=[], status='lobby')
 
-    await storage.upsert_room('123', room.model_dump())
+    await storage.upsert_room('123', room.model_dump(mode='json'))
     logger.info('Seeded room 123: lobby with 1 player, no songs')
 
 
@@ -89,7 +89,7 @@ async def seed_room_lobby_with_players() -> None:
 
     room = RoomState(code='456', host_id=players[0].id, players=players, song_pairs=[], status='lobby')
 
-    await storage.upsert_room('456', room.model_dump())
+    await storage.upsert_room('456', room.model_dump(mode='json'))
     logger.info('Seeded room 456: lobby with 7 players, no songs')
 
 
@@ -111,7 +111,7 @@ async def seed_room_lobby_ready() -> None:
 
     room = RoomState(code='789', host_id=players[0].id, players=players, song_pairs=song_pairs, status='lobby')
 
-    await storage.upsert_room('789', room.model_dump())
+    await storage.upsert_room('789', room.model_dump(mode='json'))
     logger.info('Seeded room 789: lobby with 7 players and 3 song pairs')
 
 
@@ -135,7 +135,7 @@ async def seed_room_playing() -> None:
 
     room = RoomState(code='111', host_id=players[0].id, players=players, song_pairs=song_pairs, status='playing', dancer_incognito_player_id=dancer_incognito.id)
 
-    await storage.upsert_room('111', room.model_dump())
+    await storage.upsert_room('111', room.model_dump(mode='json'))
     logger.info(f'Seeded room 111: playing with 7 players, dancer incognito is {dancer_incognito.display_name}')
 
 
@@ -157,7 +157,7 @@ async def seed_room_guessing() -> None:
 
     room = RoomState(code='222', host_id=players[0].id, players=players, song_pairs=song_pairs, status='guessing', dancer_incognito_player_id=dancer_incognito.id)
 
-    await storage.upsert_room('222', room.model_dump())
+    await storage.upsert_room('222', room.model_dump(mode='json'))
     logger.info(f'Seeded room 222: guessing with 7 players, dancer incognito is {dancer_incognito.display_name}')
 
 
@@ -179,7 +179,7 @@ async def seed_room_reveal() -> None:
 
     room = RoomState(code='333', host_id=players[0].id, players=players, song_pairs=song_pairs, status='reveal', dancer_incognito_player_id=dancer_incognito.id)
 
-    await storage.upsert_room('333', room.model_dump())
+    await storage.upsert_room('333', room.model_dump(mode='json'))
     logger.info(f'Seeded room 333: reveal with 7 players, dancer incognito is {dancer_incognito.display_name}')
 
 

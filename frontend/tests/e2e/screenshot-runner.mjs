@@ -22,6 +22,7 @@ const ROUTES = [
   { path: "/rooms/123", label: "4a-room-lobby-empty" },
   { path: "/rooms/456", label: "4b-room-lobby-players" },
   { path: "/rooms/789", label: "4c-room-lobby-ready" },
+  { path: "/rooms/123", label: "4d-room-lobby-no-players" },
   { path: "/rooms/789/songs", label: "5-song-picker" },
   { path: "/rooms/111/play", label: "6-game-playing" },
   { path: "/rooms/222/guess", label: "7-guessing" },

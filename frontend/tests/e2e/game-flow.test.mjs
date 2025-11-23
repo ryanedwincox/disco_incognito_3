@@ -17,6 +17,7 @@ const TEST_TIMEOUT = 30000; // 30 seconds
 
 // Test configuration
 const HEADLESS = process.env.HEADLESS !== "false"; // Run headless by default
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
 
 /**
  * Start Vite dev server for testing
@@ -26,6 +27,11 @@ async function startViteServer() {
     configFile: resolve("vite.config.ts"),
     server: {
       middlewareMode: true
+    },
+    // Pass BACKEND_URL and TEST_MODE to Vite for E2E testing
+    define: {
+      'import.meta.env.VITE_API_URL': JSON.stringify(BACKEND_URL),
+      'import.meta.env.VITE_TEST_MODE': JSON.stringify('true')
     }
   });
 
@@ -50,10 +56,34 @@ async function startViteServer() {
 }
 
 /**
+ * Seed test data via backend API
+ */
+async function seedTestData() {
+  console.log(`Seeding test data from ${BACKEND_URL}...`);
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/testing/seed`, {
+      method: "POST"
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      console.warn(`Warning: Failed to seed test data (${response.status}): ${text}`);
+    } else {
+      const data = await response.json();
+      console.log(`✅ Test data seeded: ${data.rooms?.join(", ") || "unknown rooms"}`);
+    }
+  } catch (error) {
+    console.warn("Warning: Could not seed test data:", error.message);
+  }
+}
+
+/**
  * Run all E2E tests
  */
 async function runTests() {
   console.log("🚀 Starting E2E Game Flow Tests\n");
+
+  // Seed test data before running tests
+  await seedTestData();
 
   // Start Vite server
   console.log("Starting Vite dev server...");

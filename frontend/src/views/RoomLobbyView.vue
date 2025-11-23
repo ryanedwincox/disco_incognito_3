@@ -29,34 +29,85 @@
     <section class="grid gap-6 md:grid-cols-2">
       <div class="bg-zinc-900/70 rounded-3xl p-6">
         <h3 class="text-lg font-semibold mb-4">Players</h3>
-        <ul class="space-y-3">
-          <li class="flex items-center justify-between bg-zinc-900 rounded-2xl px-4 py-3">
-            <span>DJ Host</span>
-            <span class="text-xs uppercase tracking-wider text-disco-pink">Host</span>
-          </li>
-          <li class="flex items-center justify-between bg-zinc-900 rounded-2xl px-4 py-3">
-            <span>Guest Listener</span>
-            <span class="text-xs uppercase tracking-wider text-zinc-400">Ready</span>
+        <div v-if="loading" class="text-zinc-400">Loading...</div>
+        <div v-else-if="error" class="text-red-400">{{ error }}</div>
+        <ul v-else-if="players.length > 0" class="space-y-3">
+          <li
+            v-for="player in players"
+            :key="player.id"
+            class="flex items-center justify-between bg-zinc-900 rounded-2xl px-4 py-3"
+          >
+            <span>{{ player.name }}</span>
+            <span
+              v-if="player.isHost"
+              class="text-xs uppercase tracking-wider text-disco-pink"
+            >Host</span>
+            <span
+              v-else
+              class="text-xs uppercase tracking-wider text-zinc-400"
+            >Ready</span>
           </li>
         </ul>
+        <p v-else class="text-zinc-400">Waiting for players to join...</p>
       </div>
 
       <div class="bg-zinc-900/70 rounded-3xl p-6">
         <h3 class="text-lg font-semibold mb-4">Song Pairs</h3>
-        <p class="text-zinc-400">Song pairs remain hidden until the reveal phase. Add them from the song picker.</p>
+        <p v-if="songPairCount > 0" class="text-zinc-400">
+          {{ songPairCount }} song pair{{ songPairCount === 1 ? '' : 's' }} added. Song pairs remain hidden until the reveal phase.
+        </p>
+        <p v-else class="text-zinc-400">Song pairs remain hidden until the reveal phase. Add them from the song picker.</p>
       </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import axios from 'axios'
+
+interface Player {
+  id: string
+  name: string
+  isHost: boolean
+  isConnected: boolean
+}
 
 const router = useRouter()
 const route = useRoute()
 
 const roomCode = computed(() => route.params.code || '123')
+const players = ref<Player[]>([])
+const songPairCount = ref(0)
+const loading = ref(true)
+const error = ref<string | null>(null)
+
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+async function fetchRoom() {
+  loading.value = true
+  error.value = null
+
+  try {
+    const response = await axios.get(`${apiUrl}/api/rooms/${roomCode.value}`)
+    players.value = response.data.players
+    songPairCount.value = response.data.songPairCount
+  } catch (e: unknown) {
+    if (axios.isAxiosError(e) && e.response?.status === 404) {
+      error.value = 'Room not found'
+    } else {
+      error.value = 'Failed to load room'
+    }
+    console.error('Error fetching room:', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchRoom()
+})
 
 function leaveRoom() {
   console.log('Leaving room:', roomCode.value)

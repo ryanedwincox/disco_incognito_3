@@ -23,7 +23,7 @@ def is_test_mode() -> bool:
 
 
 @router.post('/seed', summary='Seed test data')
-async def seed_data() -> dict[str, str]:
+async def seed_data() -> dict:
     """
     Seed the database with realistic test data for screenshots and development.
 
