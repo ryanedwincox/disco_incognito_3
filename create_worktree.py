@@ -12,6 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from worktree_env_setup import setup_worktree_env
+
 
 class Colors:
     """ANSI color codes for terminal output."""
@@ -103,111 +105,6 @@ def find_next_available_port(used_ports: set[int], start_port: int) -> int:
     return port
 
 
-def update_backend_env(worktree_path: Path, backend_port: int, frontend_port: int):
-    """Create/update backend .env file with new ports."""
-    backend_env = worktree_path / 'backend' / '.env'
-
-    # Copy from example if .env doesn't exist
-    backend_env_example = worktree_path / 'backend' / '.env.example'
-    if backend_env_example.exists() and not backend_env.exists():
-        content = backend_env_example.read_text()
-    elif backend_env.exists():
-        content = backend_env.read_text()
-    else:
-        # Create minimal .env
-        content = """# Spotify API Configuration
-SPOTIFY_CLIENT_ID=your-client-id
-SPOTIFY_CLIENT_SECRET=your-client-secret
-SPOTIFY_REDIRECT_URI=http://localhost:8000/api/auth/callback
-
-# Application URLs
-BACKEND_URL=http://localhost:8000
-FRONTEND_URL=http://localhost:3000
-
-# Storage Adapter
-SESSION_STORAGE=json_file
-SESSION_STORAGE_FILE=./data/disco_incognito.json
-
-# Security
-JWT_SECRET_KEY=set-a-strong-secret
-SESSION_SECRET=set-a-session-secret
-
-# Development
-DEBUG=true
-LOG_LEVEL=INFO
-
-# Music Service Configuration
-MUSIC_SERVICE=spotify
-SPOTIFY_MODE=test
-
-# Misc
-ALLOWED_ORIGINS=http://localhost:3000
-"""
-
-    # Update ports in content
-    def replace_port(line: str, var_name: str, new_port: int) -> str:
-        if line.startswith(f'{var_name}='):
-            # Replace port in URL
-            return re.sub(r':(\d+)', f':{new_port}', line)
-        return line
-
-    lines = content.split('\n')
-    updated_lines = []
-    for line in lines:
-        if line.startswith('BACKEND_URL=') or line.startswith('SPOTIFY_REDIRECT_URI='):
-            line = replace_port(line, line.split('=')[0], backend_port)
-        elif line.startswith('FRONTEND_URL=') or line.startswith('ALLOWED_ORIGINS='):
-            line = replace_port(line, line.split('=')[0], frontend_port)
-        updated_lines.append(line)
-
-    backend_env.write_text('\n'.join(updated_lines))
-    print_colored(f'  Updated {backend_env}', Colors.GREEN)
-
-
-def update_frontend_env(worktree_path: Path, backend_port: int, frontend_port: int):
-    """Create/update frontend .env file with new ports."""
-    frontend_env = worktree_path / 'frontend' / '.env'
-
-    # Copy from existing or create new
-    if frontend_env.exists():
-        content = frontend_env.read_text()
-    else:
-        content = """# Frontend Configuration
-VITE_API_URL=http://localhost:8000
-VITE_PORT=3000
-VITE_UI_MODE=minimal
-
-# Test Mode - Set to true for development with mock data
-VITE_TEST_MODE=true
-"""
-
-    # Update ports
-    lines = content.split('\n')
-    updated_lines = []
-    has_vite_port = False
-
-    for line in lines:
-        if line.startswith('VITE_API_URL='):
-            line = re.sub(r':(\d+)', f':{backend_port}', line)
-        elif line.startswith('VITE_PORT='):
-            line = f'VITE_PORT={frontend_port}'
-            has_vite_port = True
-        updated_lines.append(line)
-
-    # Add VITE_PORT if not present
-    if not has_vite_port:
-        # Insert after VITE_API_URL or at the beginning
-        for i, line in enumerate(updated_lines):
-            if line.startswith('VITE_API_URL='):
-                updated_lines.insert(i + 1, f'VITE_PORT={frontend_port}')
-                break
-        else:
-            updated_lines.insert(0, f'VITE_PORT={frontend_port}')
-
-    frontend_env.write_text('\n'.join(updated_lines))
-    print_colored(f'  Updated {frontend_env}', Colors.GREEN)
-
-
 def create_worktree(branch_name: str, base_path: Path | None = None):
     """Create a new git worktree with auto-assigned ports."""
 
@@ -263,8 +160,17 @@ def create_worktree(branch_name: str, base_path: Path | None = None):
 
     # Update .env files
     print_colored('\nUpdating .env files...', Colors.BLUE)
-    update_backend_env(worktree_path, backend_port, frontend_port)
-    update_frontend_env(worktree_path, backend_port, frontend_port)
+    setup_worktree_env(worktree_path, backend_port, frontend_port)
+    print_colored(f'  Updated backend/.env and frontend/.env', Colors.GREEN)
+
+    # Write .test_ports file (for consistency with repo-maintainer)
+    ports_config = (
+        "# Port assignments for this worktree\n"
+        f"DEV_SERVER_PORT={backend_port}\n"
+        f"TEST_SERVER_PORT={frontend_port}\n"
+    )
+    (worktree_path / ".test_ports").write_text(ports_config)
+    print_colored(f'  Created .test_ports', Colors.GREEN)
 
     # Print summary
     print_colored('\n' + '=' * 50, Colors.GREEN)
