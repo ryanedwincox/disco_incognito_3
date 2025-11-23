@@ -42,3 +42,7 @@ data/*.json
 frontend/tests/e2e/screenshots
 
 .venv_linter/
+
+artifacts/
+scratchpad.txt
+.test_ports
