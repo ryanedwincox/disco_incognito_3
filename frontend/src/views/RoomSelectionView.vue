@@ -28,6 +28,7 @@
         </button>
       </div>
       <button
+        v-if="authStore.isSpotifyUser"
         class="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-medium px-8 py-3 rounded-full transition-colors"
         type="button"
         @click="goToTest"
@@ -41,8 +42,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const roomCode = ref('')
 
 function createRoom() {
