@@ -45,9 +45,6 @@ frontend/tests/e2e/screenshots
 artifacts/
 scratchpad.txt
 .test_ports
-<<<<<<< HEAD
 
 backend/data
 backend/.cache
-=======
->>>>>>> db8b558c5d4984f11d358e34f5442420d2b815cc
