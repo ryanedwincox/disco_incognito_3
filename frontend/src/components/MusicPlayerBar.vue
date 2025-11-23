@@ -1,3 +1,4 @@
+<!-- Persistent music player bar shown at bottom of screen during gameplay. Displays current track info, play/pause button, and device selector. Provides controls for Spotify playback across all game views. -->
 <template>
   <div class="bg-zinc-900/95 backdrop-blur-sm border-t border-zinc-800 px-4 py-3">
     <div class="max-w-5xl mx-auto flex items-center gap-3">

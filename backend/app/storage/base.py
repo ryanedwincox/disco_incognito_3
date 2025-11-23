@@ -1,3 +1,10 @@
+"""Abstract base class for storage adapters.
+
+Defines the interface contract for persisting game state including rooms, players, and
+song pairs. Supports atomic operations and room-level CRUD. Enables swappable storage
+backends (JSON file, Redis, PostgreSQL, etc.).
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

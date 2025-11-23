@@ -1,3 +1,4 @@
+<!-- Active game round view with countdown timer. Shows remaining time during the 90-second listening phase. Includes the music player bar for playback control during the round. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white flex flex-col">
     <header class="px-6 pt-12 pb-6 text-center space-y-2">

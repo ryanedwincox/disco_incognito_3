@@ -1,3 +1,10 @@
+"""Storage adapter dependency injection.
+
+Provides a singleton StorageAdapter instance for persisting room and session data.
+Currently returns JSONFileStorage configured from application settings. Supports future
+extension to other storage backends.
+"""
+
 from functools import lru_cache
 from pathlib import Path
 

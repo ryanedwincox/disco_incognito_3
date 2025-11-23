@@ -1,3 +1,4 @@
+<!-- Login view for Spotify authentication. Handles both live OAuth flow and test mode direct login. Displays login button, loading states, and error/success messages. Redirects to room selection on successful authentication. -->
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white px-6">
     <header class="text-center mb-10">

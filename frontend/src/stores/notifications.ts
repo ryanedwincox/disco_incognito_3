@@ -1,3 +1,9 @@
+/**
+ * Notification system store for toast alerts and user feedback.
+ * Manages a queue of notifications with types (error, warning, info, success),
+ * auto-dismiss timers, and persistence options. Provides convenience methods
+ * for each notification type.
+ */
 import { defineStore } from "pinia";
 
 export type NotificationType = "error" | "warning" | "info" | "success";

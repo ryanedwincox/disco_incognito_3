@@ -1,3 +1,10 @@
+"""Live Spotify API adapter implementation.
+
+Implements MusicStreamingAdapter using Spotipy library for real Spotify API integration.
+Handles OAuth token exchange, user profile retrieval, playback control, track search, and
+device management through the Spotify Web API.
+"""
+
 from __future__ import annotations
 
 import logging

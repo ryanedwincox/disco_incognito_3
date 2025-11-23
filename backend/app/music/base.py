@@ -1,3 +1,10 @@
+"""Abstract base class for music streaming service adapters.
+
+Defines the interface contract that all music streaming adapters must implement, including
+OAuth authentication, playback control, track search, and device management. Enables
+swappable implementations for different streaming services.
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

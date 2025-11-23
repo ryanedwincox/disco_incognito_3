@@ -1,3 +1,4 @@
+<!-- Song pair selection interface for adding tracks to the game pool. In test mode, generates random disco song pairs. In live mode, provides Spotify search. Handles pair saving and navigation back to lobby. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
     <header class="text-center mb-8 space-y-2">

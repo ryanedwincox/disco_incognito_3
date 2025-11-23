@@ -1,3 +1,9 @@
+"""Main API router that aggregates all route modules.
+
+Combines individual route modules (auth, health, testing) into a single API router with
+the /api prefix. This is the central point for registering all backend HTTP endpoints.
+"""
+
 from fastapi import APIRouter
 
 from .routes import auth, health, testing

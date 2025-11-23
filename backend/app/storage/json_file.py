@@ -1,3 +1,10 @@
+"""JSON file storage adapter with atomic writes and file locking.
+
+Implements StorageAdapter persisting game state to a JSON file. Uses atomic writes
+(temp file + rename) and FileLock for concurrent access safety. Suitable for development
+and single-instance production deployments.
+"""
+
 from __future__ import annotations
 
 import asyncio

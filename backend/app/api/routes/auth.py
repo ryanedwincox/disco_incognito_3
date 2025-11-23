@@ -1,3 +1,10 @@
+"""Spotify OAuth authentication routes.
+
+Provides endpoints for initiating the Spotify OAuth flow, handling callbacks, refreshing
+tokens, and test mode authentication. Manages the full authentication lifecycle including
+token exchange and user info retrieval.
+"""
+
 from __future__ import annotations
 
 import logging

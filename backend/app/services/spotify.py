@@ -1,3 +1,10 @@
+"""Music authentication and playback service.
+
+High-level service that wraps the MusicStreamingAdapter to provide authentication and
+playback operations. Acts as a facade for the adapter pattern, delegating all operations
+to the configured music streaming adapter.
+"""
+
 from __future__ import annotations
 
 import logging

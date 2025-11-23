@@ -1,3 +1,4 @@
+<!-- Spotify playback testing interface for development. Provides track search, selection, and playback controls. Displays device connection status and includes the music player bar. Used for testing Spotify integration. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white">
     <!-- Main Content -->

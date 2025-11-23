@@ -1,3 +1,8 @@
+/**
+ * Game state store for active gameplay management.
+ * Tracks current round number, countdown timer, odd duck selection, and playing status.
+ * Provides actions for game phase transitions during active rounds.
+ */
 import { defineStore } from "pinia";
 
 interface GameState {

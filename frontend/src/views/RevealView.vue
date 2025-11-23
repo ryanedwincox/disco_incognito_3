@@ -1,3 +1,4 @@
+<!-- Round reveal view showing the true Odd Duck and voting results. Displays who the Odd Duck was, how each player voted, and who guessed correctly. Provides Next Round button for the host. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
     <header class="text-center mb-10 space-y-2">
