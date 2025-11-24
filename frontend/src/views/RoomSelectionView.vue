@@ -53,6 +53,9 @@ const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
 const roomCode = ref('')
 
+// Load auth state from localStorage on component mount
+authStore.loadFromStorage()
+
 async function createRoom() {
   // Generate a random 3-digit room code
   const code = Math.floor(100 + Math.random() * 900).toString()
@@ -65,8 +68,7 @@ async function createRoom() {
       { room_code: code },
       {
         headers: {
-          'X-User-Id': authStore.user?.id || '',
-          'X-Display-Name': authStore.user?.displayName || 'Guest'
+          Authorization: `Bearer ${authStore.accessToken}`
         }
       }
     )

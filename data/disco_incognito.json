@@ -1,1 +1,9 @@
-{}
+{
+  "sessions": {
+    "test_token_eA5hwGXHyLbxXChw6_KZxVgmtaXPDGXBv_WKVePVpcM": {
+      "display_name": "Dancing Phoenix",
+      "email": "test-user-42ae7d97@disco.test",
+      "user_id": "test-user-42ae7d97"
+    }
+  }
+}

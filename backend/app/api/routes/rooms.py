@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
 from ...models.room import Player, RoomState
 from ...storage.base import StorageAdapter
@@ -38,8 +39,7 @@ class CreateRoomResponse(BaseModel):
 async def create_room(
     body: CreateRoomRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
-    x_user_id: str = Header(..., description='User ID from auth'),
-    x_display_name: str = Header('Guest', description='Display name of user'),
+    current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> CreateRoomResponse:
     """
     Create a new game room.
@@ -58,8 +58,8 @@ async def create_room(
 
         # Create host player
         host_player = Player(
-            id=x_user_id,
-            display_name=x_display_name,
+            id=current_user.user_id,
+            display_name=current_user.display_name,
             is_host=True,
             is_connected=True,
         )
@@ -67,7 +67,7 @@ async def create_room(
         # Create room state
         room = RoomState(
             code=body.room_code,
-            host_id=x_user_id,
+            host_id=current_user.user_id,
             players=[host_player],
             status='lobby',
         )
@@ -75,7 +75,7 @@ async def create_room(
         # Store the room
         await storage.upsert_room(body.room_code, room.model_dump(mode='json'))
 
-        logger.info(f'Room {body.room_code} created by user {x_user_id}')
+        logger.info(f'Room {body.room_code} created by user {current_user.user_id}')
 
         return CreateRoomResponse(
             code=room.code,

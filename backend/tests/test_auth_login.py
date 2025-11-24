@@ -54,8 +54,9 @@ def test_test_login_returns_valid_tokens(client):
     assert response.status_code == 200
     data = response.json()
 
-    # Check token format
-    assert data['access_token'] == 'test-access-token'
+    # Check token format - tokens are now unique per session for security
+    assert data['access_token'].startswith('test_token_')
+    assert len(data['access_token']) > len('test_token_')
     assert data['refresh_token'] == 'test-refresh-token'
     assert data['expires_in'] == '3600'
 
