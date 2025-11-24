@@ -15,7 +15,8 @@ services:
     environment:
       - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
       - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
-      - SPOTIFY_REDIRECT_URI=http://localhost:8000/api/auth/callback
+      - SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI:-http://localhost:8000/api/auth/callback}
+      - PORT=${PORT:-8000}
       - SPOTIFY_MODE=live
       - MUSIC_SERVICE=spotify
       - SESSION_STORAGE=json_file
@@ -32,6 +33,7 @@ services:
       - ./frontend:/app/frontend
       - /app/frontend/node_modules
     environment:
-      - VITE_API_URL=http://localhost:7999
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+      - VITE_PORT=${VITE_PORT:-3000}
       - VITE_UI_MODE=minimal
       - VITE_TEST_MODE=false
