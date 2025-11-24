@@ -7,6 +7,7 @@ import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 
 // Configuration
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:9000";
 const DIFF_THRESHOLD = 0.001; // 0.1% pixel difference allowed
 const OUTPUT_DIR = resolve("tests/e2e/screenshots");
 const BASELINE_DIR = join(OUTPUT_DIR, "baseline");
@@ -96,7 +97,7 @@ async function seedTestData() {
   // Seed test data via backend API and get player IDs for localStorage injection
   console.log("Seeding test data...");
   try {
-    const response = await fetch("http://localhost:8000/api/testing/seed", {
+    const response = await fetch(`${BACKEND_URL}/api/testing/seed`, {
       method: "POST"
     });
     if (!response.ok) {
@@ -114,7 +115,7 @@ async function seedTestData() {
     return data;
   } catch (error) {
     console.warn("Warning: Could not connect to backend to seed test data:", error.message);
-    console.warn("Make sure backend is running on http://localhost:8000");
+    console.warn(`Make sure backend is running on ${BACKEND_URL}`);
     return null;
   }
 }

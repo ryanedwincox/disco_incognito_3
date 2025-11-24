@@ -48,6 +48,8 @@ frontend/tests/e2e/screenshots/*.json
 artifacts/
 scratchpad.txt
 .test_ports
+.run.ports
+.run.ports.test
 
 backend/data
 backend/.cache
