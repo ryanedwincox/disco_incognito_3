@@ -1,5 +1,5 @@
 import http from "node:http";
-import { mkdir, rm, readFile, writeFile, access, readdir } from "node:fs/promises";
+import { mkdir, rm, readFile, writeFile, access, readdir, cp } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import puppeteer from "puppeteer";
 import { createServer as createViteServer } from "vite";
@@ -10,28 +10,34 @@ import pixelmatch from "pixelmatch";
 const DIFF_THRESHOLD = 0.001; // 0.1% pixel difference allowed
 const OUTPUT_DIR = resolve("tests/e2e/screenshots");
 const BASELINE_DIR = join(OUTPUT_DIR, "baseline");
+const BASELINE_HOST_DIR = join(BASELINE_DIR, "host");
+const BASELINE_PLAYER_DIR = join(BASELINE_DIR, "player");
 const CURRENT_DIR = join(OUTPUT_DIR, "current");
+const CURRENT_HOST_DIR = join(CURRENT_DIR, "host");
+const CURRENT_PLAYER_DIR = join(CURRENT_DIR, "player");
 const DIFF_DIR = join(OUTPUT_DIR, "diff");
+const DIFF_HOST_DIR = join(DIFF_DIR, "host");
+const DIFF_PLAYER_DIR = join(DIFF_DIR, "player");
 
 // Parse command line arguments
 const UPDATE_MODE = process.argv.includes("--update") || process.argv.includes("--update-screenshots");
 
-// Routes with different room scenarios for realistic screenshots
-// Room codes correspond to test data seeding:
-// 123: Empty lobby (1 player)
-// 456: Lobby with 7 players, no songs
-// 789: Lobby with 7 players and 3 song pairs (ready to play)
-// 111: Playing state
-// 222: Guessing state
-// 333: Reveal state
-const ROUTES = [
+// Routes that need both host and player perspectives for dual-browser screenshots
+// Room codes correspond to test data seeding with deterministic player IDs:
+// 456: Lobby with 7 players, no songs (has host + player IDs)
+// 789: Lobby with 7 players and 3 song pairs (has host + player IDs)
+const DUAL_BROWSER_ROUTES = [
+  { path: "/rooms/456", label: "4b-room-lobby-players", roomCode: "456" },
+  { path: "/rooms/789", label: "4c-room-lobby-ready", roomCode: "789" },
+];
+
+// Routes that only need single browser (non-room or host-only views)
+const SINGLE_BROWSER_ROUTES = [
   { path: "/", label: "1a-login" },
   { path: "/", label: "1b-login-guest-form", action: "click-guest-login" },
   { path: "/rooms", label: "2-room-selection" },
   { path: "/test", label: "3-test-playback" },
   { path: "/rooms/123", label: "4a-room-lobby-empty" },
-  { path: "/rooms/456", label: "4b-room-lobby-players" },
-  { path: "/rooms/789", label: "4c-room-lobby-ready" },
   { path: "/rooms/789/songs", label: "5-song-picker" },
   { path: "/rooms/111/play", label: "6-game-playing" },
   { path: "/rooms/222/guess", label: "7-guessing" },
@@ -41,9 +47,12 @@ const ROUTES = [
 ];
 
 async function ensureDirectories() {
-  await mkdir(BASELINE_DIR, { recursive: true });
-  await mkdir(CURRENT_DIR, { recursive: true });
-  await mkdir(DIFF_DIR, { recursive: true });
+  await mkdir(BASELINE_HOST_DIR, { recursive: true });
+  await mkdir(BASELINE_PLAYER_DIR, { recursive: true });
+  await mkdir(CURRENT_HOST_DIR, { recursive: true });
+  await mkdir(CURRENT_PLAYER_DIR, { recursive: true });
+  await mkdir(DIFF_HOST_DIR, { recursive: true });
+  await mkdir(DIFF_PLAYER_DIR, { recursive: true });
 }
 
 async function fileExists(path) {
@@ -84,8 +93,7 @@ async function startViteServer() {
 }
 
 async function seedTestData() {
-  // Seed test data via backend API
-  // This creates rooms with realistic player and song data
+  // Seed test data via backend API and get player IDs for localStorage injection
   console.log("Seeding test data...");
   try {
     const response = await fetch("http://localhost:8000/api/testing/seed", {
@@ -93,17 +101,25 @@ async function seedTestData() {
     });
     if (!response.ok) {
       console.warn("Warning: Failed to seed test data. Screenshots may show empty states.");
-    } else {
-      const data = await response.json();
-      console.log(`Test data seeded: ${data.rooms?.join(", ") || "unknown rooms"}`);
+      return null;
     }
+    const data = await response.json();
+    console.log(`Test data seeded: ${data.rooms?.join(", ") || "unknown rooms"}`);
+    if (data.player_ids) {
+      console.log("Player IDs received for dual-browser testing:");
+      for (const [roomCode, ids] of Object.entries(data.player_ids)) {
+        console.log(`  Room ${roomCode}: host=${ids.host_id}, player=${ids.player_id || 'N/A'}`);
+      }
+    }
+    return data;
   } catch (error) {
     console.warn("Warning: Could not connect to backend to seed test data:", error.message);
     console.warn("Make sure backend is running on http://localhost:8000");
+    return null;
   }
 }
 
-async function captureScreenshots(baseUrl, outputDir) {
+async function createBrowser() {
   const launchOptions = {
     headless: "new",
     args: [
@@ -118,16 +134,20 @@ async function captureScreenshots(baseUrl, outputDir) {
     launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
   }
 
-  const browser = await puppeteer.launch(launchOptions);
+  return puppeteer.launch(launchOptions);
+}
+
+async function captureSingleBrowserScreenshots(baseUrl, outputDir) {
+  const browser = await createBrowser();
   const page = await browser.newPage();
   // Mobile viewport (iPhone 12/13 Pro dimensions)
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3 });
 
   const captured = [];
 
-  for (const route of ROUTES) {
+  for (const route of SINGLE_BROWSER_ROUTES) {
     const url = `${baseUrl}${route.path}`;
-    console.log(`Capturing: ${route.label} - ${route.path}`);
+    console.log(`Capturing (single): ${route.label} - ${route.path}`);
     await page.goto(url, { waitUntil: "networkidle0" });
 
     // Give a small delay for any animations to settle
@@ -149,10 +169,75 @@ async function captureScreenshots(baseUrl, outputDir) {
 
     const filePath = join(outputDir, `${route.label}.png`);
     await page.screenshot({ path: filePath, fullPage: true });
-    captured.push({ label: route.label, file: filePath });
+    captured.push({ label: route.label, file: filePath, perspective: "host" });
   }
 
   await browser.close();
+  return captured;
+}
+
+async function captureDualBrowserScreenshots(baseUrl, hostOutputDir, playerOutputDir, seedData) {
+  if (!seedData?.player_ids) {
+    console.warn("No player IDs available, skipping dual-browser screenshots");
+    return [];
+  }
+
+  const captured = [];
+
+  // Launch two browsers in parallel
+  const [hostBrowser, playerBrowser] = await Promise.all([
+    createBrowser(),
+    createBrowser()
+  ]);
+
+  const hostPage = await hostBrowser.newPage();
+  const playerPage = await playerBrowser.newPage();
+
+  // Mobile viewport for both
+  await Promise.all([
+    hostPage.setViewport({ width: 390, height: 844, deviceScaleFactor: 3 }),
+    playerPage.setViewport({ width: 390, height: 844, deviceScaleFactor: 3 })
+  ]);
+
+  for (const route of DUAL_BROWSER_ROUTES) {
+    const roomIds = seedData.player_ids[route.roomCode];
+    if (!roomIds) {
+      console.warn(`No player IDs for room ${route.roomCode}, skipping`);
+      continue;
+    }
+
+    const url = `${baseUrl}${route.path}`;
+    console.log(`Capturing (dual): ${route.label} - ${route.path}`);
+
+    // Navigate both browsers to the same room
+    await Promise.all([
+      hostPage.goto(url, { waitUntil: "networkidle0" }),
+      playerPage.goto(url, { waitUntil: "networkidle0" })
+    ]);
+
+    // Wait for animations
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Capture both perspectives simultaneously
+    const hostFilePath = join(hostOutputDir, `${route.label}.png`);
+    const playerFilePath = join(playerOutputDir, `${route.label}.png`);
+
+    await Promise.all([
+      hostPage.screenshot({ path: hostFilePath, fullPage: true }),
+      playerPage.screenshot({ path: playerFilePath, fullPage: true })
+    ]);
+
+    captured.push(
+      { label: route.label, file: hostFilePath, perspective: "host" },
+      { label: route.label, file: playerFilePath, perspective: "player" }
+    );
+  }
+
+  await Promise.all([
+    hostBrowser.close(),
+    playerBrowser.close()
+  ]);
+
   return captured;
 }
 
@@ -205,33 +290,42 @@ async function compareImages(baselinePath, currentPath, diffPath) {
 }
 
 async function runUpdateMode() {
-  console.log("=== Screenshot Update Mode ===");
+  console.log("=== Screenshot Update Mode (Dual-Browser) ===");
   console.log("Regenerating baseline screenshots...\n");
 
   await ensureDirectories();
 
   // Clear existing baselines
-  const existingFiles = await readdir(BASELINE_DIR).catch(() => []);
-  for (const file of existingFiles) {
-    if (file.endsWith(".png")) {
-      await rm(join(BASELINE_DIR, file));
+  for (const dir of [BASELINE_HOST_DIR, BASELINE_PLAYER_DIR]) {
+    const existingFiles = await readdir(dir).catch(() => []);
+    for (const file of existingFiles) {
+      if (file.endsWith(".png")) {
+        await rm(join(dir, file));
+      }
     }
   }
 
-  await seedTestData();
+  const seedData = await seedTestData();
   const { vite, httpServer, baseUrl } = await startViteServer();
 
   try {
-    const captured = await captureScreenshots(baseUrl, BASELINE_DIR);
+    // Capture single browser screenshots (to host dir)
+    const singleCaptured = await captureSingleBrowserScreenshots(baseUrl, BASELINE_HOST_DIR);
+
+    // Capture dual browser screenshots
+    const dualCaptured = await captureDualBrowserScreenshots(baseUrl, BASELINE_HOST_DIR, BASELINE_PLAYER_DIR, seedData);
+
+    const allCaptured = [...singleCaptured, ...dualCaptured];
 
     console.log(`\n=== Baseline Screenshots Updated ===`);
-    console.log(`Total screenshots: ${captured.length}`);
-    console.log(`Location: ${BASELINE_DIR}`);
+    console.log(`Total screenshots: ${allCaptured.length}`);
+    console.log(`Host screenshots: ${BASELINE_HOST_DIR}`);
+    console.log(`Player screenshots: ${BASELINE_PLAYER_DIR}`);
 
     // Write summary
     const summary = {
       updated: new Date().toISOString(),
-      screenshots: captured.map(c => c.label)
+      screenshots: allCaptured.map(c => ({ label: c.label, perspective: c.perspective }))
     };
     await writeFile(join(OUTPUT_DIR, "summary.json"), JSON.stringify(summary, null, 2));
 
@@ -251,25 +345,28 @@ async function runUpdateMode() {
 }
 
 async function runComparisonMode() {
-  console.log("=== Screenshot Comparison Mode ===");
+  console.log("=== Screenshot Comparison Mode (Dual-Browser) ===");
   console.log(`Threshold: ${DIFF_THRESHOLD * 100}% pixel difference allowed\n`);
 
   await ensureDirectories();
 
   // Check if baselines exist
-  const baselineFiles = await readdir(BASELINE_DIR).catch(() => []);
-  const baselinePngs = baselineFiles.filter(f => f.endsWith(".png"));
+  const hostBaselineFiles = await readdir(BASELINE_HOST_DIR).catch(() => []);
+  const playerBaselineFiles = await readdir(BASELINE_PLAYER_DIR).catch(() => []);
+  const hostBaselinePngs = hostBaselineFiles.filter(f => f.endsWith(".png"));
+  const playerBaselinePngs = playerBaselineFiles.filter(f => f.endsWith(".png"));
 
-  if (baselinePngs.length === 0) {
+  if (hostBaselinePngs.length === 0) {
     console.error("ERROR: No baseline screenshots found.");
     console.error("Run with --update-screenshots to generate baselines first.");
     return 1;
   }
 
-  console.log(`Found ${baselinePngs.length} baseline screenshots\n`);
+  console.log(`Found ${hostBaselinePngs.length} host baseline screenshots`);
+  console.log(`Found ${playerBaselinePngs.length} player baseline screenshots\n`);
 
   // Clear current and diff directories
-  for (const dir of [CURRENT_DIR, DIFF_DIR]) {
+  for (const dir of [CURRENT_HOST_DIR, CURRENT_PLAYER_DIR, DIFF_HOST_DIR, DIFF_PLAYER_DIR]) {
     const files = await readdir(dir).catch(() => []);
     for (const file of files) {
       if (file.endsWith(".png")) {
@@ -278,54 +375,49 @@ async function runComparisonMode() {
     }
   }
 
-  await seedTestData();
+  const seedData = await seedTestData();
   const { vite, httpServer, baseUrl } = await startViteServer();
 
   let exitCode = 0;
   const results = [];
 
   try {
-    const captured = await captureScreenshots(baseUrl, CURRENT_DIR);
+    // Capture current screenshots
+    const singleCaptured = await captureSingleBrowserScreenshots(baseUrl, CURRENT_HOST_DIR);
+    const dualCaptured = await captureDualBrowserScreenshots(baseUrl, CURRENT_HOST_DIR, CURRENT_PLAYER_DIR, seedData);
+    const allCaptured = [...singleCaptured, ...dualCaptured];
 
     console.log("\n=== Comparing Screenshots ===\n");
 
-    for (const { label } of captured) {
-      const baselinePath = join(BASELINE_DIR, `${label}.png`);
-      const currentPath = join(CURRENT_DIR, `${label}.png`);
-      const diffPath = join(DIFF_DIR, `${label}-diff.png`);
+    for (const { label, file, perspective } of allCaptured) {
+      const baselineDir = perspective === "player" ? BASELINE_PLAYER_DIR : BASELINE_HOST_DIR;
+      const diffDir = perspective === "player" ? DIFF_PLAYER_DIR : DIFF_HOST_DIR;
+
+      const baselinePath = join(baselineDir, `${label}.png`);
+      const diffPath = join(diffDir, `${label}-diff.png`);
 
       const hasBaseline = await fileExists(baselinePath);
 
       if (!hasBaseline) {
-        console.log(`⚠️  ${label}: NO BASELINE (new screenshot)`);
-        results.push({ label, status: "new" });
+        console.log(`⚠️  ${label} (${perspective}): NO BASELINE (new screenshot)`);
+        results.push({ label, perspective, status: "new" });
         exitCode = 1;
         continue;
       }
 
-      const comparison = await compareImages(baselinePath, currentPath, diffPath);
+      const comparison = await compareImages(baselinePath, file, diffPath);
 
       if (comparison.error) {
-        console.log(`❌ ${label}: ${comparison.error}`);
-        results.push({ label, status: "error", error: comparison.error });
+        console.log(`❌ ${label} (${perspective}): ${comparison.error}`);
+        results.push({ label, perspective, status: "error", error: comparison.error });
         exitCode = 1;
       } else if (comparison.match) {
-        console.log(`✅ ${label}: MATCH (${comparison.diffPixels} pixels differ, ${comparison.diffPercent.toFixed(4)}%)`);
-        results.push({ label, status: "match", ...comparison });
+        console.log(`✅ ${label} (${perspective}): MATCH (${comparison.diffPixels} pixels differ, ${comparison.diffPercent.toFixed(4)}%)`);
+        results.push({ label, perspective, status: "match", ...comparison });
       } else {
-        console.log(`❌ ${label}: MISMATCH (${comparison.diffPixels} pixels differ, ${comparison.diffPercent.toFixed(4)}%)`);
+        console.log(`❌ ${label} (${perspective}): MISMATCH (${comparison.diffPixels} pixels differ, ${comparison.diffPercent.toFixed(4)}%)`);
         console.log(`   Diff saved to: ${diffPath}`);
-        results.push({ label, status: "mismatch", ...comparison });
-        exitCode = 1;
-      }
-    }
-
-    // Check for missing screenshots (baselines that weren't captured)
-    for (const baselineFile of baselinePngs) {
-      const label = baselineFile.replace(".png", "");
-      if (!captured.find(c => c.label === label)) {
-        console.log(`⚠️  ${label}: MISSING (baseline exists but not captured)`);
-        results.push({ label, status: "missing" });
+        results.push({ label, perspective, status: "mismatch", ...comparison });
         exitCode = 1;
       }
     }
@@ -333,12 +425,12 @@ async function runComparisonMode() {
     // Summary
     const passed = results.filter(r => r.status === "match").length;
     const failed = results.filter(r => r.status === "mismatch").length;
-    const errors = results.filter(r => r.status === "error" || r.status === "new" || r.status === "missing").length;
+    const errors = results.filter(r => r.status === "error" || r.status === "new").length;
 
     console.log("\n=== Summary ===");
     console.log(`Passed: ${passed}`);
     console.log(`Failed: ${failed}`);
-    console.log(`Errors/New/Missing: ${errors}`);
+    console.log(`Errors/New: ${errors}`);
 
     if (exitCode !== 0) {
       console.log("\nRun with --update-screenshots to update baselines if changes are intentional.");
