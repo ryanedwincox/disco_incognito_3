@@ -8,7 +8,9 @@
       "Write",
       "mcp__ide__getDiagnostics",
       "WebFetch",
-      "WebSearch"
+      "WebSearch",
+      "Grep",
+      "Glob"
     ],
     "deny": [],
     "ask": []
