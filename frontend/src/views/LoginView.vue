@@ -103,11 +103,11 @@ onMounted(() => {
   const query = route.query
 
   // Check if this is an OAuth callback with tokens
-  if (query.auth_success === 'true' && query.access_token) {
-    const accessToken = query.access_token as string
-    const refreshToken = query.refresh_token as string
-    const userId = query.user_id as string
-    const displayName = query.display_name as string
+  if (query['auth_success'] === 'true' && query['access_token']) {
+    const accessToken = query['access_token'] as string
+    const refreshToken = query['refresh_token'] as string
+    const userId = query['user_id'] as string
+    const userName = query['display_name'] as string
 
     // Store tokens
     authStore.setTokens(accessToken, refreshToken)
@@ -115,20 +115,20 @@ onMounted(() => {
     // Store user info
     authStore.setUser({
       id: userId,
-      displayName: displayName,
+      displayName: userName,
       email: '' // Email not provided in callback
     })
 
-    successMessage.value = `Welcome, ${displayName}!`
-    console.log(`✅ Spotify login successful: ${displayName}`)
+    successMessage.value = `Welcome, ${userName}!`
+    console.log(`✅ Spotify login successful: ${userName}`)
 
     // Clean up URL and redirect to rooms
     setTimeout(() => {
       router.replace('/rooms')
     }, 500)
-  } else if (query.error) {
+  } else if (query['error']) {
     // Handle OAuth error
-    errorMessage.value = query.error as string
+    errorMessage.value = query['error'] as string
   }
 })
 
@@ -138,9 +138,16 @@ async function handleSpotifyLogin() {
   successMessage.value = ''
 
   try {
-    // Redirect to Spotify OAuth
+    // Attempt Spotify login (redirects in live mode, returns in test mode)
     await authStore.spotifyLogin()
-    // Note: Will redirect to Spotify, so code after this won't execute
+
+    // If we get here, test mode login succeeded (live mode would have redirected)
+    if (authStore.isAuthenticated) {
+      successMessage.value = `Welcome, ${authStore.userName}!`
+      setTimeout(() => {
+        router.push('/rooms')
+      }, 500)
+    }
   } catch (error: unknown) {
     console.error('Login error:', error)
     errorMessage.value = (error as Error).message || 'An error occurred during login'

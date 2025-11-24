@@ -5,9 +5,11 @@ Tests the test-login endpoint that creates random disco-themed users.
 """
 
 import pytest
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.core.settings import Settings
 
 
 @pytest.fixture
@@ -195,17 +197,45 @@ def test_test_login_randomness(client):
     assert len(unique_names) >= 8, f'Expected at least 8 unique names, got {len(unique_names)}'
 
 
-def test_regular_login_endpoint_still_works(client):
-    """Test that the regular /auth/login endpoint still exists and works."""
-    response = client.get('/api/auth/login')
+def test_login_endpoint_in_live_mode_returns_oauth_url(client):
+    """Test that /auth/login in live mode returns OAuth authorization URL."""
+    # Patch to simulate live mode
+    mock_settings = Settings(
+        SPOTIFY_MODE='live',
+        DEBUG=True,
+    )
+
+    with patch('app.api.routes.auth.settings', mock_settings):
+        response = client.get('/api/auth/login')
 
     assert response.status_code == 200
     data = response.json()
 
-    # Should return authorization URL
+    # In live mode, should return authorization URL
     assert 'authorize_url' in data
     assert 'state' in data
     assert 'message' in data
+
+
+def test_login_endpoint_in_test_mode_returns_mock_auth(client):
+    """Test that /auth/login in test mode returns mock auth data directly."""
+    # Patch to ensure test mode
+    mock_settings = Settings(
+        SPOTIFY_MODE='test',
+        DEBUG=True,
+    )
+
+    with patch('app.api.routes.auth.settings', mock_settings):
+        response = client.get('/api/auth/login')
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # In test mode, should return mock auth data (no OAuth redirect)
+    assert 'access_token' in data
+    assert 'user_id' in data
+    assert 'display_name' in data
+    assert 'authorize_url' not in data
 
 
 def test_logout_endpoint_works(client):

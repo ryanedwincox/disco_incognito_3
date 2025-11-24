@@ -127,12 +127,28 @@ export const useAuthStore = defineStore("auth", {
 
     async spotifyLogin(): Promise<void> {
       try {
-        // Get authorization URL
+        // Get authorization URL (or direct auth data in test mode)
         const response = await axios.get(`${API_URL}/api/auth/login`);
-        const authUrl = response.data.authorize_url;
+        const data = response.data;
 
-        // Redirect to Spotify authorization
-        window.location.href = authUrl;
+        // In test mode, backend returns auth data directly
+        if (data.access_token) {
+          this.setTokens(data.access_token, data.refresh_token);
+          this.setUser({
+            id: data.user_id,
+            displayName: data.display_name,
+            email: data.email
+          });
+          console.log(`✅ Test mode login successful: ${data.display_name}`);
+          return;
+        }
+
+        // Live mode: redirect to Spotify authorization
+        if (data.authorize_url) {
+          window.location.href = data.authorize_url;
+        } else {
+          throw new Error("No authorization URL received");
+        }
       } catch (error: unknown) {
         console.error("Spotify login failed:", error);
         const axiosError = error as { response?: { data?: { detail?: string } } };
