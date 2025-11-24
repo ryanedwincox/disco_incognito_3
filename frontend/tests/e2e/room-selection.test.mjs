@@ -153,17 +153,20 @@ async function runTests() {
       // Navigate back to room selection
       await page.goto(`${baseUrl}/rooms`, { waitUntil: "networkidle0" });
 
-      // Click Create Room and wait for navigation
-      await Promise.all([
-        page.waitForNavigation({ timeout: 5000, waitUntil: "networkidle0" }),
-        page.evaluate(() => {
-          const buttons = Array.from(document.querySelectorAll('button'));
-          const btn = buttons.find(b => b.textContent.includes('Create Room'));
-          if (btn) {
-            btn.click();
-          }
-        })
-      ]);
+      // Click Create Room button
+      await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const btn = buttons.find(b => b.textContent.includes('Create Room'));
+        if (btn) {
+          btn.click();
+        }
+      });
+
+      // Wait for URL to change to /rooms/### pattern (async API call + navigation)
+      await page.waitForFunction(
+        () => /^\/rooms\/\d{3}$/.test(window.location.pathname),
+        { timeout: 10000 }
+      );
 
       const currentUrl = page.url();
       const urlPath = new URL(currentUrl).pathname;

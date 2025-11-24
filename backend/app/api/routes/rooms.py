@@ -1,0 +1,90 @@
+"""Room management routes.
+
+Provides endpoints for creating and managing game rooms. Handles room creation,
+player joining, and room state retrieval.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel, Field
+
+from ...dependencies.storage import get_storage_adapter
+from ...models.room import Player, RoomState
+from ...storage.base import StorageAdapter
+
+router = APIRouter(prefix='/rooms', tags=['Rooms'])
+logger = logging.getLogger(__name__)
+
+
+class CreateRoomRequest(BaseModel):
+    """Request model for creating a new room."""
+
+    room_code: str = Field(..., min_length=3, max_length=3, pattern=r'^\d{3}$', description='3-digit room code')
+
+
+class CreateRoomResponse(BaseModel):
+    """Response model for room creation."""
+
+    code: str
+    host_id: str
+    players: list[dict]
+    status: str
+
+
+@router.post('', summary='Create a new room', response_model=CreateRoomResponse)
+async def create_room(
+    body: CreateRoomRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+    x_user_id: str = Header(..., description='User ID from auth'),
+    x_display_name: str = Header('Guest', description='Display name of user'),
+) -> CreateRoomResponse:
+    """
+    Create a new game room.
+
+    Creates a room with the specified code and adds the current user as host.
+    Room code must be a 3-digit number.
+
+    Returns:
+        Created room data including code, host_id, players list, and status.
+    """
+    try:
+        # Check if room already exists
+        existing_room = await storage.get_room(body.room_code)
+        if existing_room:
+            raise HTTPException(status_code=409, detail='Room already exists')
+
+        # Create host player
+        host_player = Player(
+            id=x_user_id,
+            display_name=x_display_name,
+            is_host=True,
+            is_connected=True,
+        )
+
+        # Create room state
+        room = RoomState(
+            code=body.room_code,
+            host_id=x_user_id,
+            players=[host_player],
+            status='lobby',
+        )
+
+        # Store the room
+        await storage.upsert_room(body.room_code, room.model_dump(mode='json'))
+
+        logger.info(f'Room {body.room_code} created by user {x_user_id}')
+
+        return CreateRoomResponse(
+            code=room.code,
+            host_id=room.host_id,
+            players=[p.model_dump() for p in room.players],
+            status=room.status,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f'Error creating room: {e}', exc_info=True)
+        raise HTTPException(status_code=500, detail='Failed to create room')
