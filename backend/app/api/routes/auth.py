@@ -17,7 +17,9 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
 from ...core.settings import settings
+from ...dependencies.storage import get_storage_adapter
 from ...services.spotify import SpotifyAuthService
+from ...storage.base import StorageAdapter
 
 
 class ManualLoginRequest(BaseModel):
@@ -35,7 +37,10 @@ def get_spotify_service() -> SpotifyAuthService:
 
 
 @router.get('/login', summary='Begin Spotify OAuth flow')
-async def login(service: SpotifyAuthService = Depends(get_spotify_service)) -> dict[str, str]:
+async def login(
+    service: SpotifyAuthService = Depends(get_spotify_service),
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> dict[str, str]:
     """
     Generate Spotify authorization URL for user login.
 
@@ -51,9 +56,20 @@ async def login(service: SpotifyAuthService = Depends(get_spotify_service)) -> d
         if settings.spotify_mode.lower() == 'test':
             token_info = await service.handle_callback(code='test-code', state='test-state')
             user_info = await service.get_user_info(token_info['access_token'])
+
+            # Generate unique token for this session (test-access-token is not unique)
+            access_token = f'test_token_{secrets.token_urlsafe(32)}'
+
+            # Store session mapping token -> user info
+            await storage.set_session(access_token, {
+                'user_id': user_info.get('id', ''),
+                'display_name': user_info.get('display_name', ''),
+                'email': user_info.get('email', ''),
+            })
+
             logger.info(f'Test mode login successful for user: {user_info.get("display_name", "unknown")}')
             return {
-                'access_token': token_info['access_token'],
+                'access_token': access_token,
                 'refresh_token': token_info.get('refresh_token', ''),
                 'expires_in': str(token_info.get('expires_in', 3600)),
                 'user_id': user_info.get('id', ''),
@@ -163,7 +179,10 @@ async def refresh(refresh_token: str, service: SpotifyAuthService = Depends(get_
 
 
 @router.post('/test-login', summary='Create test user (test mode only)')
-async def test_login(service: SpotifyAuthService = Depends(get_spotify_service)) -> dict[str, str]:
+async def test_login(
+    service: SpotifyAuthService = Depends(get_spotify_service),
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> dict[str, str]:
     """
     Create a test user with random disco-themed name.
 
@@ -184,10 +203,20 @@ async def test_login(service: SpotifyAuthService = Depends(get_spotify_service))
         # Get random test user info
         user_info = await service.get_user_info(token_info['access_token'])
 
+        # Generate unique token for this session
+        access_token = f'test_token_{secrets.token_urlsafe(32)}'
+
+        # Store session mapping token -> user info
+        await storage.set_session(access_token, {
+            'user_id': user_info.get('id', ''),
+            'display_name': user_info.get('display_name', ''),
+            'email': user_info.get('email', ''),
+        })
+
         logger.info(f'Test login successful for user: {user_info.get("display_name", "unknown")}')
 
         return {
-            'access_token': token_info['access_token'],
+            'access_token': access_token,
             'refresh_token': token_info.get('refresh_token', ''),
             'expires_in': str(token_info.get('expires_in', 3600)),
             'user_id': user_info.get('id', ''),
@@ -200,7 +229,10 @@ async def test_login(service: SpotifyAuthService = Depends(get_spotify_service))
 
 
 @router.post('/manual-login', summary='Manual login with display name')
-async def manual_login(body: ManualLoginRequest) -> dict[str, str]:
+async def manual_login(
+    body: ManualLoginRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> dict[str, str]:
     """
     Create a guest user with the provided display name.
 
@@ -217,6 +249,13 @@ async def manual_login(body: ManualLoginRequest) -> dict[str, str]:
         # Generate mock tokens for session management
         access_token = f'manual_token_{secrets.token_urlsafe(32)}'
         refresh_token = f'manual_refresh_{secrets.token_urlsafe(32)}'
+
+        # Store session mapping token -> user info
+        await storage.set_session(access_token, {
+            'user_id': user_id,
+            'display_name': body.display_name,
+            'email': '',
+        })
 
         logger.info(f'Manual login successful for user: {body.display_name}')
 

@@ -33,3 +33,15 @@ class StorageAdapter(ABC):
     @abstractmethod
     async def delete_room(self, room_code: str) -> None:
         """Remove a room from storage."""
+
+    @abstractmethod
+    async def get_session(self, token: str) -> dict[str, Any] | None:
+        """Fetch session data by access token if present."""
+
+    @abstractmethod
+    async def set_session(self, token: str, data: dict[str, Any]) -> None:
+        """Store session data keyed by access token."""
+
+    @abstractmethod
+    async def delete_session(self, token: str) -> None:
+        """Remove a session from storage."""

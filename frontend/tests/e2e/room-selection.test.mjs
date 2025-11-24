@@ -150,20 +150,49 @@ async function runTests() {
     // Test 3: Create Room button navigates to room lobby
     console.log("Test 3: Create Room button navigates to room lobby");
     try {
-      // Navigate back to room selection
+      // Authenticate first - room creation requires Bearer token auth
+      const loginResponse = await fetch(`${BACKEND_URL}/api/auth/test-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!loginResponse.ok) {
+        throw new Error(`Failed to authenticate: ${loginResponse.status}`);
+      }
+
+      const loginData = await loginResponse.json();
+
+      // Store auth tokens in localStorage
+      await page.evaluate((data) => {
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('refresh_token', data.refresh_token);
+        localStorage.setItem('user', JSON.stringify({
+          id: data.user_id,
+          displayName: data.display_name,
+          email: data.email
+        }));
+      }, loginData);
+
+      // Navigate back to room selection (with auth now in localStorage)
       await page.goto(`${baseUrl}/rooms`, { waitUntil: "networkidle0" });
 
-      // Click Create Room and wait for navigation
-      await Promise.all([
-        page.waitForNavigation({ timeout: 5000, waitUntil: "networkidle0" }),
-        page.evaluate(() => {
-          const buttons = Array.from(document.querySelectorAll('button'));
-          const btn = buttons.find(b => b.textContent.includes('Create Room'));
-          if (btn) {
-            btn.click();
-          }
-        })
-      ]);
+      // Wait a moment for Pinia store to load from localStorage
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Click Create Room button
+      await page.evaluate(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const btn = buttons.find(b => b.textContent.includes('Create Room'));
+        if (btn) {
+          btn.click();
+        }
+      });
+
+      // Wait for URL to change to /rooms/### pattern (async API call + navigation)
+      await page.waitForFunction(
+        () => /^\/rooms\/\d{3}$/.test(window.location.pathname),
+        { timeout: 10000 }
+      );
 
       const currentUrl = page.url();
       const urlPath = new URL(currentUrl).pathname;

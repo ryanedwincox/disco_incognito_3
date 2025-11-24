@@ -68,6 +68,24 @@ class JSONFileStorage(StorageAdapter):
             del rooms[room_code]
             await self.save(state)
 
+    async def get_session(self, token: str) -> dict[str, Any] | None:
+        state = await self.load()
+        sessions = state.get('sessions', {})
+        return sessions.get(token)
+
+    async def set_session(self, token: str, data: dict[str, Any]) -> None:
+        state = await self.load()
+        sessions = state.setdefault('sessions', {})
+        sessions[token] = data
+        await self.save(state)
+
+    async def delete_session(self, token: str) -> None:
+        state = await self.load()
+        sessions = state.get('sessions', {})
+        if token in sessions:
+            del sessions[token]
+            await self.save(state)
+
     def _read_file(self) -> dict[str, Any]:
         with self._lock:
             if not self._path.exists():

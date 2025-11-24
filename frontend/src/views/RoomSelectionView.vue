@@ -43,18 +43,44 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationStore } from '@/stores/notifications'
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const notificationStore = useNotificationStore()
 const roomCode = ref('')
 
-function createRoom() {
+// Load auth state from localStorage on component mount
+authStore.loadFromStorage()
+
+async function createRoom() {
   // Generate a random 3-digit room code
   const code = Math.floor(100 + Math.random() * 900).toString()
   console.log('Creating room with code:', code)
 
-  // Navigate to room lobby
-  router.push(`/rooms/${code}`)
+  try {
+    // POST to create room on backend
+    await axios.post(
+      `${API_URL}/api/rooms`,
+      { room_code: code },
+      {
+        headers: {
+          Authorization: `Bearer ${authStore.accessToken}`
+        }
+      }
+    )
+
+    // Navigate to room lobby on success
+    router.push(`/rooms/${code}`)
+  } catch (error: unknown) {
+    console.error('Failed to create room:', error)
+    const axiosError = error as { response?: { data?: { detail?: string } }; message?: string }
+    const errorMessage = axiosError.response?.data?.detail || axiosError.message || 'Failed to create room'
+    notificationStore.error('Room Creation Failed', errorMessage)
+  }
 }
 
 function joinRoom() {
