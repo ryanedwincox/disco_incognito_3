@@ -30,13 +30,27 @@
       <div class="bg-zinc-900/70 rounded-3xl p-6">
         <h3 class="text-lg font-semibold mb-4">Players</h3>
         <ul class="space-y-3">
-          <li class="flex items-center justify-between bg-zinc-900 rounded-2xl px-4 py-3">
-            <span>DJ Host</span>
-            <span class="text-xs uppercase tracking-wider text-disco-pink">Host</span>
+          <li
+            v-for="player in players"
+            :key="player.id"
+            class="flex items-center justify-between bg-zinc-900 rounded-2xl px-4 py-3"
+          >
+            <span>{{ player.name }}</span>
+            <span
+              v-if="player.isHost"
+              class="bg-disco-pink text-black text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+            >
+              Host
+            </span>
+            <span
+              v-else
+              class="text-xs uppercase tracking-wider text-zinc-400"
+            >
+              {{ player.isConnected ? 'Ready' : 'Disconnected' }}
+            </span>
           </li>
-          <li class="flex items-center justify-between bg-zinc-900 rounded-2xl px-4 py-3">
-            <span>Guest Listener</span>
-            <span class="text-xs uppercase tracking-wider text-zinc-400">Ready</span>
+          <li v-if="players.length === 0" class="text-zinc-400 text-center py-4">
+            No players yet
           </li>
         </ul>
       </div>
@@ -50,23 +64,52 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useRoomStore } from '../stores/room'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const router = useRouter()
 const route = useRoute()
+const roomStore = useRoomStore()
 
-const roomCode = computed(() => route.params.code || '123')
+const roomCode = computed(() => (route.params.code as string) || '123')
+const players = computed(() => roomStore.players)
+
+onMounted(async () => {
+  // Set room code in store
+  roomStore.setRoom(roomCode.value)
+
+  // Fetch room data from API if available
+  try {
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}`)
+    if (response.ok) {
+      const data = await response.json()
+      if (data.players) {
+        roomStore.setPlayers(
+          data.players.map((p: { id: string; display_name: string; is_host: boolean; is_connected: boolean }) => ({
+            id: p.id,
+            name: p.display_name,
+            isHost: p.is_host,
+            isConnected: p.is_connected
+          }))
+        )
+      }
+    }
+  } catch (error) {
+    console.log('Could not fetch room data:', error)
+  }
+})
 
 function leaveRoom() {
   console.log('Leaving room:', roomCode.value)
-  // Navigate back to room selection
+  roomStore.reset()
   router.push('/rooms')
 }
 
 function pickSongs() {
   console.log('Navigating to song picker for room:', roomCode.value)
-  // Navigate to song picker for this room
   router.push(`/rooms/${roomCode.value}/songs`)
 }
 </script>

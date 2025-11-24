@@ -23,7 +23,7 @@ def is_test_mode() -> bool:
 
 
 @router.post('/seed', summary='Seed test data')
-async def seed_data() -> dict[str, str]:
+async def seed_data() -> dict:
     """
     Seed the database with realistic test data for screenshots and development.
 
@@ -35,15 +35,22 @@ async def seed_data() -> dict[str, str]:
     - Room 222: Guessing state
     - Room 333: Reveal state
 
+    Returns player IDs for each room to enable localStorage injection
+    for dual-browser screenshot testing.
+
     Only available in test/debug mode.
     """
     if not is_test_mode():
         raise HTTPException(status_code=403, detail='Test data seeding is only available in test/debug mode')
 
     try:
-        await seed_test_data()
+        player_ids = await seed_test_data()
         logger.info('Test data seeded successfully')
-        return {'message': 'Test data seeded successfully', 'rooms': ['123', '456', '789', '111', '222', '333']}
+        return {
+            'message': 'Test data seeded successfully',
+            'rooms': ['123', '456', '789', '111', '222', '333'],
+            'player_ids': player_ids,
+        }
     except Exception as e:
         logger.error(f'Error seeding test data: {e}', exc_info=True)
         raise HTTPException(status_code=500, detail=f'Failed to seed test data: {str(e)}')

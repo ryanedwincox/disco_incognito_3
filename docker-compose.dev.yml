@@ -29,6 +29,8 @@ services:
       dockerfile: dev.Dockerfile
       target: dev-frontend
     network_mode: host
+    env_file:
+      - ./frontend/.env
     volumes:
       - ./frontend:/app/frontend
       - /app/frontend/node_modules
