@@ -68,6 +68,8 @@ import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useRoomStore } from '../stores/room'
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 const router = useRouter()
 const route = useRoute()
 const roomStore = useRoomStore()
@@ -81,7 +83,7 @@ onMounted(async () => {
 
   // Fetch room data from API if available
   try {
-    const response = await fetch(`http://localhost:8000/api/rooms/${roomCode.value}`)
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}`)
     if (response.ok) {
       const data = await response.json()
       if (data.players) {
