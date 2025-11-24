@@ -88,3 +88,21 @@ async def create_room(
     except Exception as e:
         logger.error(f'Error creating room: {e}', exc_info=True)
         raise HTTPException(status_code=500, detail='Failed to create room')
+
+
+@router.get('/{room_code}', summary='Get room by code')
+async def get_room(
+    room_code: str,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoomState:
+    """
+    Fetch room state by room code.
+
+    Returns room data including players list with host indicator.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    return RoomState(**room_data)

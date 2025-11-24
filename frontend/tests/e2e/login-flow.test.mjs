@@ -12,7 +12,7 @@ import { createServer as createViteServer } from "vite";
 const TEST_TIMEOUT = 30000; // 30 seconds
 
 // Test configuration
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:9000";
 const HEADLESS = process.env.HEADLESS !== "false"; // Run headless by default
 
 /**
@@ -72,8 +72,7 @@ async function runTests() {
   const backendAvailable = await checkBackendAvailable();
   if (!backendAvailable) {
     console.error("❌ Backend not available at", BACKEND_URL);
-    console.error("   Please start the backend server first:");
-    console.error("   cd backend && uvicorn app.main:app --reload --port 8000\n");
+    console.error("   Please start the backend server first with ./run.sh\n");
     process.exit(1);
   }
   console.log("✅ Backend is running\n");

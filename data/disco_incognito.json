@@ -5,5 +5,377 @@
       "email": "test-user-42ae7d97@disco.test",
       "user_id": "test-user-42ae7d97"
     }
+  },
+  "rooms": {
+    "111": {
+      "code": "111",
+      "created_at": "2025-11-23T19:21:47.787872",
+      "dancer_incognito_player_id": "test-user-8c0b5bfa",
+      "host_id": "test-user-387579cf",
+      "last_active_at": "2025-11-23T19:21:47.787872",
+      "players": [
+        {
+          "display_name": "Jazzy Hero",
+          "id": "test-user-387579cf",
+          "is_connected": true,
+          "is_host": true
+        },
+        {
+          "display_name": "Flashy Voyager",
+          "id": "test-user-38ad570c",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Swinging Diamond",
+          "id": "test-user-e4658b4a",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Electric Pearl",
+          "id": "test-user-cf71f7ec",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Funky Star",
+          "id": "test-user-a1ef4e06",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Golden Dreamer",
+          "id": "test-user-fa541b6e",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Glittery Phoenix",
+          "id": "test-user-8c0b5bfa",
+          "is_connected": true,
+          "is_host": false
+        }
+      ],
+      "song_pairs": [
+        {
+          "added_by": "test-user-387579cf",
+          "created_at": "2025-11-23T19:21:47.787842",
+          "id": "pair-232347c2",
+          "track_a": "spotify:track:Stayin' Alive - Bee Gees",
+          "track_b": "spotify:track:Night Fever - Bee Gees"
+        },
+        {
+          "added_by": "test-user-38ad570c",
+          "created_at": "2025-11-23T19:21:47.787855",
+          "id": "pair-34cc9ebf",
+          "track_a": "spotify:track:September - Earth, Wind & Fire",
+          "track_b": "spotify:track:Boogie Wonderland - Earth, Wind & Fire"
+        },
+        {
+          "added_by": "test-user-e4658b4a",
+          "created_at": "2025-11-23T19:21:47.787863",
+          "id": "pair-6e095245",
+          "track_a": "spotify:track:I Will Survive - Gloria Gaynor",
+          "track_b": "spotify:track:Never Can Say Goodbye - Gloria Gaynor"
+        }
+      ],
+      "status": "playing"
+    },
+    "123": {
+      "code": "123",
+      "created_at": "2025-11-23T19:21:47.774031",
+      "dancer_incognito_player_id": null,
+      "host_id": "test-host-123",
+      "last_active_at": "2025-11-23T19:21:47.774033",
+      "players": [
+        {
+          "display_name": "Groovy Dancer",
+          "id": "test-host-123",
+          "is_connected": true,
+          "is_host": true
+        }
+      ],
+      "song_pairs": [],
+      "status": "lobby"
+    },
+    "222": {
+      "code": "222",
+      "created_at": "2025-11-23T19:21:47.788987",
+      "dancer_incognito_player_id": "test-user-d9765dab",
+      "host_id": "test-user-824c002b",
+      "last_active_at": "2025-11-23T19:21:47.788987",
+      "players": [
+        {
+          "display_name": "Funky Star",
+          "id": "test-user-824c002b",
+          "is_connected": true,
+          "is_host": true
+        },
+        {
+          "display_name": "Rad Legend",
+          "id": "test-user-5eb69b93",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Groovy Dancer",
+          "id": "test-user-2e032891",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Glittery Phoenix",
+          "id": "test-user-d9765dab",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Smooth Rebel",
+          "id": "test-user-6a3f2c07",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Swinging Diamond",
+          "id": "test-user-94040f0e",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Stellar Champion",
+          "id": "test-user-13f068dd",
+          "is_connected": true,
+          "is_host": false
+        }
+      ],
+      "song_pairs": [
+        {
+          "added_by": "test-user-824c002b",
+          "created_at": "2025-11-23T19:21:47.788962",
+          "id": "pair-553318fc",
+          "track_a": "spotify:track:Stayin' Alive - Bee Gees",
+          "track_b": "spotify:track:Night Fever - Bee Gees"
+        },
+        {
+          "added_by": "test-user-5eb69b93",
+          "created_at": "2025-11-23T19:21:47.788972",
+          "id": "pair-97643cee",
+          "track_a": "spotify:track:September - Earth, Wind & Fire",
+          "track_b": "spotify:track:Boogie Wonderland - Earth, Wind & Fire"
+        },
+        {
+          "added_by": "test-user-2e032891",
+          "created_at": "2025-11-23T19:21:47.788980",
+          "id": "pair-63f0121b",
+          "track_a": "spotify:track:I Will Survive - Gloria Gaynor",
+          "track_b": "spotify:track:Never Can Say Goodbye - Gloria Gaynor"
+        }
+      ],
+      "status": "guessing"
+    },
+    "333": {
+      "code": "333",
+      "created_at": "2025-11-23T19:21:47.790151",
+      "dancer_incognito_player_id": "test-user-77258a3e",
+      "host_id": "test-user-9f7af78e",
+      "last_active_at": "2025-11-23T19:21:47.790152",
+      "players": [
+        {
+          "display_name": "Flashy Voyager",
+          "id": "test-user-9f7af78e",
+          "is_connected": true,
+          "is_host": true
+        },
+        {
+          "display_name": "Boogie Eagle",
+          "id": "test-user-8227ebcf",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Jazzy Hero",
+          "id": "test-user-8066a01a",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Rad Legend",
+          "id": "test-user-376b065c",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Cool Maverick",
+          "id": "test-user-a288e631",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Retro Ninja",
+          "id": "test-user-b8ef138c",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Sparkly Bee",
+          "id": "test-user-77258a3e",
+          "is_connected": true,
+          "is_host": false
+        }
+      ],
+      "song_pairs": [
+        {
+          "added_by": "test-user-9f7af78e",
+          "created_at": "2025-11-23T19:21:47.790126",
+          "id": "pair-467d0ca5",
+          "track_a": "spotify:track:Stayin' Alive - Bee Gees",
+          "track_b": "spotify:track:Night Fever - Bee Gees"
+        },
+        {
+          "added_by": "test-user-8227ebcf",
+          "created_at": "2025-11-23T19:21:47.790136",
+          "id": "pair-3c78aab3",
+          "track_a": "spotify:track:September - Earth, Wind & Fire",
+          "track_b": "spotify:track:Boogie Wonderland - Earth, Wind & Fire"
+        },
+        {
+          "added_by": "test-user-8066a01a",
+          "created_at": "2025-11-23T19:21:47.790144",
+          "id": "pair-b969207f",
+          "track_a": "spotify:track:I Will Survive - Gloria Gaynor",
+          "track_b": "spotify:track:Never Can Say Goodbye - Gloria Gaynor"
+        }
+      ],
+      "status": "reveal"
+    },
+    "456": {
+      "code": "456",
+      "created_at": "2025-11-23T19:21:47.776055",
+      "dancer_incognito_player_id": null,
+      "host_id": "test-host-456",
+      "last_active_at": "2025-11-23T19:21:47.776057",
+      "players": [
+        {
+          "display_name": "Flashy Voyager",
+          "id": "test-host-456",
+          "is_connected": true,
+          "is_host": true
+        },
+        {
+          "display_name": "Swinging Diamond",
+          "id": "test-player-456",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Boogie Eagle",
+          "id": "test-user-12b05d38",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Golden Dreamer",
+          "id": "test-user-bd90dd6d",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Dancing Tiger",
+          "id": "test-user-3cc43648",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Shiny Comet",
+          "id": "test-user-4d1bc8e9",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Vivid Wizard",
+          "id": "test-user-3cc7dbdd",
+          "is_connected": true,
+          "is_host": false
+        }
+      ],
+      "song_pairs": [],
+      "status": "lobby"
+    },
+    "789": {
+      "code": "789",
+      "created_at": "2025-11-23T19:21:47.785866",
+      "dancer_incognito_player_id": null,
+      "host_id": "test-host-789",
+      "last_active_at": "2025-11-23T19:21:47.785866",
+      "players": [
+        {
+          "display_name": "Cosmic Unicorn",
+          "id": "test-host-789",
+          "is_connected": true,
+          "is_host": true
+        },
+        {
+          "display_name": "Sparkly Bee",
+          "id": "test-player-789",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Retro Ninja",
+          "id": "test-user-9a5bd493",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Smooth Rebel",
+          "id": "test-user-62b591ec",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Glittery Phoenix",
+          "id": "test-user-4bbff666",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Rad Legend",
+          "id": "test-user-ee73b5b8",
+          "is_connected": true,
+          "is_host": false
+        },
+        {
+          "display_name": "Neon Knight",
+          "id": "test-user-e0552c8f",
+          "is_connected": true,
+          "is_host": false
+        }
+      ],
+      "song_pairs": [
+        {
+          "added_by": "test-host-789",
+          "created_at": "2025-11-23T19:21:47.785836",
+          "id": "pair-bb898898",
+          "track_a": "spotify:track:Stayin' Alive - Bee Gees",
+          "track_b": "spotify:track:Night Fever - Bee Gees"
+        },
+        {
+          "added_by": "test-player-789",
+          "created_at": "2025-11-23T19:21:47.785853",
+          "id": "pair-77156507",
+          "track_a": "spotify:track:September - Earth, Wind & Fire",
+          "track_b": "spotify:track:Boogie Wonderland - Earth, Wind & Fire"
+        },
+        {
+          "added_by": "test-user-9a5bd493",
+          "created_at": "2025-11-23T19:21:47.785860",
+          "id": "pair-70953e0e",
+          "track_a": "spotify:track:I Will Survive - Gloria Gaynor",
+          "track_b": "spotify:track:Never Can Say Goodbye - Gloria Gaynor"
+        }
+      ],
+      "status": "lobby"
+    }
   }
 }

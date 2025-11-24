@@ -13,7 +13,7 @@ import { createServer as createViteServer } from "vite";
 const TEST_TIMEOUT = 30000; // 30 seconds
 
 // Test configuration
-const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:9000";
 const HEADLESS = process.env.HEADLESS !== "false"; // Run headless by default
 
 /**

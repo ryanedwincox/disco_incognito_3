@@ -9,11 +9,21 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
 
 from filelock import FileLock
+
+
+class DateTimeEncoder(json.JSONEncoder):
+    """JSON encoder that handles datetime objects."""
+
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 from .base import StorageAdapter
 
@@ -84,7 +94,7 @@ class JSONFileStorage(StorageAdapter):
             return json.loads(raw or '{}')
 
     def _write_file(self, state: dict[str, Any]) -> None:
-        serialized = json.dumps(state, indent=2, sort_keys=True)
+        serialized = json.dumps(state, indent=2, sort_keys=True, cls=DateTimeEncoder)
         with self._lock:
             with NamedTemporaryFile('w', delete=False, dir=self._path.parent, encoding='utf-8') as tmp:
                 tmp.write(serialized)
