@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 """
-Git worktree creation script with automatic port assignment.
+Git worktree creation script.
 
-Creates a new git worktree and configures unique ports for backend and frontend
-by scanning existing worktrees to avoid port conflicts.
+Creates a new git worktree. Port assignment is handled at runtime by run.sh.
 """
 
 import argparse
-import re
 import subprocess
 import sys
 from pathlib import Path
-
-from worktree_env_setup import setup_worktree_env
 
 
 class Colors:
@@ -52,61 +48,8 @@ def get_worktrees() -> list[Path]:
     return worktrees
 
 
-def extract_port_from_url(url: str) -> int | None:
-    """Extract port number from a URL."""
-    match = re.search(r':(\d+)', url)
-    if match:
-        return int(match.group(1))
-    return None
-
-
-def get_used_ports(worktrees: list[Path]) -> dict[str, set[int]]:
-    """Scan all worktrees for used ports in .env files."""
-    used_ports = {
-        'backend': set(),
-        'frontend': set(),
-    }
-
-    for worktree in worktrees:
-        # Check backend/.env
-        backend_env = worktree / 'backend' / '.env'
-        if backend_env.exists():
-            content = backend_env.read_text()
-            for line in content.split('\n'):
-                if line.startswith('BACKEND_URL='):
-                    port = extract_port_from_url(line)
-                    if port:
-                        used_ports['backend'].add(port)
-                elif line.startswith('FRONTEND_URL='):
-                    port = extract_port_from_url(line)
-                    if port:
-                        used_ports['frontend'].add(port)
-
-        # Check frontend/.env
-        frontend_env = worktree / 'frontend' / '.env'
-        if frontend_env.exists():
-            content = frontend_env.read_text()
-            for line in content.split('\n'):
-                if line.startswith('VITE_PORT='):
-                    try:
-                        port = int(line.split('=', 1)[1].strip())
-                        used_ports['frontend'].add(port)
-                    except ValueError:
-                        pass
-
-    return used_ports
-
-
-def find_next_available_port(used_ports: set[int], start_port: int) -> int:
-    """Find the next available port starting from start_port."""
-    port = start_port
-    while port in used_ports:
-        port += 1
-    return port
-
-
 def create_worktree(branch_name: str, base_path: Path | None = None):
-    """Create a new git worktree with auto-assigned ports."""
+    """Create a new git worktree."""
 
     # Get git root and existing worktrees
     git_root = get_git_root()
@@ -124,19 +67,6 @@ def create_worktree(branch_name: str, base_path: Path | None = None):
         worktree_path = git_root.parent / f'{git_root.name}_{folder_name}'
 
     print_colored(f'New worktree path: {worktree_path}', Colors.BLUE)
-
-    # Get used ports
-    used_ports = get_used_ports(worktrees)
-    print_colored(f'Used backend ports: {sorted(used_ports["backend"])}', Colors.BLUE)
-    print_colored(f'Used frontend ports: {sorted(used_ports["frontend"])}', Colors.BLUE)
-
-    # Find available ports
-    backend_port = find_next_available_port(used_ports['backend'], 7700)
-    frontend_port = find_next_available_port(used_ports['frontend'], 7800)
-
-    print_colored('\nAssigning ports:', Colors.YELLOW)
-    print_colored(f'  Backend:  {backend_port}', Colors.GREEN)
-    print_colored(f'  Frontend: {frontend_port}', Colors.GREEN)
 
     # Create the worktree
     print_colored(f'\nCreating worktree for branch "{branch_name}"...', Colors.BLUE)
@@ -158,20 +88,6 @@ def create_worktree(branch_name: str, base_path: Path | None = None):
         print_colored(f'Error creating worktree: {e}', Colors.RED)
         sys.exit(1)
 
-    # Update .env files
-    print_colored('\nUpdating .env files...', Colors.BLUE)
-    setup_worktree_env(worktree_path, backend_port, frontend_port)
-    print_colored(f'  Updated backend/.env and frontend/.env', Colors.GREEN)
-
-    # Write .test_ports file (for consistency with repo-maintainer)
-    ports_config = (
-        "# Port assignments for this worktree\n"
-        f"DEV_SERVER_PORT={backend_port}\n"
-        f"TEST_SERVER_PORT={frontend_port}\n"
-    )
-    (worktree_path / ".test_ports").write_text(ports_config)
-    print_colored(f'  Created .test_ports', Colors.GREEN)
-
     # Print summary
     print_colored('\n' + '=' * 50, Colors.GREEN)
     print_colored('Worktree created successfully!', Colors.GREEN)
@@ -180,11 +96,10 @@ def create_worktree(branch_name: str, base_path: Path | None = None):
     print_colored(f'Branch: {branch_name}', Colors.NC)
     print_colored('\nTo start development:', Colors.YELLOW)
     print_colored(f'  cd {worktree_path}', Colors.NC)
-    print_colored(f'  # Backend: python -m uvicorn app.main:app --reload --port {backend_port}', Colors.NC)
-    print_colored('  # Frontend: cd frontend && npm run dev', Colors.NC)
-    print_colored('\nURLs:', Colors.YELLOW)
-    print_colored(f'  Backend:  http://localhost:{backend_port}', Colors.NC)
-    print_colored(f'  Frontend: http://localhost:{frontend_port}', Colors.NC)
+    print_colored('  ./run.sh', Colors.NC)
+    print_colored('\nPorts are assigned automatically by run.sh based on branch:', Colors.YELLOW)
+    print_colored('  main/master: Backend 8000+, Frontend 3000+', Colors.NC)
+    print_colored('  feature branches: Backend 9000+, Frontend 9100+', Colors.NC)
 
     # Open VS Code in the new worktree
     print_colored('\nOpening VS Code...', Colors.BLUE)
@@ -193,17 +108,14 @@ def create_worktree(branch_name: str, base_path: Path | None = None):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Create a git worktree with auto-assigned ports',
+        description='Create a git worktree',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   python create_worktree.py feature-login
   python create_worktree.py bugfix-123 --path /tmp/worktrees
 
-Port allocation:
-  Backend ports start at 7700
-  Frontend ports start at 7800
-  The script scans all existing worktrees to avoid conflicts.
+Port allocation is handled by run.sh at runtime.
 """,
     )
 
