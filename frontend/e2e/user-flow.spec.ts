@@ -1,6 +1,13 @@
 // User flow E2E test: Combined flow from landing -> login -> room creation
 // Screenshots are saved to artifacts/screenshots/user-flow/ and compared against baselines
-import { test, expect, getArtifactsPath, getBaselinePath, compareScreenshots } from './fixtures';
+import {
+  test,
+  expect,
+  getArtifactsPath,
+  getBaselinePath,
+  getBaselineScreenshots,
+  compareScreenshots,
+} from './fixtures';
 import type { Page } from '@playwright/test';
 
 const TEST_NAME = 'user-flow';
@@ -95,8 +102,30 @@ test.describe('User Flow: Landing → Login → Room Creation', () => {
     console.log('✅ User flow completed successfully');
 
     // Compare screenshots against baselines
-    // Use 5% threshold to account for minor rendering differences (fonts, antialiasing)
     console.log('\n--- Screenshot Comparison ---');
+
+    // Get baseline screenshots and produced screenshots
+    const baselineNames = getBaselineScreenshots(TEST_NAME);
+    const producedNames = screenshots.map((s) => s.name).sort();
+
+    console.log(`Baselines: ${baselineNames.length} files`);
+    console.log(`Produced:  ${producedNames.length} files`);
+
+    // Check for exact match of screenshot names
+    const missingFromProduced = baselineNames.filter((b) => !producedNames.includes(b));
+    const extraInProduced = producedNames.filter((p) => !baselineNames.includes(p));
+
+    if (missingFromProduced.length > 0) {
+      console.log(`❌ Missing screenshots (in baseline but not produced): ${missingFromProduced.join(', ')}`);
+    }
+    if (extraInProduced.length > 0) {
+      console.log(`❌ Extra screenshots (produced but not in baseline): ${extraInProduced.join(', ')}`);
+    }
+
+    // Assert exact match of screenshot sets
+    expect(producedNames, 'Produced screenshots should match baseline names exactly').toEqual(baselineNames);
+
+    // Compare each screenshot's content
     for (const { name, path: screenshotPath } of screenshots) {
       const baselinePath = getBaselinePath(TEST_NAME, name);
       const result = await compareScreenshots(screenshotPath, baselinePath, 0.05);
@@ -110,10 +139,8 @@ test.describe('User Flow: Landing → Login → Room Creation', () => {
         console.log(`❌ ${name}: differs from baseline (${result.diffPercent?.toFixed(2)}% different)`);
       }
 
-      // Assert screenshots match (skip if baseline missing - first run)
-      if (!result.baselineMissing) {
-        expect(result.match, `Screenshot ${name} should match baseline`).toBe(true);
-      }
+      // Assert screenshots match
+      expect(result.match, `Screenshot ${name} should match baseline`).toBe(true);
     }
   });
 });

@@ -200,6 +200,15 @@ export function getBaselinePath(testName: string, filename: string): string {
   return path.join(BASELINES_DIR, testName, filename);
 }
 
+// Helper to get list of baseline screenshots for a test
+export function getBaselineScreenshots(testName: string): string[] {
+  const baselineDir = path.join(BASELINES_DIR, testName);
+  if (!fs.existsSync(baselineDir)) {
+    return [];
+  }
+  return fs.readdirSync(baselineDir).filter((f) => f.endsWith('.png')).sort();
+}
+
 // Screenshot comparison result
 interface CompareResult {
   match: boolean;
