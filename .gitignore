@@ -58,3 +58,8 @@ scratchpad*
 
 # Git worktrees
 .worktrees/
+
+# Playwright test artifacts
+test-data/
+frontend/playwright-report/
+frontend/test-results/
