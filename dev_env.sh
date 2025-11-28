@@ -17,6 +17,8 @@ CACHE_FILES=(
     ruff.toml
     package.json
     package-lock.json
+    frontend/package.json
+    frontend/package-lock.json
 )
 
 # Get the expected venv path
@@ -125,6 +127,34 @@ if [ -f "package.json" ]; then
 
     if [ "$NPM_NEEDS_INSTALL" = true ]; then
         npm install --silent && echo -n "$NPM_CURRENT_HASH" > "$NPM_MARKER"
+    fi
+fi
+
+# Install frontend npm packages if frontend/package.json exists
+if [ -f "frontend/package.json" ]; then
+    FRONTEND_NPM_MARKER="frontend/node_modules/.deps_hash"
+    FRONTEND_NPM_NEEDS_INSTALL=false
+
+    # Build hash from frontend package.json and package-lock.json
+    FRONTEND_NPM_HASH_INPUT=""
+    for file in frontend/package.json frontend/package-lock.json; do
+        if [ -f "$file" ]; then
+            FRONTEND_NPM_HASH_INPUT+=$(cat "$file")
+        fi
+    done
+
+    if [ -n "$FRONTEND_NPM_HASH_INPUT" ]; then
+        FRONTEND_NPM_CURRENT_HASH=$(echo -n "$FRONTEND_NPM_HASH_INPUT" | md5sum | cut -d' ' -f1)
+
+        if [ ! -f "$FRONTEND_NPM_MARKER" ] || [ "$(cat "$FRONTEND_NPM_MARKER" 2>/dev/null)" != "$FRONTEND_NPM_CURRENT_HASH" ]; then
+            FRONTEND_NPM_NEEDS_INSTALL=true
+        fi
+    else
+        FRONTEND_NPM_NEEDS_INSTALL=true
+    fi
+
+    if [ "$FRONTEND_NPM_NEEDS_INSTALL" = true ]; then
+        (cd frontend && npm install --silent) && echo -n "$FRONTEND_NPM_CURRENT_HASH" > "$FRONTEND_NPM_MARKER"
     fi
 fi
 
