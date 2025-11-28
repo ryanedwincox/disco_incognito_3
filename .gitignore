@@ -55,3 +55,6 @@ backend/data
 backend/.cache
 
 scratchpad*
+
+# Git worktrees
+.worktrees/
