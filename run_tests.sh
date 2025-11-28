@@ -1,12 +1,15 @@
 #!/bin/bash
 
-# Disco Incognito - Validation script
+# Disco Incognito - Test runner script
 
 # Run before commits: linting, unit tests, E2E tests
-# Usage: ./validate.sh [--fix] [--unit] [--e2e] [--backend]
+# Usage: ./run_tests.sh [--fix] [--unit] [--e2e] [--backend]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
+
+# Source dev environment to ensure dependencies are installed
+source dev_env.sh
 
 RUN_ALL=true
 RUN_FIX=false
@@ -36,7 +39,7 @@ for arg in "$@"; do
             RUN_BACKEND=true
             ;;
         --help)
-            echo "Usage: ./validate.sh [OPTIONS]"
+            echo "Usage: ./run_tests.sh [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --fix       Auto-fix linting issues"

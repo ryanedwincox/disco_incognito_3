@@ -15,11 +15,11 @@ Guidance for Claude Code when working with this repository.
 ## Quick Reference
 
 ```bash
-./setup.sh              # One-time setup
+source dev_env.sh       # Activate venv and install deps (idempotent)
 ./run.sh --detached     # Start dev servers (frontend :3000, backend :8000)
 ./run.sh --stop         # Stop servers
-./validate.sh           # Run all tests before commits
-./validate.sh --fix     # Auto-fix linting issues
+./run_tests.sh          # Run all tests before commits
+./run_tests.sh --fix    # Auto-fix linting issues
 ```
 
 ## Architecture

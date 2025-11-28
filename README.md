@@ -4,11 +4,11 @@
 
 **Development status**: Early development. Core OAuth auth working, multiplayer room/game features in progress. Mobile-first design. Uses test mode Spotify adapter for local dev.
 
-**Validate**: `./validate.sh` - Run before commits. Linting + unit tests + E2E tests + backend tests. Use `--fix` for auto-fix, `--unit`/`--e2e`/`--backend` to run specific suites. E2E tests require dev server running.
+**Run Tests**: `./run_tests.sh` - Run before commits. Linting + unit tests + E2E tests + backend tests. Use `--fix` for auto-fix, `--unit`/`--e2e`/`--backend` to run specific suites.
 
 **Demo**: `./run.sh --detached` - Builds and starts backend (port 8000) + frontend (port 3000) in Docker. `./run.sh --stop` to stop. Hot reload enabled via volume mounts.
 
-**Setup**: `./setup.sh` - One-time setup. Creates .env from example, installs npm dependencies, builds Docker images.
+**Setup**: `source dev_env.sh` - Activates venv and installs dependencies (idempotent, safe to run repeatedly).
 
 **Architecture**: FastAPI (Python) + Vue 3 + Vite + Tailwind + Pinia + WebSockets. JSON file storage adapter (swappable). Docker Compose for development, Cloud Run for production.
 
