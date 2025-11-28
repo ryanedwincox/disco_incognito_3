@@ -62,6 +62,7 @@ async function createRoom(page: Page): Promise<string> {
 test.describe('User Flow: Landing → Login → Room Creation', () => {
   const screenshots: { name: string; path: string }[] = [];
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   test('complete user flow with screenshot verification', async ({ page, serverContext }) => {
     // Step 1: Load landing page
     await loadLandingPage(page);

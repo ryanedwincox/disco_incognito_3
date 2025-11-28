@@ -158,17 +158,3 @@ if [ -f "frontend/package.json" ]; then
     fi
 fi
 
-# Set up local olis_storage for this worktree
-OLIS_STORAGE_DIR="$(pwd)/olis_storage"
-if [ ! -d "$OLIS_STORAGE_DIR" ]; then
-    mkdir -p "$OLIS_STORAGE_DIR"
-fi
-export OLIS_STORAGE_PATH="$OLIS_STORAGE_DIR"
-export OLIS_MACHINE_ID_PATH="$OLIS_STORAGE_DIR/machine-id"
-
-# Set up separate test storage (used by local-dev-start.sh --test)
-OLIS_STORAGE_TEST_DIR="$(pwd)/olis_storage_test"
-if [ ! -d "$OLIS_STORAGE_TEST_DIR" ]; then
-    mkdir -p "$OLIS_STORAGE_TEST_DIR"
-fi
-export OLIS_STORAGE_TEST="$OLIS_STORAGE_TEST_DIR"

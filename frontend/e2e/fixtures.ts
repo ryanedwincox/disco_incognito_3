@@ -1,5 +1,5 @@
 // Test fixtures: Fresh backend + frontend per test with isolated state
-import { test as base, type Page } from '@playwright/test';
+import { test as base } from '@playwright/test';
 import { spawn, ChildProcess, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -74,6 +74,7 @@ type TestFixtures = {
 // Extended test with server fixtures
 export const test = base.extend<TestFixtures>({
   serverContext: [
+    // eslint-disable-next-line no-empty-pattern
     async ({}, use) => {
       // Clear and recreate test data directory at start of each test
       if (fs.existsSync(TEST_DATA_DIR)) {
