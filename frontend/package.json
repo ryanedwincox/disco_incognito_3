@@ -16,6 +16,7 @@
     "test:screenshots": "node tests/e2e/screenshot-runner.mjs",
     "test:e2e:screenshots": "node tests/e2e/screenshot-runner.mjs",
     "test:e2e:screenshots:update": "node tests/e2e/screenshot-runner.mjs --update-screenshots",
+    "test:playwright": "npx playwright test",
     "test": "npm run test:unit && npm run test:e2e",
     "lint": "eslint . --ext .ts,.vue"
   },
@@ -27,6 +28,7 @@
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@tsconfig/node18-strictest-esm": "^1.0.1",
     "@types/node": "^20.11.30",
     "@vitejs/plugin-vue": "4.5.0",
