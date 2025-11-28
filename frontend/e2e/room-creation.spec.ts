@@ -77,5 +77,49 @@ test.describe('Room Creation Flow', () => {
     await expect(songPairsSection).toBeVisible();
 
     console.log('✅ Room creation flow completed successfully');
+
+    // ===== SONG SELECTION FLOW =====
+
+    // Step 17: Click Pick Songs button
+    const pickSongsButton = page.getByRole('button', { name: 'Pick Songs' });
+    await expect(pickSongsButton).toBeVisible();
+    await pickSongsButton.click();
+
+    // Step 18: Wait for navigation to song picker
+    await page.waitForURL('**/rooms/310/songs', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+
+    // Step 19: Verify song picker page elements
+    const pickAPairHeader = page.locator('text=Pick a Pair').first();
+    await expect(pickAPairHeader).toBeVisible();
+
+    // Step 20: Click Generate Random Pair button (test mode)
+    const generateButton = page.getByRole('button', { name: 'Generate Random Pair' });
+    await expect(generateButton).toBeVisible();
+    await generateButton.click();
+
+    // Wait for songs to appear
+    await page.waitForTimeout(500);
+
+    // Step 21: Screenshot - Song selection page with generated pair
+    const songSelectionScreenshot = getArtifactsPath('song-selection.png');
+    await page.screenshot({ path: songSelectionScreenshot, fullPage: true });
+    console.log(`Screenshot saved to: ${songSelectionScreenshot}`);
+
+    // Step 22: Click Save Pair button
+    const savePairButton = page.getByRole('button', { name: 'Save Pair' });
+    await expect(savePairButton).toBeVisible();
+    await expect(savePairButton).toBeEnabled();
+    await savePairButton.click();
+
+    // Step 23: Wait for success message
+    const saveSuccessMessage = page.locator('.bg-green-900\\/30');
+    await expect(saveSuccessMessage).toBeVisible({ timeout: 5000 });
+
+    // Step 24: Wait for redirect back to lobby
+    await page.waitForURL('**/rooms/310', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+
+    console.log('✅ Song selection flow completed successfully');
   });
 });

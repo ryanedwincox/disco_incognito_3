@@ -123,6 +123,7 @@ export const test = base.extend<TestFixtures>({
         env: {
           ...process.env,
           VITE_API_URL: `http://localhost:${BACKEND_PORT}`,
+          VITE_TEST_MODE: 'true',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
