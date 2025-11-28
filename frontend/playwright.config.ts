@@ -20,8 +20,12 @@ export default defineConfig({
 
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: 'mobile-chrome',
+      use: {
+        ...devices['Pixel 5'],
+        // Override to match mobile-first design viewport from CLAUDE.md
+        viewport: { width: 390, height: 844 },
+      },
     },
   ],
 });

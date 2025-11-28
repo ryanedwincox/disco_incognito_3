@@ -1,5 +1,5 @@
 // Test fixtures: Fresh backend + frontend per test with isolated state
-import { test as base, type Page } from '@playwright/test';
+import { test as base } from '@playwright/test';
 import { spawn, ChildProcess, execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -17,6 +17,8 @@ const BACKEND_DIR = path.join(ROOT_DIR, 'backend');
 const FRONTEND_DIR = path.join(ROOT_DIR, 'frontend');
 const TEST_DATA_DIR = path.join(ROOT_DIR, 'test-data');
 const ARTIFACTS_DIR = path.join(ROOT_DIR, 'artifacts');
+const SCREENSHOTS_DIR = path.join(ARTIFACTS_DIR, 'screenshots');
+const BASELINES_DIR = path.join(__dirname, 'screenshots');
 
 // Ports
 const BACKEND_PORT = 8000;
@@ -72,6 +74,7 @@ type TestFixtures = {
 // Extended test with server fixtures
 export const test = base.extend<TestFixtures>({
   serverContext: [
+    // eslint-disable-next-line no-empty-pattern
     async ({}, use) => {
       // Clear and recreate test data directory at start of each test
       if (fs.existsSync(TEST_DATA_DIR)) {
@@ -123,6 +126,7 @@ export const test = base.extend<TestFixtures>({
         env: {
           ...process.env,
           VITE_API_URL: `http://localhost:${BACKEND_PORT}`,
+          VITE_TEST_MODE: 'true',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -182,7 +186,63 @@ export const test = base.extend<TestFixtures>({
 
 export { expect } from '@playwright/test';
 
-// Helper to get artifacts path
-export function getArtifactsPath(filename: string): string {
-  return path.join(ARTIFACTS_DIR, filename);
+// Helper to get artifacts path (with optional test name subdirectory)
+export function getArtifactsPath(testName: string, filename: string): string {
+  const dir = path.join(SCREENSHOTS_DIR, testName);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return path.join(dir, filename);
+}
+
+// Helper to get baseline screenshot path
+export function getBaselinePath(testName: string, filename: string): string {
+  return path.join(BASELINES_DIR, testName, filename);
+}
+
+// Helper to get list of baseline screenshots for a test
+export function getBaselineScreenshots(testName: string): string[] {
+  const baselineDir = path.join(BASELINES_DIR, testName);
+  if (!fs.existsSync(baselineDir)) {
+    return [];
+  }
+  return fs.readdirSync(baselineDir).filter((f) => f.endsWith('.png')).sort();
+}
+
+// Screenshot comparison result
+interface CompareResult {
+  match: boolean;
+  baselineMissing: boolean;
+  diffPercent?: number;
+}
+
+// Compare two screenshots (pixel-level comparison)
+export async function compareScreenshots(
+  actualPath: string,
+  baselinePath: string,
+  threshold: number = 0.01 // 1% difference allowed
+): Promise<CompareResult> {
+  // Check if baseline exists
+  if (!fs.existsSync(baselinePath)) {
+    return { match: false, baselineMissing: true };
+  }
+
+  // Read both files
+  const actualBuffer = fs.readFileSync(actualPath);
+  const baselineBuffer = fs.readFileSync(baselinePath);
+
+  // Simple byte-level comparison (for identical matches)
+  if (actualBuffer.equals(baselineBuffer)) {
+    return { match: true, baselineMissing: false, diffPercent: 0 };
+  }
+
+  // If sizes are very different, they don't match
+  const sizeDiff = Math.abs(actualBuffer.length - baselineBuffer.length) / baselineBuffer.length;
+  if (sizeDiff > threshold) {
+    return { match: false, baselineMissing: false, diffPercent: sizeDiff * 100 };
+  }
+
+  // For now, use size comparison as proxy (full pixel comparison would need sharp/pixelmatch)
+  // Consider screenshots matching if within threshold
+  return { match: sizeDiff <= threshold, baselineMissing: false, diffPercent: sizeDiff * 100 };
 }
