@@ -1,11 +1,23 @@
 <!-- Room lobby showing players and song pairs before game starts. Displays room code, player list with host indicator, and song pair section. Provides navigation to song picker and option to leave room. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
+    <!-- Game in Progress Banner -->
+    <div
+      v-if="isGameInProgress"
+      class="bg-green-900/30 border border-green-700 rounded-xl px-4 py-3 mb-6"
+      data-testid="game-status-banner"
+    >
+      <p class="text-green-400 font-semibold text-center">
+        🎮 Game in Progress — Song Selection Phase
+      </p>
+    </div>
+
     <header class="mb-8">
       <div class="flex items-start justify-between mb-6">
         <div>
-          <h2 class="text-sm uppercase text-zinc-400">Room Code</h2>
+          <h2 class="text-sm uppercase text-zinc-400">{{ isGameInProgress ? 'Game Started' : 'Room Code' }}</h2>
           <p class="text-4xl font-bold tracking-[0.5em]">{{ roomCode }}</p>
+          <p v-if="isGameInProgress" class="text-sm text-green-400 mt-1">Status: {{ roomStatus }}</p>
         </div>
       </div>
       <div class="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-3">
@@ -17,6 +29,7 @@
           Leave
         </button>
         <button
+          v-if="!isGameInProgress"
           class="w-full md:w-auto px-6 py-3 rounded-full bg-disco-pink text-black font-semibold hover:bg-disco-pink-light transition-colors"
           type="button"
           @click="pickSongs"
@@ -24,7 +37,7 @@
           Pick Songs
         </button>
         <button
-          v-if="isHost"
+          v-if="isHost && !isGameInProgress"
           class="w-full md:w-auto px-6 py-3 rounded-full bg-green-600 text-white font-semibold hover:bg-green-500 transition-colors"
           type="button"
           :disabled="isStarting"
@@ -87,6 +100,8 @@ const authStore = useAuthStore()
 
 const roomCode = computed(() => (route.params.code as string) || '123')
 const players = computed(() => roomStore.players)
+const roomStatus = computed(() => roomStore.status)
+const isGameInProgress = computed(() => roomStatus.value !== 'lobby')
 const currentUserId = computed(() => authStore.user?.id ?? null)
 const isHost = computed(() => {
   if (!currentUserId.value) return false
@@ -156,8 +171,7 @@ async function startGame() {
       const data = await response.json()
       roomStore.setStatus(data.status)
       console.log('Game started, status:', data.status)
-      // Navigate to song selection view
-      router.push(`/rooms/${roomCode.value}/songs`)
+      // Stay on lobby view - UI will update to show game-in-progress state
     } else {
       const error = await response.json()
       console.error('Failed to start game:', error.detail)

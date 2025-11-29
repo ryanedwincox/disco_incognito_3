@@ -192,11 +192,19 @@ async function startGameAsHost(
   await expect(startButton).toBeVisible({ timeout: 5000 });
   await startButton.click();
 
-  // Wait for navigation to song picker (song_selection state)
-  await page.waitForURL('**/rooms/*/songs', { timeout: 10000 });
-  await page.waitForLoadState('networkidle');
+  // Wait for game-in-progress UI to appear (stays on lobby, no navigation)
+  const gameStatusBanner = page.locator('[data-testid="game-status-banner"]');
+  await expect(gameStatusBanner).toBeVisible({ timeout: 5000 });
+  await expect(gameStatusBanner).toContainText('Game in Progress');
 
-  // Screenshot: After game start (song selection view)
+  // Verify Start Game button is now hidden
+  await expect(startButton).not.toBeVisible();
+
+  // Verify header changed to show 'Game Started'
+  const gameStartedHeader = page.locator('h2:has-text("Game Started")');
+  await expect(gameStartedHeader).toBeVisible();
+
+  // Screenshot: After game start (lobby with game-in-progress state)
   const gameStartedPath = getArtifactsPath(testName, '08-game-started.png');
   await page.screenshot({ path: gameStartedPath, fullPage: true });
   screenshots.push({ name: '08-game-started.png', path: gameStartedPath });
@@ -207,6 +215,10 @@ async function startGameAsHost(
   const roomData = await roomResponse.json();
   expect(roomData.status).toBe('song_selection');
   console.log(`✅ Room status verified: ${roomData.status}`);
+
+  // Verify status is displayed in UI
+  const statusText = page.locator('text=song_selection');
+  await expect(statusText).toBeVisible();
 
   return screenshots;
 }
