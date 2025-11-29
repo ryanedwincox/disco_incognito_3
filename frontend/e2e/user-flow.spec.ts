@@ -1,4 +1,4 @@
-// User flow E2E test: Combined flow from landing -> login -> room creation
+// User flow E2E test: Combined flow from landing -> login -> room creation -> multiplayer game start
 // Screenshots are saved to artifacts/screenshots/user-flow/ and compared against baselines
 import {
   test,
@@ -9,6 +9,8 @@ import {
   compareScreenshots,
 } from './fixtures';
 import type { Page } from '@playwright/test';
+
+const BACKEND_URL = 'http://localhost:8000';
 
 const TEST_NAME = 'user-flow';
 
@@ -127,7 +129,89 @@ async function addSongPair(
   return screenshots;
 }
 
-test.describe('User Flow: Landing → Login → Room Creation → Song Pair', () => {
+// Helper: Add players via REST API
+async function addPlayersViaREST(roomCode: string): Promise<void> {
+  // Add player 2
+  const response1 = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      player_id: 'player-2',
+      display_name: 'Player Two',
+    }),
+  });
+  if (!response1.ok) {
+    throw new Error(`Failed to add player 2: ${await response1.text()}`);
+  }
+
+  // Add player 3
+  const response2 = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      player_id: 'player-3',
+      display_name: 'Player Three',
+    }),
+  });
+  if (!response2.ok) {
+    throw new Error(`Failed to add player 3: ${await response2.text()}`);
+  }
+
+  console.log('Added 2 players via REST API');
+}
+
+// Helper: Start game via host clicking button
+async function startGameAsHost(
+  page: Page,
+  testName: string,
+  hostPlayerId: string,
+  roomCode: string
+): Promise<{ name: string; path: string }[]> {
+  const screenshots: { name: string; path: string }[] = [];
+
+  // Refresh page to see updated player list
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+
+  // Wait for player list to update (3 players should be visible)
+  await page.waitForSelector('ul.space-y-3 li:nth-child(3)', { timeout: 5000 });
+
+  // Screenshot: Room lobby with 3 players
+  const threePlayersPath = getArtifactsPath(testName, '07-lobby-three-players.png');
+  await page.screenshot({ path: threePlayersPath, fullPage: true });
+  screenshots.push({ name: '07-lobby-three-players.png', path: threePlayersPath });
+  console.log(`Screenshot saved: ${threePlayersPath}`);
+
+  // Verify 3 players are shown
+  const playerItems = await page.locator('ul.space-y-3 li').count();
+  expect(playerItems).toBe(3);
+  console.log(`✅ Verified ${playerItems} players in lobby`);
+
+  // Click Start Game button (visible only to host)
+  const startButton = page.getByRole('button', { name: 'Start Game' });
+  await expect(startButton).toBeVisible({ timeout: 5000 });
+  await startButton.click();
+
+  // Wait for navigation to song picker (song_selection state)
+  await page.waitForURL('**/rooms/*/songs', { timeout: 10000 });
+  await page.waitForLoadState('networkidle');
+
+  // Screenshot: After game start (song selection view)
+  const gameStartedPath = getArtifactsPath(testName, '08-game-started.png');
+  await page.screenshot({ path: gameStartedPath, fullPage: true });
+  screenshots.push({ name: '08-game-started.png', path: gameStartedPath });
+  console.log(`Screenshot saved: ${gameStartedPath}`);
+
+  // Verify room status changed via API
+  const roomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+  const roomData = await roomResponse.json();
+  expect(roomData.status).toBe('song_selection');
+  console.log(`✅ Room status verified: ${roomData.status}`);
+
+  return screenshots;
+}
+
+test.describe('User Flow: Landing → Login → Room Creation → Song Pair → Multiplayer Game Start', () => {
   const screenshots: { name: string; path: string }[] = [];
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -164,6 +248,15 @@ test.describe('User Flow: Landing → Login → Room Creation → Song Pair', ()
     const songPairScreenshots = await addSongPair(page, TEST_NAME);
     screenshots.push(...songPairScreenshots);
     console.log(`Added ${songPairScreenshots.length} song pair screenshots`);
+
+    // Step 5: Add 2 more players via REST API
+    await addPlayersViaREST(roomCode);
+
+    // Step 6: Start game as host (with screenshots)
+    // Host player ID in test mode is 'test-user-123'
+    const gameStartScreenshots = await startGameAsHost(page, TEST_NAME, 'test-user-123', roomCode);
+    screenshots.push(...gameStartScreenshots);
+    console.log(`Added ${gameStartScreenshots.length} game start screenshots`);
 
     console.log('✅ User flow completed successfully');
 

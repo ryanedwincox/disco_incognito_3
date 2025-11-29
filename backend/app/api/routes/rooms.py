@@ -26,6 +26,19 @@ class CreateRoomRequest(BaseModel):
     room_code: str = Field(..., min_length=3, max_length=3, pattern=r'^\d{3}$', description='3-digit room code')
 
 
+class JoinRoomRequest(BaseModel):
+    """Request model for joining a room."""
+
+    player_id: str = Field(..., description='Player ID')
+    display_name: str = Field(..., description='Player display name')
+
+
+class StartGameRequest(BaseModel):
+    """Request model for starting a game."""
+
+    player_id: str = Field(..., description='Player ID (must be host)')
+
+
 class CreateRoomResponse(BaseModel):
     """Response model for room creation."""
 
@@ -106,3 +119,83 @@ async def get_room(
         raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
     return RoomState(**room_data)
+
+
+@router.post('/{room_code}/join', summary='Join a room')
+async def join_room(
+    room_code: str,
+    body: JoinRoomRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoomState:
+    """
+    Join an existing room.
+
+    Adds player to room's players list if not already present.
+    Returns updated room state.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Check if player already in room
+    existing_player = next((p for p in room.players if p.id == body.player_id), None)
+    if existing_player:
+        # Update connection status if rejoining
+        existing_player.is_connected = True
+    else:
+        # Add new player
+        new_player = Player(
+            id=body.player_id,
+            display_name=body.display_name,
+            is_host=False,
+            is_connected=True,
+        )
+        room.players.append(new_player)
+
+    # Save updated room
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info(f'Player {body.player_id} joined room {room_code}')
+
+    return room
+
+
+@router.post('/{room_code}/start', summary='Start the game')
+async def start_game(
+    room_code: str,
+    body: StartGameRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoomState:
+    """
+    Start the game (host only).
+
+    Transitions room status from 'lobby' to 'song_selection'.
+    Returns updated room state.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify requester is host
+    if room.host_id != body.player_id:
+        raise HTTPException(status_code=403, detail='Only the host can start the game')
+
+    # Verify room is in lobby state
+    if room.status != 'lobby':
+        raise HTTPException(status_code=400, detail=f'Cannot start game from {room.status} state')
+
+    # Transition to song_selection
+    room.status = 'song_selection'
+
+    # Save updated room
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info(f'Game started in room {room_code} by host {body.player_id}')
+
+    return room

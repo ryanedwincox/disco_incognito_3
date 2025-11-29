@@ -23,6 +23,15 @@
         >
           Pick Songs
         </button>
+        <button
+          v-if="isHost"
+          class="w-full md:w-auto px-6 py-3 rounded-full bg-green-600 text-white font-semibold hover:bg-green-500 transition-colors"
+          type="button"
+          :disabled="isStarting"
+          @click="startGame"
+        >
+          {{ isStarting ? 'Starting...' : 'Start Game' }}
+        </button>
       </div>
     </header>
 
@@ -64,20 +73,32 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useRoomStore } from '../stores/room'
+import { useAuthStore } from '../stores/auth'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const router = useRouter()
 const route = useRoute()
 const roomStore = useRoomStore()
+const authStore = useAuthStore()
 
 const roomCode = computed(() => (route.params.code as string) || '123')
 const players = computed(() => roomStore.players)
+const currentUserId = computed(() => authStore.user?.id ?? null)
+const isHost = computed(() => {
+  if (!currentUserId.value) return false
+  const currentPlayer = players.value.find(p => p.id === currentUserId.value)
+  return currentPlayer?.isHost ?? false
+})
+const isStarting = ref(false)
 
 onMounted(async () => {
+  // Load auth state from localStorage (in case of page refresh)
+  authStore.loadFromStorage()
+
   // Set room code in store
   roomStore.setRoom(roomCode.value)
 
@@ -111,5 +132,40 @@ function leaveRoom() {
 function pickSongs() {
   console.log('Navigating to song picker for room:', roomCode.value)
   router.push(`/rooms/${roomCode.value}/songs`)
+}
+
+async function startGame() {
+  if (!currentUserId.value) {
+    console.error('No player ID available')
+    return
+  }
+
+  isStarting.value = true
+  try {
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        player_id: currentUserId.value,
+      }),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      roomStore.setStatus(data.status)
+      console.log('Game started, status:', data.status)
+      // Navigate to song selection view
+      router.push(`/rooms/${roomCode.value}/songs`)
+    } else {
+      const error = await response.json()
+      console.error('Failed to start game:', error.detail)
+    }
+  } catch (error) {
+    console.error('Error starting game:', error)
+  } finally {
+    isStarting.value = false
+  }
 }
 </script>
