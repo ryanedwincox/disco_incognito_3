@@ -204,7 +204,29 @@ async function startGameAsHost(
   const gameStartedHeader = page.locator('h2:has-text("Game Started")');
   await expect(gameStartedHeader).toBeVisible();
 
-  // Screenshot: After game start (lobby with game-in-progress state)
+  // Verify assigned song is displayed
+  const assignedSongSection = page.locator('[data-testid="assigned-song"]');
+  await expect(assignedSongSection).toBeVisible({ timeout: 5000 });
+  console.log('✅ Assigned song section visible');
+
+  // Verify song title is shown
+  const songTitle = page.locator('[data-testid="song-title"]');
+  await expect(songTitle).toBeVisible();
+  const titleText = await songTitle.textContent();
+  console.log(`✅ Song title displayed: ${titleText}`);
+
+  // Verify artist is shown
+  const songArtist = page.locator('[data-testid="song-artist"]');
+  await expect(songArtist).toBeVisible();
+  const artistText = await songArtist.textContent();
+  console.log(`✅ Song artist displayed: ${artistText}`);
+
+  // Verify "Listening now..." indicator
+  const listeningIndicator = page.locator('text=Listening now...');
+  await expect(listeningIndicator).toBeVisible();
+  console.log('✅ Listening indicator visible');
+
+  // Screenshot: After game start (lobby with song assignment displayed)
   const gameStartedPath = getArtifactsPath(testName, '08-game-started.png');
   await page.screenshot({ path: gameStartedPath, fullPage: true });
   screenshots.push({ name: '08-game-started.png', path: gameStartedPath });
@@ -215,6 +237,12 @@ async function startGameAsHost(
   const roomData = await roomResponse.json();
   expect(roomData.status).toBe('song_selection');
   console.log(`✅ Room status verified: ${roomData.status}`);
+
+  // Verify current_round with player_assignments exists
+  expect(roomData.current_round).toBeDefined();
+  expect(roomData.current_round.player_assignments).toBeDefined();
+  expect(roomData.current_round.incognito_player_id).toBeDefined();
+  console.log(`✅ Current round verified with incognito: ${roomData.current_round.incognito_player_id}`);
 
   // Verify status is displayed in UI
   const statusText = page.locator('text=song_selection');

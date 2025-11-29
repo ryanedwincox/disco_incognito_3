@@ -11,9 +11,12 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+import random
+import uuid
+
 from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
-from ...models.room import Player, RoomState
+from ...models.room import CurrentRound, Player, RoomState, SongInfo, SongPair
 from ...storage.base import StorageAdapter
 
 router = APIRouter(prefix='/rooms', tags=['Rooms'])
@@ -37,6 +40,18 @@ class StartGameRequest(BaseModel):
     """Request model for starting a game."""
 
     player_id: str = Field(..., description='Player ID (must be host)')
+
+
+class AddSongPairRequest(BaseModel):
+    """Request model for adding a song pair to a room."""
+
+    player_id: str = Field(..., description='Player ID')
+    track_a: str = Field(..., description='Spotify URI for track A')
+    track_b: str = Field(..., description='Spotify URI for track B')
+    title_a: str = Field(..., description='Title of track A')
+    artist_a: str = Field(..., description='Artist of track A')
+    title_b: str = Field(..., description='Title of track B')
+    artist_b: str = Field(..., description='Artist of track B')
 
 
 class CreateRoomResponse(BaseModel):
@@ -163,6 +178,52 @@ async def join_room(
     return room
 
 
+@router.post('/{room_code}/songs', summary='Add a song pair to room')
+async def add_song_pair(
+    room_code: str,
+    body: AddSongPairRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoomState:
+    """
+    Add a song pair to the room.
+
+    Creates a SongPair and adds it to the room's song_pairs list.
+    Returns updated room state.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify player is in room
+    player = next((p for p in room.players if p.id == body.player_id), None)
+    if not player:
+        raise HTTPException(status_code=403, detail='Player not in room')
+
+    # Create song pair
+    pair_id = f'pair-{uuid.uuid4().hex[:8]}'
+    song_pair = SongPair(
+        id=pair_id,
+        track_a=body.track_a,
+        track_b=body.track_b,
+        title_a=body.title_a,
+        artist_a=body.artist_a,
+        title_b=body.title_b,
+        artist_b=body.artist_b,
+        added_by=body.player_id,
+    )
+    room.song_pairs.append(song_pair)
+
+    # Save updated room
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info(f'Song pair {pair_id} added to room {room_code} by player {body.player_id}')
+
+    return room
+
+
 @router.post('/{room_code}/start', summary='Start the game')
 async def start_game(
     room_code: str,
@@ -172,6 +233,7 @@ async def start_game(
     """
     Start the game (host only).
 
+    Picks a random song pair, assigns incognito player, and assigns songs to all players.
     Transitions room status from 'lobby' to 'song_selection'.
     Returns updated room state.
     """
@@ -190,12 +252,57 @@ async def start_game(
     if room.status != 'lobby':
         raise HTTPException(status_code=400, detail=f'Cannot start game from {room.status} state')
 
+    # Verify there's at least one song pair
+    if not room.song_pairs:
+        raise HTTPException(status_code=400, detail='Need at least one song pair to start the game')
+
+    # Pick random song pair
+    selected_pair = random.choice(room.song_pairs)
+
+    # Randomly select incognito player
+    incognito_player = random.choice(room.players)
+
+    # Create SongInfo objects for the two songs
+    song_a = SongInfo(
+        id=selected_pair.track_a,
+        title=selected_pair.title_a,
+        artist=selected_pair.artist_a,
+    )
+    song_b = SongInfo(
+        id=selected_pair.track_b,
+        title=selected_pair.title_b,
+        artist=selected_pair.artist_b,
+    )
+
+    # Randomly decide which song is for majority vs incognito
+    if random.choice([True, False]):
+        song_for_majority, song_for_incognito = song_a, song_b
+    else:
+        song_for_majority, song_for_incognito = song_b, song_a
+
+    # Build player_assignments: incognito gets song_for_incognito, others get song_for_majority
+    player_assignments: dict[str, SongInfo] = {}
+    for player in room.players:
+        if player.id == incognito_player.id:
+            player_assignments[player.id] = song_for_incognito
+        else:
+            player_assignments[player.id] = song_for_majority
+
+    # Create CurrentRound
+    room.current_round = CurrentRound(
+        song_for_majority=song_for_majority,
+        song_for_incognito=song_for_incognito,
+        incognito_player_id=incognito_player.id,
+        player_assignments=player_assignments,
+    )
+
     # Transition to song_selection
     room.status = 'song_selection'
+    room.dancer_incognito_player_id = incognito_player.id
 
     # Save updated room
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    logger.info(f'Game started in room {room_code} by host {body.player_id}')
+    logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {incognito_player.id}')
 
     return room

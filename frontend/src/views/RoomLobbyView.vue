@@ -1,15 +1,21 @@
 <!-- Room lobby showing players and song pairs before game starts. Displays room code, player list with host indicator, and song pair section. Provides navigation to song picker and option to leave room. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
-    <!-- Game in Progress Banner -->
+    <!-- Game in Progress Banner with Song Assignment -->
     <div
       v-if="isGameInProgress"
       class="bg-green-900/30 border border-green-700 rounded-xl px-4 py-3 mb-6"
       data-testid="game-status-banner"
     >
-      <p class="text-green-400 font-semibold text-center">
+      <p class="text-green-400 font-semibold text-center mb-3">
         🎮 Game in Progress — Song Selection Phase
       </p>
+      <div v-if="assignedSong" class="bg-zinc-900/50 rounded-lg p-4 text-center" data-testid="assigned-song">
+        <p class="text-sm text-zinc-400 mb-1">Your Song:</p>
+        <p class="text-xl font-bold text-white" data-testid="song-title">{{ assignedSong.title }}</p>
+        <p class="text-disco-pink" data-testid="song-artist">by {{ assignedSong.artist }}</p>
+        <p class="text-sm text-green-400 mt-2 animate-pulse">🎵 Listening now...</p>
+      </div>
     </div>
 
     <header class="mb-8">
@@ -109,6 +115,7 @@ const isHost = computed(() => {
   return currentPlayer?.isHost ?? false
 })
 const isStarting = ref(false)
+const assignedSong = computed(() => roomStore.assignedSong)
 
 onMounted(async () => {
   // Load auth state from localStorage (in case of page refresh)
@@ -170,6 +177,20 @@ async function startGame() {
     if (response.ok) {
       const data = await response.json()
       roomStore.setStatus(data.status)
+
+      // Extract assigned song for current player from current_round.player_assignments
+      if (data.current_round?.player_assignments && currentUserId.value) {
+        const assignment = data.current_round.player_assignments[currentUserId.value]
+        if (assignment) {
+          roomStore.setAssignedSong({
+            id: assignment.id,
+            title: assignment.title,
+            artist: assignment.artist,
+          })
+          console.log('Assigned song:', assignment.title, 'by', assignment.artist)
+        }
+      }
+
       console.log('Game started, status:', data.status)
       // Stay on lobby view - UI will update to show game-in-progress state
     } else {

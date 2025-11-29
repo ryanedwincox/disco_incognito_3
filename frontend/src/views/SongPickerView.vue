@@ -162,16 +162,41 @@ async function savePair() {
     return
   }
 
+  const userId = authStore.user?.id
+  if (!userId) {
+    console.error('No user ID available')
+    return
+  }
+
   isSaving.value = true
   successMessage.value = ''
 
   try {
-    // In test mode, just simulate saving
-    console.log('Saving song pair:', selectedPair.value)
+    const roomCode = route.params.code
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode}/songs`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        player_id: userId,
+        track_a: selectedPair.value[0].uri,
+        track_b: selectedPair.value[1].uri,
+        title_a: selectedPair.value[0].name,
+        artist_a: selectedPair.value[0].artist,
+        title_b: selectedPair.value[1].name,
+        artist_b: selectedPair.value[1].artist,
+      }),
+    })
 
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || 'Failed to save')
+    }
+
+    console.log('Saved song pair to room:', roomCode)
     successMessage.value = `Saved pair: "${selectedPair.value[0].name}" and "${selectedPair.value[1].name}"!`
 
     // Wait a moment then go back to lobby

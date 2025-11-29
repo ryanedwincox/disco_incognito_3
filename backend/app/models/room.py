@@ -19,12 +19,33 @@ class Player(BaseModel):
     is_connected: bool = True
 
 
+class SongInfo(BaseModel):
+    """Song info for display (title + artist)."""
+
+    id: str
+    title: str
+    artist: str
+
+
 class SongPair(BaseModel):
     id: str
     track_a: str
     track_b: str
+    title_a: str
+    artist_a: str
+    title_b: str
+    artist_b: str
     added_by: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class CurrentRound(BaseModel):
+    """Current round state with song assignments."""
+
+    song_for_majority: SongInfo
+    song_for_incognito: SongInfo
+    incognito_player_id: str
+    player_assignments: dict[str, SongInfo]  # player_id -> assigned song
 
 
 class RoomState(BaseModel):
@@ -36,6 +57,7 @@ class RoomState(BaseModel):
     song_pairs: list[SongPair] = Field(default_factory=list)
     status: str = 'lobby'
     dancer_incognito_player_id: str | None = None
+    current_round: CurrentRound | None = None
 
     class Config:
         json_schema_extra = {
