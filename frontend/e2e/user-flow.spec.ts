@@ -192,41 +192,58 @@ async function startGameAsHost(
   await expect(startButton).toBeVisible({ timeout: 5000 });
   await startButton.click();
 
-  // Wait for game-in-progress UI to appear (stays on lobby, no navigation)
-  const gameStatusBanner = page.locator('[data-testid="game-status-banner"]');
-  await expect(gameStatusBanner).toBeVisible({ timeout: 5000 });
-  await expect(gameStatusBanner).toContainText('Game in Progress');
+  // Wait for navigation to /playing route
+  await page.waitForURL('**/rooms/*/playing', { timeout: 10000 });
+  await page.waitForLoadState('networkidle');
+  console.log('✅ Navigated to /playing route');
 
-  // Verify Start Game button is now hidden
-  await expect(startButton).not.toBeVisible();
+  // Verify we're on the GamePlayingView
+  const nowPlayingHeader = page.locator('h2:has-text("Now Playing")');
+  await expect(nowPlayingHeader).toBeVisible({ timeout: 5000 });
+  console.log('✅ Now Playing header visible');
 
-  // Verify header changed to show 'Game Started'
-  const gameStartedHeader = page.locator('h2:has-text("Game Started")');
-  await expect(gameStartedHeader).toBeVisible();
+  // Verify room code is displayed
+  const roomCodeDisplay = page.locator('[data-testid="room-code"]');
+  await expect(roomCodeDisplay).toBeVisible();
+  await expect(roomCodeDisplay).toContainText(roomCode);
+  console.log('✅ Room code displayed');
 
-  // Verify assigned song is displayed
-  const assignedSongSection = page.locator('[data-testid="assigned-song"]');
-  await expect(assignedSongSection).toBeVisible({ timeout: 5000 });
-  console.log('✅ Assigned song section visible');
+  // Verify song card is displayed
+  const songCard = page.locator('[data-testid="song-card"]');
+  await expect(songCard).toBeVisible({ timeout: 5000 });
+  console.log('✅ Song card visible');
+
+  // Verify album art placeholder
+  const albumArt = page.locator('[data-testid="album-art-placeholder"]');
+  await expect(albumArt).toBeVisible();
+  console.log('✅ Album art placeholder visible');
 
   // Verify song title is shown
   const songTitle = page.locator('[data-testid="song-title"]');
   await expect(songTitle).toBeVisible();
   const titleText = await songTitle.textContent();
+  expect(titleText).not.toBe('Loading...');
   console.log(`✅ Song title displayed: ${titleText}`);
 
   // Verify artist is shown
   const songArtist = page.locator('[data-testid="song-artist"]');
   await expect(songArtist).toBeVisible();
   const artistText = await songArtist.textContent();
+  expect(artistText).not.toBe('by ...');
   console.log(`✅ Song artist displayed: ${artistText}`);
 
-  // Verify "Listening now..." indicator
-  const listeningIndicator = page.locator('text=Listening now...');
-  await expect(listeningIndicator).toBeVisible();
-  console.log('✅ Listening indicator visible');
+  // Verify "Listening now..." status indicator
+  const listeningStatus = page.locator('[data-testid="listening-status"]');
+  await expect(listeningStatus).toBeVisible();
+  await expect(listeningStatus).toContainText('Listening now...');
+  console.log('✅ Listening status indicator visible');
 
-  // Screenshot: After game start (lobby with song assignment displayed)
+  // Verify player list is displayed
+  const playerList = page.locator('[data-testid="player-list"]');
+  await expect(playerList).toBeVisible();
+  console.log('✅ Player list visible');
+
+  // Screenshot: GamePlayingView with song assignment
   const gameStartedPath = getArtifactsPath(testName, '08-game-started.png');
   await page.screenshot({ path: gameStartedPath, fullPage: true });
   screenshots.push({ name: '08-game-started.png', path: gameStartedPath });
@@ -248,7 +265,7 @@ async function startGameAsHost(
   expect(roomData.dancer_incognito_player_id).toBeUndefined();
   console.log('✅ Security verified: incognito identity NOT exposed in API response');
 
-  // Verify status is displayed in UI
+  // Verify status is displayed in UI (song_selection status on GamePlayingView)
   const statusText = page.locator('text=song_selection');
   await expect(statusText).toBeVisible();
 

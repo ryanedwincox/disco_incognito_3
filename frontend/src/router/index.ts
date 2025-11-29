@@ -6,6 +6,7 @@ import ServerDisconnectedDemoView from "@/views/ServerDisconnectedDemoView.vue";
 import ExceptionDemoView from "@/views/ExceptionDemoView.vue";
 import RoomSelectionView from "@/views/RoomSelectionView.vue";
 import RoomLobbyView from "@/views/RoomLobbyView.vue";
+import GamePlayingView from "@/views/GamePlayingView.vue";
 import SongPickerView from "@/views/SongPickerView.vue";
 import GameView from "@/views/GameView.vue";
 import GuessingView from "@/views/GuessingView.vue";
@@ -46,6 +47,11 @@ const routes: RouteRecordRaw[] = [
     path: "/rooms/:code",
     name: "room-lobby",
     component: RoomLobbyView
+  },
+  {
+    path: "/rooms/:code/playing",
+    name: "game-playing",
+    component: GamePlayingView
   },
   {
     path: "/rooms/:code/songs",
