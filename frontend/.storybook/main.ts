@@ -24,6 +24,9 @@ const config: StorybookConfig = {
           '@': fileURLToPath(new URL('../src', import.meta.url)),
         },
       },
+      define: {
+        'import.meta.env.VITE_TEST_MODE': JSON.stringify(process.env.VITE_TEST_MODE || 'false'),
+      },
     });
   },
 };
