@@ -26,6 +26,8 @@ const STORIES = [
   { id: 'views-gameview--round-in-progress', name: 'GameView-RoundInProgress' },
   { id: 'views-guessingview--default', name: 'GuessingView-Default' },
   { id: 'views-revealview--default', name: 'RevealView-Default' },
+  { id: 'views-songrevealview--regular-player', name: 'SongRevealView-RegularPlayer' },
+  { id: 'views-songrevealview--incognito-player', name: 'SongRevealView-IncognitoPlayer' },
   { id: 'views-testplaybackview--authenticated', name: 'TestPlaybackView-Authenticated' },
   { id: 'views-testplaybackview--not-authenticated', name: 'TestPlaybackView-NotAuthenticated' },
   { id: 'views-testplaybackview--with-search-results', name: 'TestPlaybackView-WithSearchResults' },
