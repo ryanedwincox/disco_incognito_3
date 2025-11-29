@@ -66,7 +66,68 @@ async function createRoom(page: Page): Promise<string> {
   return '310';
 }
 
-test.describe('User Flow: Landing → Login → Room Creation', () => {
+// Helper: Navigate to song picker, generate pair, save it
+// Returns paths of screenshots taken during the flow
+async function addSongPair(
+  page: Page,
+  testName: string
+): Promise<{ name: string; path: string }[]> {
+  const screenshots: { name: string; path: string }[] = [];
+
+  // Click 'Pick Songs' button to navigate to song picker
+  const pickSongsButton = page.getByRole('button', { name: 'Pick Songs' });
+  await expect(pickSongsButton).toBeVisible();
+  await pickSongsButton.click();
+
+  // Wait for navigation to song picker
+  await page.waitForURL('**/rooms/*/songs', { timeout: 10000 });
+  await page.waitForLoadState('networkidle');
+
+  // Screenshot: Empty song picker
+  const emptyPath = getArtifactsPath(testName, '04-song-picker-empty.png');
+  await page.screenshot({ path: emptyPath, fullPage: true });
+  screenshots.push({ name: '04-song-picker-empty.png', path: emptyPath });
+  console.log(`Screenshot saved: ${emptyPath}`);
+
+  // Click 'Generate Random Pair' button
+  const generateButton = page.getByRole('button', { name: 'Generate Random Pair' });
+  await expect(generateButton).toBeVisible();
+  await generateButton.click();
+
+  // Wait for song pair to be displayed (check for song cards in the UI)
+  await page.waitForSelector('.bg-zinc-800.rounded-xl', { timeout: 5000 });
+
+  // Screenshot: Song picker with generated pair
+  const generatedPath = getArtifactsPath(testName, '05-song-picker-generated.png');
+  await page.screenshot({ path: generatedPath, fullPage: true });
+  screenshots.push({ name: '05-song-picker-generated.png', path: generatedPath });
+  console.log(`Screenshot saved: ${generatedPath}`);
+
+  // Click 'Save Pair' button
+  const saveButton = page.getByRole('button', { name: 'Save Pair' });
+  await expect(saveButton).toBeVisible();
+  await expect(saveButton).toBeEnabled();
+  await saveButton.click();
+
+  // Wait for success message
+  const successMessage = page.locator('.bg-green-900\\/30');
+  await expect(successMessage).toBeVisible({ timeout: 5000 });
+  await expect(successMessage).toContainText('Saved pair');
+
+  // Screenshot: Song picker with success message
+  const savedPath = getArtifactsPath(testName, '06-song-picker-saved.png');
+  await page.screenshot({ path: savedPath, fullPage: true });
+  screenshots.push({ name: '06-song-picker-saved.png', path: savedPath });
+  console.log(`Screenshot saved: ${savedPath}`);
+
+  // Wait for auto-redirect back to lobby (1.5s delay in SongPickerView)
+  await page.waitForURL('**/rooms/310', { timeout: 5000 });
+  await page.waitForLoadState('networkidle');
+
+  return screenshots;
+}
+
+test.describe('User Flow: Landing → Login → Room Creation → Song Pair', () => {
   const screenshots: { name: string; path: string }[] = [];
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -98,6 +159,11 @@ test.describe('User Flow: Landing → Login → Room Creation', () => {
     await page.screenshot({ path: roomLobbyPath, fullPage: true });
     screenshots.push({ name: '03-room-lobby.png', path: roomLobbyPath });
     console.log(`Screenshot saved: ${roomLobbyPath}`);
+
+    // Step 4: Add song pair
+    const songPairScreenshots = await addSongPair(page, TEST_NAME);
+    screenshots.push(...songPairScreenshots);
+    console.log(`Added ${songPairScreenshots.length} song pair screenshots`);
 
     console.log('✅ User flow completed successfully');
 
