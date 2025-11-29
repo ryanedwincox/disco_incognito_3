@@ -40,7 +40,7 @@ class SongPair(BaseModel):
 
 
 class CurrentRound(BaseModel):
-    """Current round state with song assignments."""
+    """Current round state with song assignments (internal model with incognito identity)."""
 
     song_for_majority: SongInfo
     song_for_incognito: SongInfo
@@ -48,7 +48,19 @@ class CurrentRound(BaseModel):
     player_assignments: dict[str, SongInfo]  # player_id -> assigned song
 
 
+class CurrentRoundResponse(BaseModel):
+    """Public response model for current round (hides incognito identity).
+
+    Security: Players can look up their own assignment via player_assignments[player_id],
+    but cannot determine who the incognito player is since that field is excluded.
+    """
+
+    player_assignments: dict[str, SongInfo]  # player_id -> assigned song
+
+
 class RoomState(BaseModel):
+    """Internal room state model (includes incognito identity for backend logic)."""
+
     code: str
     host_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -69,3 +81,41 @@ class RoomState(BaseModel):
                 'status': 'lobby',
             }
         }
+
+
+class RoomStateResponse(BaseModel):
+    """Public API response model for room state (excludes incognito identity).
+
+    Security: Does not expose dancer_incognito_player_id or the full CurrentRound.
+    Instead uses CurrentRoundResponse which only contains player_assignments.
+    Each player can look up their own song but cannot identify who is incognito.
+    """
+
+    code: str
+    host_id: str
+    created_at: datetime
+    last_active_at: datetime
+    players: list[Player]
+    song_pairs: list[SongPair]
+    status: str
+    current_round: CurrentRoundResponse | None = None
+
+    @classmethod
+    def from_room_state(cls, room: RoomState) -> 'RoomStateResponse':
+        """Convert internal RoomState to public response (strips sensitive fields)."""
+        current_round_response = None
+        if room.current_round:
+            current_round_response = CurrentRoundResponse(
+                player_assignments=room.current_round.player_assignments
+            )
+
+        return cls(
+            code=room.code,
+            host_id=room.host_id,
+            created_at=room.created_at,
+            last_active_at=room.last_active_at,
+            players=room.players,
+            song_pairs=room.song_pairs,
+            status=room.status,
+            current_round=current_round_response,
+        )

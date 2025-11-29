@@ -16,7 +16,7 @@ import uuid
 
 from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
-from ...models.room import CurrentRound, Player, RoomState, SongInfo, SongPair
+from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, SongInfo, SongPair
 from ...storage.base import StorageAdapter
 
 router = APIRouter(prefix='/rooms', tags=['Rooms'])
@@ -118,35 +118,38 @@ async def create_room(
         raise HTTPException(status_code=500, detail='Failed to create room')
 
 
-@router.get('/{room_code}', summary='Get room by code')
+@router.get('/{room_code}', summary='Get room by code', response_model=RoomStateResponse)
 async def get_room(
     room_code: str,
     storage: StorageAdapter = Depends(get_storage_adapter),
-) -> RoomState:
+) -> RoomStateResponse:
     """
     Fetch room state by room code.
 
     Returns room data including players list with host indicator.
+    Security: Excludes incognito player identity from response.
     """
     room_data = await storage.get_room(room_code)
 
     if not room_data:
         raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    return RoomState(**room_data)
+    room = RoomState(**room_data)
+    return RoomStateResponse.from_room_state(room)
 
 
-@router.post('/{room_code}/join', summary='Join a room')
+@router.post('/{room_code}/join', summary='Join a room', response_model=RoomStateResponse)
 async def join_room(
     room_code: str,
     body: JoinRoomRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
-) -> RoomState:
+) -> RoomStateResponse:
     """
     Join an existing room.
 
     Adds player to room's players list if not already present.
     Returns updated room state.
+    Security: Excludes incognito player identity from response.
     """
     room_data = await storage.get_room(room_code)
 
@@ -175,20 +178,21 @@ async def join_room(
 
     logger.info(f'Player {body.player_id} joined room {room_code}')
 
-    return room
+    return RoomStateResponse.from_room_state(room)
 
 
-@router.post('/{room_code}/songs', summary='Add a song pair to room')
+@router.post('/{room_code}/songs', summary='Add a song pair to room', response_model=RoomStateResponse)
 async def add_song_pair(
     room_code: str,
     body: AddSongPairRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
-) -> RoomState:
+) -> RoomStateResponse:
     """
     Add a song pair to the room.
 
     Creates a SongPair and adds it to the room's song_pairs list.
     Returns updated room state.
+    Security: Excludes incognito player identity from response.
     """
     room_data = await storage.get_room(room_code)
 
@@ -221,21 +225,23 @@ async def add_song_pair(
 
     logger.info(f'Song pair {pair_id} added to room {room_code} by player {body.player_id}')
 
-    return room
+    return RoomStateResponse.from_room_state(room)
 
 
-@router.post('/{room_code}/start', summary='Start the game')
+@router.post('/{room_code}/start', summary='Start the game', response_model=RoomStateResponse)
 async def start_game(
     room_code: str,
     body: StartGameRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
-) -> RoomState:
+) -> RoomStateResponse:
     """
     Start the game (host only).
 
     Picks a random song pair, assigns incognito player, and assigns songs to all players.
     Transitions room status from 'lobby' to 'song_selection'.
     Returns updated room state.
+    Security: Excludes incognito player identity from response. Players can only see
+    their own song assignment via current_round.player_assignments[player_id].
     """
     room_data = await storage.get_room(room_code)
 
@@ -305,4 +311,4 @@ async def start_game(
 
     logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {incognito_player.id}')
 
-    return room
+    return RoomStateResponse.from_room_state(room)

@@ -241,8 +241,12 @@ async function startGameAsHost(
   // Verify current_round with player_assignments exists
   expect(roomData.current_round).toBeDefined();
   expect(roomData.current_round.player_assignments).toBeDefined();
-  expect(roomData.current_round.incognito_player_id).toBeDefined();
-  console.log(`✅ Current round verified with incognito: ${roomData.current_round.incognito_player_id}`);
+
+  // Security: Verify incognito_player_id is NOT exposed in API response
+  // This ensures players cannot determine who the Dancer Incognito is via API
+  expect(roomData.current_round.incognito_player_id).toBeUndefined();
+  expect(roomData.dancer_incognito_player_id).toBeUndefined();
+  console.log('✅ Security verified: incognito identity NOT exposed in API response');
 
   // Verify status is displayed in UI
   const statusText = page.locator('text=song_selection');
