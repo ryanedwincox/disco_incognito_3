@@ -288,15 +288,15 @@ async function clickReadyAndWaitForPlayback(
   await readyButton.click();
   console.log('✅ Clicked Ready button');
 
-  // Screenshot: After clicking ready (button should be hidden)
+  // Verify ready button is hidden after clicking
+  await expect(readyButton).not.toBeVisible({ timeout: 2000 });
+  console.log('✅ Ready button hidden after clicking');
+
+  // Screenshot: After clicking ready (button hidden)
   const readyClickedPath = getArtifactsPath(testName, '09-ready-clicked.png');
   await page.screenshot({ path: readyClickedPath, fullPage: true });
   screenshots.push({ name: '09-ready-clicked.png', path: readyClickedPath });
   console.log(`Screenshot saved: ${readyClickedPath}`);
-
-  // Verify ready button is hidden after clicking
-  await expect(readyButton).not.toBeVisible({ timeout: 2000 });
-  console.log('✅ Ready button hidden after clicking');
 
   // Mark other players as ready via API
   await markOtherPlayersReady(roomCode, ['player-2', 'player-3']);

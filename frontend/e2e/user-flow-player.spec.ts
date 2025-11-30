@@ -292,15 +292,15 @@ test.describe('Player User Flow: Join Room → Wait in Lobby → See Song Reveal
     await readyButton.click();
     console.log('✅ Clicked Ready button');
 
-    // Screenshot: After clicking ready (button should be hidden)
+    // Verify ready button is hidden after clicking
+    await expect(readyButton).not.toBeVisible({ timeout: 2000 });
+    console.log('✅ Ready button hidden after clicking');
+
+    // Screenshot: After clicking ready (button hidden)
     const readyClickedPath = getArtifactsPath(TEST_NAME, '06-ready-clicked.png');
     await page.screenshot({ path: readyClickedPath, fullPage: true });
     screenshots.push({ name: '06-ready-clicked.png', path: readyClickedPath });
     console.log(`Screenshot saved: ${readyClickedPath}`);
-
-    // Verify ready button is hidden after clicking
-    await expect(readyButton).not.toBeVisible({ timeout: 2000 });
-    console.log('✅ Ready button hidden after clicking');
 
     // Step 7: Mark other players as ready via API (simulating host and other player)
     await markOtherPlayersReady(roomCode, [hostUserId, 'player-3']);
