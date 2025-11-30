@@ -47,6 +47,7 @@ class CurrentRound(BaseModel):
     incognito_player_id: str
     player_assignments: dict[str, SongInfo]  # player_id -> assigned song
     ready_players: list[str] = Field(default_factory=list)  # player_ids who clicked ready
+    votes: dict[str, str] = Field(default_factory=dict)  # player_id -> guessed_player_id
 
 
 class CurrentRoundResponse(BaseModel):
@@ -58,6 +59,15 @@ class CurrentRoundResponse(BaseModel):
 
     player_assignments: dict[str, SongInfo]  # player_id -> assigned song
     ready_players: list[str] = Field(default_factory=list)  # player_ids who clicked ready
+    votes: dict[str, str] = Field(default_factory=dict)  # player_id -> guessed_player_id
+
+
+class RoundResultsResponse(BaseModel):
+    """Results response model after voting (reveals incognito identity)."""
+
+    incognito_player_id: str
+    votes: dict[str, str]  # player_id -> guessed_player_id
+    correct_guessers: list[str]  # player_ids who guessed correctly
 
 
 class RoomState(BaseModel):
@@ -110,6 +120,7 @@ class RoomStateResponse(BaseModel):
             current_round_response = CurrentRoundResponse(
                 player_assignments=room.current_round.player_assignments,
                 ready_players=room.current_round.ready_players,
+                votes=room.current_round.votes,
             )
 
         return cls(
