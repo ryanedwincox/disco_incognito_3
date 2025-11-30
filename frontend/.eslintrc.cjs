@@ -8,7 +8,8 @@ module.exports = {
   extends: [
     "eslint:recommended",
     "plugin:vue/vue3-essential",
-    "@vue/eslint-config-typescript/recommended"
+    "@vue/eslint-config-typescript/recommended",
+    "plugin:storybook/recommended"
   ],
   parserOptions: {
     ecmaVersion: "latest",
