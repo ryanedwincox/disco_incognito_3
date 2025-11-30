@@ -35,8 +35,8 @@ function getMainRepoDir(): string {
   }
   return ROOT_DIR;
 }
-const MAIN_REPO_DIR = getMainRepoDir();
-const VENV_DIR = path.join(MAIN_REPO_DIR, '.venv');
+// Note: getMainRepoDir() available if needed for worktree .venv resolution
+void getMainRepoDir; // Suppress unused warning - kept for future use
 
 // Ports
 const BACKEND_PORT = 8000;
