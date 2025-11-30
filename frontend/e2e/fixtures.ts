@@ -6,6 +6,8 @@ import * as path from 'path';
 import * as net from 'net';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import pixelmatch from 'pixelmatch';
+import { PNG } from 'pngjs';
 
 // ESM __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -19,6 +21,24 @@ const TEST_DATA_DIR = path.join(ROOT_DIR, 'test-data');
 const ARTIFACTS_DIR = path.join(ROOT_DIR, 'artifacts');
 const SCREENSHOTS_DIR = path.join(ARTIFACTS_DIR, 'screenshots');
 const BASELINES_DIR = path.join(__dirname, 'screenshots');
+
+// For worktrees, use main repo's .venv (worktrees share the same .venv)
+// Worktrees have a .git file (not directory) pointing to gitdir
+function getMainRepoDir(): string {
+  const gitPath = path.join(ROOT_DIR, '.git');
+  if (fs.existsSync(gitPath) && fs.statSync(gitPath).isFile()) {
+    // Worktree: .git is a file containing "gitdir: /path/to/.git/worktrees/name"
+    const gitContent = fs.readFileSync(gitPath, 'utf-8').trim();
+    const match = gitContent.match(/^gitdir:\s*(.+)$/);
+    if (match) {
+      // Go from .git/worktrees/name to .git to main repo
+      return path.resolve(match[1], '..', '..', '..');
+    }
+  }
+  return ROOT_DIR;
+}
+// Note: getMainRepoDir() available if needed for worktree .venv resolution
+void getMainRepoDir; // Suppress unused warning - kept for future use
 
 // Ports
 const BACKEND_PORT = 8000;
@@ -97,8 +117,8 @@ export const test = base.extend<TestFixtures>({
       // Start backend with isolated storage
       const testStorageFile = path.join(TEST_DATA_DIR, 'disco_incognito.json');
       const backendProcess = spawn(
-        path.join(ROOT_DIR, '.venv/bin/uvicorn'),
-        ['app.main:app', '--host', '0.0.0.0', '--port', String(BACKEND_PORT)],
+        'python3',
+        ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', String(BACKEND_PORT)],
         {
           cwd: BACKEND_DIR,
           env: {
@@ -216,11 +236,11 @@ interface CompareResult {
   diffPercent?: number;
 }
 
-// Compare two screenshots (pixel-level comparison)
+// Compare two screenshots using pixelmatch for pixel-level comparison
 export async function compareScreenshots(
   actualPath: string,
   baselinePath: string,
-  threshold: number = 0.01 // 1% difference allowed
+  threshold: number = 0.05 // 5% difference allowed by default
 ): Promise<CompareResult> {
   // Check if baseline exists
   if (!fs.existsSync(baselinePath)) {
@@ -231,18 +251,39 @@ export async function compareScreenshots(
   const actualBuffer = fs.readFileSync(actualPath);
   const baselineBuffer = fs.readFileSync(baselinePath);
 
-  // Simple byte-level comparison (for identical matches)
+  // Quick check: if files are byte-identical, skip pixel comparison
   if (actualBuffer.equals(baselineBuffer)) {
+    console.log(`  [pixelmatch] ${path.basename(actualPath)}: identical files, 0% diff`);
     return { match: true, baselineMissing: false, diffPercent: 0 };
   }
 
-  // If sizes are very different, they don't match
-  const sizeDiff = Math.abs(actualBuffer.length - baselineBuffer.length) / baselineBuffer.length;
-  if (sizeDiff > threshold) {
-    return { match: false, baselineMissing: false, diffPercent: sizeDiff * 100 };
+  // Decode PNG images
+  const actualPng = PNG.sync.read(actualBuffer);
+  const baselinePng = PNG.sync.read(baselineBuffer);
+
+  // Check dimensions match
+  if (actualPng.width !== baselinePng.width || actualPng.height !== baselinePng.height) {
+    const diffPercent = 100; // Different dimensions = 100% diff
+    console.log(
+      `  [pixelmatch] ${path.basename(actualPath)}: dimension mismatch ` +
+        `(${actualPng.width}x${actualPng.height} vs ${baselinePng.width}x${baselinePng.height})`
+    );
+    return { match: false, baselineMissing: false, diffPercent };
   }
 
-  // For now, use size comparison as proxy (full pixel comparison would need sharp/pixelmatch)
-  // Consider screenshots matching if within threshold
-  return { match: sizeDiff <= threshold, baselineMissing: false, diffPercent: sizeDiff * 100 };
+  // Run pixel-by-pixel comparison
+  const { width, height } = actualPng;
+  const totalPixels = width * height;
+  const diffPixels = pixelmatch(actualPng.data, baselinePng.data, null, width, height, {
+    threshold: 0.1, // pixelmatch per-pixel sensitivity (0-1, lower = stricter)
+  });
+
+  const diffPercent = (diffPixels / totalPixels) * 100;
+  const match = diffPercent <= threshold * 100;
+
+  console.log(
+    `  [pixelmatch] ${path.basename(actualPath)}: ${diffPixels}/${totalPixels} pixels differ (${diffPercent.toFixed(2)}%) - ${match ? 'PASS' : 'FAIL'}`
+  );
+
+  return { match, baselineMissing: false, diffPercent };
 }

@@ -1,5 +1,5 @@
-// User flow E2E test: Combined flow from landing -> login -> room creation -> multiplayer game start
-// Screenshots are saved to artifacts/screenshots/user-flow/ and compared against baselines
+// Host user flow E2E test: Combined flow from landing -> login -> room creation -> multiplayer game start
+// Screenshots are saved to artifacts/screenshots/user-flow-host/ and compared against baselines
 import {
   test,
   expect,
@@ -12,7 +12,7 @@ import type { Page } from '@playwright/test';
 
 const BACKEND_URL = 'http://localhost:8000';
 
-const TEST_NAME = 'user-flow';
+const TEST_NAME = 'user-flow-host';
 
 // Helper: Load and verify landing page
 async function loadLandingPage(page: Page): Promise<void> {
@@ -259,11 +259,11 @@ async function startGameAsHost(
   return screenshots;
 }
 
-test.describe('User Flow: Landing → Login → Room Creation → Song Pair → Multiplayer Game Start', () => {
+test.describe('Host User Flow: Landing → Login → Room Creation → Song Pair → Multiplayer Game Start', () => {
   const screenshots: { name: string; path: string }[] = [];
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  test('complete user flow with screenshot verification', async ({ page, serverContext }) => {
+  test('complete host user flow with screenshot verification', async ({ page, serverContext }) => {
     // Step 1: Load landing page
     await loadLandingPage(page);
 
@@ -306,7 +306,7 @@ test.describe('User Flow: Landing → Login → Room Creation → Song Pair → 
     screenshots.push(...gameStartScreenshots);
     console.log(`Added ${gameStartScreenshots.length} game start screenshots`);
 
-    console.log('✅ User flow completed successfully');
+    console.log('✅ Host user flow completed successfully');
 
     // Compare screenshots against baselines
     console.log('\n--- Screenshot Comparison ---');
