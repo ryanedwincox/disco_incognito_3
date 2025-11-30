@@ -131,11 +131,6 @@ const voteResults = computed((): VoteResult[] => {
   });
 });
 
-function getPlayerName(playerId: string): string {
-  const player = players.value.find(p => p.id === playerId);
-  return player?.display_name ?? 'Unknown';
-}
-
 async function fetchResults() {
   try {
     loading.value = true;
@@ -174,9 +169,30 @@ async function fetchResults() {
   }
 }
 
-function finishRound() {
-  // Navigate back to lobby for next round
-  router.push(`/rooms/${roomCode.value}`);
+async function finishRound() {
+  try {
+    const currentUserId = authStore.user?.id ?? playerStore.id;
+
+    // Call backend to finish round (removes song pair, resets state)
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/finish-round`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ player_id: currentUserId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      console.error('Failed to finish round:', errorData.detail);
+      error.value = errorData.detail || 'Failed to finish round';
+      return;
+    }
+
+    // Navigate back to lobby for next round
+    router.push(`/rooms/${roomCode.value}`);
+  } catch (err) {
+    console.error('Failed to finish round:', err);
+    error.value = 'Failed to finish round. Please try again.';
+  }
 }
 
 onMounted(() => {

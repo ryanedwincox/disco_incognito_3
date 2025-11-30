@@ -67,6 +67,12 @@ class VoteRequest(BaseModel):
     guessed_player_id: str = Field(..., description='Player ID being guessed as Dancer Incognito')
 
 
+class FinishRoundRequest(BaseModel):
+    """Request model for finishing a round (host only)."""
+
+    player_id: str = Field(..., description='Player ID (must be host)')
+
+
 class CreateRoomResponse(BaseModel):
     """Response model for room creation."""
 
@@ -485,3 +491,58 @@ async def get_results(
         votes=room.current_round.votes,
         correct_guessers=correct_guessers,
     )
+
+
+@router.post('/{room_code}/finish-round', summary='Finish round and return to lobby', response_model=RoomStateResponse)
+async def finish_round(
+    room_code: str,
+    body: FinishRoundRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoomStateResponse:
+    """
+    Finish the current round and return to lobby (host only).
+
+    Removes the used song pair from the pool, resets room status to 'lobby',
+    and clears the current round. Players can then start a new round if song pairs remain.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify requester is host
+    if room.host_id != body.player_id:
+        raise HTTPException(status_code=403, detail='Only the host can finish the round')
+
+    # Verify room is in results state
+    if room.status != 'results':
+        raise HTTPException(status_code=400, detail=f'Cannot finish round from {room.status} state')
+
+    # Verify current_round exists
+    if not room.current_round:
+        raise HTTPException(status_code=400, detail='No active round to finish')
+
+    # Find and remove the used song pair by matching the song_for_majority track ID
+    used_track_id = room.current_round.song_for_majority.id
+    original_pair_count = len(room.song_pairs)
+    room.song_pairs = [
+        pair for pair in room.song_pairs
+        if pair.track_a != used_track_id and pair.track_b != used_track_id
+    ]
+
+    if len(room.song_pairs) < original_pair_count:
+        logger.info(f'Removed used song pair from room {room_code} ({original_pair_count} -> {len(room.song_pairs)} pairs)')
+
+    # Reset room state for next round
+    room.status = 'lobby'
+    room.current_round = None
+    room.dancer_incognito_player_id = None
+
+    # Save updated room
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info(f'Round finished in room {room_code} by host {body.player_id}')
+
+    return RoomStateResponse.from_room_state(room)
