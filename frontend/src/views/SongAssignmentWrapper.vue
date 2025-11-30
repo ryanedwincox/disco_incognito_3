@@ -1,7 +1,7 @@
-<!-- Wrapper for SongRevealView that fetches room state and determines player's song assignment. Extracts song from room.current_round.player_assignments and determines if player is incognito. Includes MusicPlayerBar at bottom for playback controls. -->
+<!-- Wrapper for SongAssignmentView that fetches room state and determines player's song assignment. Extracts song from room.current_round.player_assignments and determines if player is incognito. Includes MusicPlayerBar at bottom for playback controls. -->
 <template>
   <div class="min-h-screen">
-    <SongRevealView
+    <SongAssignmentView
       :song="playerSong"
       :is-incognito="false"
       :show-ready-button="!isReady"
@@ -20,7 +20,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useMusicStore, type TrackInfo } from '../stores/music'
-import SongRevealView from './SongRevealView.vue'
+import SongAssignmentView from './SongAssignmentView.vue'
 import MusicPlayerBar from '../components/MusicPlayerBar.vue'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
@@ -36,7 +36,7 @@ const currentUserId = computed(() => authStore.user?.id ?? null)
 const isReady = ref(false)
 const readyPlayers = ref<string[]>([])
 
-// Convert roomStore.assignedSong to TrackInfo format expected by SongRevealView
+// Convert roomStore.assignedSong to TrackInfo format expected by SongAssignmentView
 const playerSong = computed<TrackInfo | null>(() => {
   const assigned = roomStore.assignedSong
   if (!assigned) return null

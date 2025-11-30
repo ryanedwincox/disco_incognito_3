@@ -6,7 +6,7 @@ module.exports = {
     "./src/**/*.{vue,js,ts,jsx,tsx}"
   ],
   safelist: [
-    "pb-24"  // Ensure padding-bottom-24 is always compiled (used in SongRevealView)
+    "pb-24"  // Ensure padding-bottom-24 is always compiled (used in SongAssignmentView)
   ],
   theme: {
     extend: {

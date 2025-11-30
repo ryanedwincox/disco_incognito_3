@@ -10,8 +10,8 @@ import GamePlayingView from "@/views/GamePlayingView.vue";
 import SongPickerView from "@/views/SongPickerView.vue";
 import GameView from "@/views/GameView.vue";
 import GuessingView from "@/views/GuessingView.vue";
-import RevealView from "@/views/RevealView.vue";
-import SongRevealWrapper from "@/views/SongRevealWrapper.vue";
+import ResultsView from "@/views/ResultsView.vue";
+import SongAssignmentWrapper from "@/views/SongAssignmentWrapper.vue";
 
 const routes: RouteRecordRaw[] = [
   {
@@ -70,14 +70,14 @@ const routes: RouteRecordRaw[] = [
     component: GuessingView
   },
   {
-    path: "/rooms/:code/reveal",
-    name: "song-reveal",
-    component: SongRevealWrapper
+    path: "/rooms/:code/assignment",
+    name: "song-assignment",
+    component: SongAssignmentWrapper
   },
   {
     path: "/rooms/:code/results",
-    name: "reveal",
-    component: RevealView
+    name: "results",
+    component: ResultsView
   }
 ];
 

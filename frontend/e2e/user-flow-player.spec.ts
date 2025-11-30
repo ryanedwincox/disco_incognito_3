@@ -256,11 +256,11 @@ test.describe('Player User Flow: Join Room → Wait in Lobby → See Song Reveal
     await startGameViaAPI(roomCode, hostUserId);
 
     // Player refreshes/navigates to see game started state
-    // In real app, WebSocket would push update; for test, navigate to reveal
-    await page.goto(`${FRONTEND_URL}/rooms/${roomCode}/reveal`);
+    // In real app, WebSocket would push update; for test, navigate to assignment
+    await page.goto(`${FRONTEND_URL}/rooms/${roomCode}/assignment`);
     await page.waitForLoadState('networkidle');
 
-    // Verify we're on the SongRevealView
+    // Verify we're on the SongAssignmentView
     const yourSongHeader = page.locator('h2:has-text("Your Song")');
     await expect(yourSongHeader).toBeVisible({ timeout: 5000 });
     console.log('✅ Your Song header visible');
@@ -282,10 +282,10 @@ test.describe('Player User Flow: Join Room → Wait in Lobby → See Song Reveal
     await expect(readyButton).toBeVisible();
     console.log('✅ Ready button visible');
 
-    // Screenshot: Player's song reveal view
-    const revealPath = getArtifactsPath(TEST_NAME, '05-song-reveal.png');
+    // Screenshot: Player's song assignment view
+    const revealPath = getArtifactsPath(TEST_NAME, '05-song-assignment.png');
     await page.screenshot({ path: revealPath, fullPage: true });
-    screenshots.push({ name: '05-song-reveal.png', path: revealPath });
+    screenshots.push({ name: '05-song-assignment.png', path: revealPath });
     console.log(`Screenshot saved: ${revealPath}`);
 
     // Step 6: Click "I'm Ready!" button
