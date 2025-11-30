@@ -46,6 +46,7 @@ class CurrentRound(BaseModel):
     song_for_incognito: SongInfo
     incognito_player_id: str
     player_assignments: dict[str, SongInfo]  # player_id -> assigned song
+    ready_players: list[str] = Field(default_factory=list)  # player_ids who clicked ready
 
 
 class CurrentRoundResponse(BaseModel):
@@ -56,6 +57,7 @@ class CurrentRoundResponse(BaseModel):
     """
 
     player_assignments: dict[str, SongInfo]  # player_id -> assigned song
+    ready_players: list[str] = Field(default_factory=list)  # player_ids who clicked ready
 
 
 class RoomState(BaseModel):
@@ -106,7 +108,8 @@ class RoomStateResponse(BaseModel):
         current_round_response = None
         if room.current_round:
             current_round_response = CurrentRoundResponse(
-                player_assignments=room.current_round.player_assignments
+                player_assignments=room.current_round.player_assignments,
+                ready_players=room.current_round.ready_players,
             )
 
         return cls(

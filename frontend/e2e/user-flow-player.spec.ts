@@ -175,6 +175,21 @@ async function addPlayerViaAPI(roomCode: string, playerId: string, displayName: 
   console.log(`Added player ${displayName} (${playerId})`);
 }
 
+// Helper: Mark other players as ready via REST API
+async function markOtherPlayersReady(roomCode: string, playerIds: string[]): Promise<void> {
+  for (const playerId of playerIds) {
+    const response = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}/ready`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ player_id: playerId }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to mark player ${playerId} ready: ${await response.text()}`);
+    }
+    console.log(`Marked player ${playerId} as ready via API`);
+  }
+}
+
 test.describe('Player User Flow: Join Room → Wait in Lobby → See Song Reveal', () => {
   const screenshots: { name: string; path: string }[] = [];
 
@@ -272,6 +287,66 @@ test.describe('Player User Flow: Join Room → Wait in Lobby → See Song Reveal
     await page.screenshot({ path: revealPath, fullPage: true });
     screenshots.push({ name: '05-song-reveal.png', path: revealPath });
     console.log(`Screenshot saved: ${revealPath}`);
+
+    // Step 6: Click "I'm Ready!" button
+    await readyButton.click();
+    console.log('✅ Clicked Ready button');
+
+    // Screenshot: After clicking ready (button should be hidden)
+    const readyClickedPath = getArtifactsPath(TEST_NAME, '06-ready-clicked.png');
+    await page.screenshot({ path: readyClickedPath, fullPage: true });
+    screenshots.push({ name: '06-ready-clicked.png', path: readyClickedPath });
+    console.log(`Screenshot saved: ${readyClickedPath}`);
+
+    // Verify ready button is hidden after clicking
+    await expect(readyButton).not.toBeVisible({ timeout: 2000 });
+    console.log('✅ Ready button hidden after clicking');
+
+    // Step 7: Mark other players as ready via API (simulating host and other player)
+    await markOtherPlayersReady(roomCode, [hostUserId, 'player-3']);
+
+    // Screenshot: All players ready (before navigation)
+    const allReadyPath = getArtifactsPath(TEST_NAME, '07-all-players-ready.png');
+    await page.screenshot({ path: allReadyPath, fullPage: true });
+    screenshots.push({ name: '07-all-players-ready.png', path: allReadyPath });
+    console.log(`Screenshot saved: ${allReadyPath}`);
+
+    // Refresh to trigger navigation (since we don't have WebSocket)
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    // Wait for navigation to /playing route
+    await page.waitForURL('**/rooms/*/playing', { timeout: 10000 });
+    console.log('✅ Navigated to /playing route');
+
+    // Verify we're on the GamePlayingView
+    const nowPlayingHeader = page.locator('h2:has-text("Now Playing")');
+    await expect(nowPlayingHeader).toBeVisible({ timeout: 5000 });
+    console.log('✅ Now Playing header visible');
+
+    // Verify listening status is shown
+    const listeningStatus = page.locator('[data-testid="listening-status"]');
+    await expect(listeningStatus).toBeVisible();
+    console.log('✅ Listening status visible');
+
+    // Verify song title is displayed
+    const songTitlePlayback = page.locator('[data-testid="song-title"]');
+    await expect(songTitlePlayback).toBeVisible();
+    const playbackTitleText = await songTitlePlayback.textContent();
+    expect(playbackTitleText).not.toBe('Loading...');
+    console.log(`✅ Song title in playback view: ${playbackTitleText}`);
+
+    // Screenshot: Music playing view
+    const musicPlayingPath = getArtifactsPath(TEST_NAME, '08-music-playing.png');
+    await page.screenshot({ path: musicPlayingPath, fullPage: true });
+    screenshots.push({ name: '08-music-playing.png', path: musicPlayingPath });
+    console.log(`Screenshot saved: ${musicPlayingPath}`);
+
+    // Verify room status is 'playing' via API
+    const roomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+    const roomData = await roomResponse.json();
+    expect(roomData.status).toBe('playing');
+    console.log(`✅ Room status verified: ${roomData.status}`);
 
     console.log('✅ Player user flow completed successfully');
 
