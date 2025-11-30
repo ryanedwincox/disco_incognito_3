@@ -6,10 +6,12 @@ import ServerDisconnectedDemoView from "@/views/ServerDisconnectedDemoView.vue";
 import ExceptionDemoView from "@/views/ExceptionDemoView.vue";
 import RoomSelectionView from "@/views/RoomSelectionView.vue";
 import RoomLobbyView from "@/views/RoomLobbyView.vue";
+import GamePlayingView from "@/views/GamePlayingView.vue";
 import SongPickerView from "@/views/SongPickerView.vue";
 import GameView from "@/views/GameView.vue";
 import GuessingView from "@/views/GuessingView.vue";
 import RevealView from "@/views/RevealView.vue";
+import SongRevealWrapper from "@/views/SongRevealWrapper.vue";
 
 const routes: RouteRecordRaw[] = [
   {
@@ -48,6 +50,11 @@ const routes: RouteRecordRaw[] = [
     component: RoomLobbyView
   },
   {
+    path: "/rooms/:code/playing",
+    name: "game-playing",
+    component: GamePlayingView
+  },
+  {
     path: "/rooms/:code/songs",
     name: "song-picker",
     component: SongPickerView
@@ -64,6 +71,11 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: "/rooms/:code/reveal",
+    name: "song-reveal",
+    component: SongRevealWrapper
+  },
+  {
+    path: "/rooms/:code/results",
     name: "reveal",
     component: RevealView
   }

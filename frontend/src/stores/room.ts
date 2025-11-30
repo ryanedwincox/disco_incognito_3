@@ -12,11 +12,18 @@ interface RoomPlayer {
   isConnected: boolean;
 }
 
+interface AssignedSong {
+  id: string;
+  title: string;
+  artist: string;
+}
+
 interface RoomState {
   code: string | null;
   players: RoomPlayer[];
   status: "lobby" | "song_selection" | "playing" | "guessing" | "reveal";
   songPairCount: number;
+  assignedSong: AssignedSong | null;
 }
 
 export const useRoomStore = defineStore("room", {
@@ -24,7 +31,8 @@ export const useRoomStore = defineStore("room", {
     code: null,
     players: [],
     status: "lobby",
-    songPairCount: 0
+    songPairCount: 0,
+    assignedSong: null
   }),
   actions: {
     setRoom(code: string) {
@@ -39,11 +47,15 @@ export const useRoomStore = defineStore("room", {
     setSongPairCount(count: number) {
       this.songPairCount = count;
     },
+    setAssignedSong(song: AssignedSong | null) {
+      this.assignedSong = song;
+    },
     reset() {
       this.code = null;
       this.players = [];
       this.status = "lobby";
       this.songPairCount = 0;
+      this.assignedSong = null;
     }
   }
 });
