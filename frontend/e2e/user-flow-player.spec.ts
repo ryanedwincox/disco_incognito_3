@@ -315,26 +315,31 @@ test.describe('Player User Flow: Join Room → Wait in Lobby → See Song Reveal
     await page.reload();
     await page.waitForLoadState('networkidle');
 
-    // Wait for navigation to /playing route
-    await page.waitForURL('**/rooms/*/playing', { timeout: 10000 });
-    console.log('✅ Navigated to /playing route');
+    // Wait for navigation to /play route (GameView)
+    await page.waitForURL('**/rooms/*/play', { timeout: 10000 });
+    console.log('✅ Navigated to /play route');
 
-    // Verify we're on the GamePlayingView
-    const nowPlayingHeader = page.locator('h2:has-text("Now Playing")');
-    await expect(nowPlayingHeader).toBeVisible({ timeout: 5000 });
-    console.log('✅ Now Playing header visible');
+    // Verify we're on the GameView
+    const roundHeader = page.locator('h2:has-text("Round In Progress")');
+    await expect(roundHeader).toBeVisible({ timeout: 5000 });
+    console.log('✅ Round In Progress header visible');
 
-    // Verify listening status is shown
-    const listeningStatus = page.locator('[data-testid="listening-status"]');
-    await expect(listeningStatus).toBeVisible();
-    console.log('✅ Listening status visible');
+    // Verify Time Remaining label is shown
+    const timeLabel = page.locator('p:has-text("Time Remaining")');
+    await expect(timeLabel).toBeVisible();
+    console.log('✅ Time Remaining label visible');
 
-    // Verify song title is displayed
-    const songTitlePlayback = page.locator('[data-testid="song-title"]');
-    await expect(songTitlePlayback).toBeVisible();
-    const playbackTitleText = await songTitlePlayback.textContent();
-    expect(playbackTitleText).not.toBe('Loading...');
-    console.log(`✅ Song title in playback view: ${playbackTitleText}`);
+    // Verify countdown timer is displayed
+    const countdownTimer = page.locator('p.text-6xl.font-bold');
+    await expect(countdownTimer).toBeVisible();
+    const timerText = await countdownTimer.textContent();
+    expect(timerText).toMatch(/\d{2}:\d{2}/);
+    console.log(`✅ Countdown timer displayed: ${timerText}`);
+
+    // Verify MusicPlayerBar is visible (has backdrop-blur-sm and border-t classes)
+    const musicPlayerBar = page.locator('.backdrop-blur-sm.border-t');
+    await expect(musicPlayerBar).toBeVisible();
+    console.log('✅ MusicPlayerBar visible');
 
     // Screenshot: Music playing view
     const musicPlayingPath = getArtifactsPath(TEST_NAME, '08-music-playing.png');
