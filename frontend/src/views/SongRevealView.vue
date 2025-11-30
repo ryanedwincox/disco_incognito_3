@@ -34,14 +34,9 @@
         <!-- Song Type Badge -->
         <div class="flex justify-center">
           <span
-            :class="[
-              'px-4 py-2 rounded-full text-sm font-medium',
-              isIncognito
-                ? 'bg-disco-pink/20 text-disco-pink border border-disco-pink'
-                : 'bg-green-500/20 text-green-400 border border-green-500'
-            ]"
+            class="px-4 py-2 rounded-full text-sm font-medium bg-green-500/20 text-green-400 border border-green-500"
           >
-            {{ isIncognito ? '🎭 Incognito Song' : '🎵 Your Song' }}
+            🎵 Your Song
           </span>
         </div>
       </div>
@@ -49,13 +44,7 @@
       <!-- Instructions -->
       <div class="bg-zinc-900/50 rounded-2xl p-4 text-center">
         <p class="text-sm text-zinc-400">
-          <template v-if="isIncognito">
-            You're the <span class="text-disco-pink font-semibold">Dancer Incognito</span>!
-            Blend in and don't let others guess you're dancing to a different song.
-          </template>
-          <template v-else>
-            Dance to your song and try to spot who's dancing to something different!
-          </template>
+          Dance to your song and try to blend in!
         </p>
       </div>
 

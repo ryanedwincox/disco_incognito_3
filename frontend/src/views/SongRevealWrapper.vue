@@ -2,8 +2,8 @@
 <template>
   <SongRevealView
     :song="playerSong"
-    :is-incognito="isIncognito"
-    :show-ready-button="false"
+    :is-incognito="false"
+    :show-ready-button="true"
   />
 </template>
 

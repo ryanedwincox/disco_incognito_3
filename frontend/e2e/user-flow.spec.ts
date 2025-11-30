@@ -216,12 +216,18 @@ async function startGameAsHost(
   expect(artistText).not.toBe('Unknown Artist');
   console.log(`✅ Song artist displayed: ${artistText}`);
 
-  // Verify song type badge is displayed (either "Your Song" or "Incognito Song")
+  // Verify song type badge shows "Your Song" (no incognito indication)
   const songBadge = page.locator('span.px-4.py-2.rounded-full');
   await expect(songBadge).toBeVisible();
   const badgeText = await songBadge.textContent();
-  expect(badgeText).toMatch(/Your Song|Incognito Song/);
+  expect(badgeText).toContain('Your Song');
+  expect(badgeText).not.toContain('Incognito');
   console.log(`✅ Song badge displayed: ${badgeText}`);
+
+  // Verify "I'm Ready!" button is visible
+  const readyButton = page.getByRole('button', { name: "I'm Ready!" });
+  await expect(readyButton).toBeVisible();
+  console.log('✅ Ready button visible');
 
   // Verify instructions section is displayed
   const instructions = page.locator('.bg-zinc-900\\/50.rounded-2xl');
