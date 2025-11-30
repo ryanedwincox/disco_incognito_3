@@ -16,7 +16,7 @@ import uuid
 
 from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
-from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, SongInfo, SongPair
+from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, RoundResultsResponse, SongInfo, SongPair
 from ...storage.base import StorageAdapter
 
 router = APIRouter(prefix='/rooms', tags=['Rooms'])
@@ -58,6 +58,13 @@ class PlayerReadyRequest(BaseModel):
     """Request model for marking a player as ready."""
 
     player_id: str = Field(..., description='Player ID')
+
+
+class VoteRequest(BaseModel):
+    """Request model for casting a vote on who is the Dancer Incognito."""
+
+    player_id: str = Field(..., description='Player ID casting the vote')
+    guessed_player_id: str = Field(..., description='Player ID being guessed as Dancer Incognito')
 
 
 class CreateRoomResponse(BaseModel):
@@ -371,3 +378,110 @@ async def mark_player_ready(
     logger.info(f'Player {body.player_id} marked ready in room {room_code} ({len(ready_player_ids)}/{len(all_player_ids)} ready)')
 
     return RoomStateResponse.from_room_state(room)
+
+
+@router.post('/{room_code}/vote', summary='Cast a vote for Dancer Incognito', response_model=RoomStateResponse)
+async def cast_vote(
+    room_code: str,
+    body: VoteRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoomStateResponse:
+    """
+    Cast a vote for who the player thinks is the Dancer Incognito.
+
+    Each player can only vote once. When all players have voted, transitions
+    room status to 'results'.
+    Returns updated room state.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify room is in playing or guessing state
+    if room.status not in ('playing', 'guessing'):
+        raise HTTPException(status_code=400, detail=f'Cannot vote from {room.status} state')
+
+    # Verify current_round exists
+    if not room.current_round:
+        raise HTTPException(status_code=400, detail='No active round')
+
+    # Verify voter is in room
+    voter = next((p for p in room.players if p.id == body.player_id), None)
+    if not voter:
+        raise HTTPException(status_code=403, detail='Player not in room')
+
+    # Verify guessed player is in room
+    guessed = next((p for p in room.players if p.id == body.guessed_player_id), None)
+    if not guessed:
+        raise HTTPException(status_code=400, detail='Guessed player not in room')
+
+    # Check if player already voted
+    if body.player_id in room.current_round.votes:
+        raise HTTPException(status_code=400, detail='Player has already voted')
+
+    # Record the vote
+    room.current_round.votes[body.player_id] = body.guessed_player_id
+
+    # Transition to guessing if still playing
+    if room.status == 'playing':
+        room.status = 'guessing'
+
+    # Check if all players have voted
+    all_player_ids = {p.id for p in room.players}
+    voted_player_ids = set(room.current_round.votes.keys())
+    all_voted = all_player_ids == voted_player_ids
+
+    if all_voted:
+        room.status = 'results'
+        logger.info(f'All players voted in room {room_code}, transitioning to results')
+
+    # Save updated room
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info(f'Player {body.player_id} voted for {body.guessed_player_id} in room {room_code} ({len(voted_player_ids)}/{len(all_player_ids)} voted)')
+
+    return RoomStateResponse.from_room_state(room)
+
+
+@router.get('/{room_code}/results', summary='Get round results', response_model=RoundResultsResponse)
+async def get_results(
+    room_code: str,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoundResultsResponse:
+    """
+    Get the round results after all players have voted.
+
+    Reveals who the Dancer Incognito was, all votes, and who guessed correctly.
+    Only available when room status is 'results'.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify room is in results state
+    if room.status != 'results':
+        raise HTTPException(status_code=400, detail=f'Results not available in {room.status} state')
+
+    # Verify current_round exists
+    if not room.current_round:
+        raise HTTPException(status_code=400, detail='No active round')
+
+    # Calculate correct guessers
+    incognito_id = room.current_round.incognito_player_id
+    correct_guessers = [
+        voter_id
+        for voter_id, guessed_id in room.current_round.votes.items()
+        if guessed_id == incognito_id
+    ]
+
+    return RoundResultsResponse(
+        incognito_player_id=incognito_id,
+        votes=room.current_round.votes,
+        correct_guessers=correct_guessers,
+    )
