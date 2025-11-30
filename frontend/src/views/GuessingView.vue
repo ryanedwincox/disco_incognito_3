@@ -7,9 +7,9 @@
     </header>
 
     <ul class="max-w-2xl mx-auto grid gap-4 md:grid-cols-2">
-      <li v-for="player in players" :key="player.id" class="bg-zinc-900 rounded-3xl p-6 space-y-3">
+      <li v-for="player in players" :key="player.id" class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 space-y-3">
         <h3 class="text-xl font-semibold">{{ player.name }}</h3>
-        <button class="w-full border border-disco-pink text-disco-pink py-2 rounded-full" type="button">
+        <button class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 py-2 rounded-full transition-colors" type="button">
           Guess {{ player.name }}
         </button>
       </li>

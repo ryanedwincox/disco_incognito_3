@@ -10,7 +10,7 @@
 
     <section class="max-w-md mx-auto space-y-6">
       <!-- Song Card -->
-      <div class="bg-zinc-900 rounded-3xl p-6 space-y-4">
+      <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 space-y-4">
         <!-- Album Art -->
         <div class="aspect-square w-full max-w-xs mx-auto rounded-2xl overflow-hidden bg-zinc-800">
           <img
@@ -47,7 +47,7 @@
       </div>
 
       <!-- Instructions -->
-      <div class="bg-zinc-900/50 rounded-2xl p-4 text-center">
+      <div class="bg-zinc-900/50 rounded-2xl border border-zinc-500 p-4 text-center">
         <p class="text-sm text-zinc-400">
           <template v-if="isIncognito">
             You're the <span class="text-disco-pink font-semibold">Dancer Incognito</span>!
@@ -62,7 +62,7 @@
       <!-- Ready Button (optional, for future use) -->
       <button
         v-if="showReadyButton"
-        class="w-full bg-disco-pink text-black font-semibold py-3 rounded-full hover:bg-disco-pink-light transition-colors"
+        class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors"
         type="button"
         @click="$emit('ready')"
       >

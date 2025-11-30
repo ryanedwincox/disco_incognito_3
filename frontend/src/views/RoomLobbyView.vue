@@ -10,14 +10,14 @@
       </div>
       <div class="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-3">
         <button
-          class="w-full md:w-auto px-6 py-3 rounded-full border border-zinc-700 text-zinc-300 hover:border-zinc-600 transition-colors"
+          class="w-full md:w-auto px-6 py-3 rounded-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 transition-colors"
           type="button"
           @click="leaveRoom"
         >
           Leave
         </button>
         <button
-          class="w-full md:w-auto px-6 py-3 rounded-full bg-disco-pink text-black font-semibold hover:bg-disco-pink-light transition-colors"
+          class="w-full md:w-auto px-6 py-3 rounded-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold transition-colors"
           type="button"
           @click="pickSongs"
         >
@@ -27,7 +27,7 @@
     </header>
 
     <section class="grid gap-6 md:grid-cols-2">
-      <div class="bg-zinc-900/70 rounded-3xl p-6">
+      <div class="bg-zinc-900/70 rounded-3xl border border-zinc-500 p-6">
         <h3 class="text-lg font-semibold mb-4">Players</h3>
         <ul class="space-y-3">
           <li
@@ -55,7 +55,7 @@
         </ul>
       </div>
 
-      <div class="bg-zinc-900/70 rounded-3xl p-6">
+      <div class="bg-zinc-900/70 rounded-3xl border border-zinc-500 p-6">
         <h3 class="text-lg font-semibold mb-4">Song Pairs</h3>
         <p class="text-zinc-400">Song pairs remain hidden until the reveal phase. Add them from the song picker.</p>
       </div>
