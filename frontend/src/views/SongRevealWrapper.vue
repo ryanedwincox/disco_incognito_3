@@ -39,17 +39,6 @@ const playerSong = computed<TrackInfo | null>(() => {
   }
 })
 
-// Determine if current player is the incognito player
-// This is determined by checking if their assigned song matches song_for_incognito
-const isIncognito = computed(() => {
-  // For now, we don't have direct access to song_for_incognito from the API
-  // The backend hides incognito_player_id for security
-  // We'll need to check if our assigned song is the "different" one
-  // This would require comparing with the room's current_round data
-  // For the initial implementation, default to false
-  // TODO: Implement proper isIncognito detection when API provides song_for_incognito
-  return false
-})
 
 onMounted(async () => {
   // Load auth state from localStorage (in case of page refresh)
