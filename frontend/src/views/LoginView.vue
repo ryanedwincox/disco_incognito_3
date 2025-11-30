@@ -21,7 +21,7 @@
           />
         </div>
         <button
-          class="w-full bg-disco-pink hover:bg-disco-pink-light text-black font-semibold px-8 py-3 rounded-full transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold px-8 py-3 rounded-full transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
           :disabled="isLoading || !displayName.trim()"
           @click="handleManualLogin"
@@ -41,7 +41,7 @@
       <template v-else>
         <!-- Spotify Login Button -->
         <button
-          class="w-full bg-disco-pink hover:bg-disco-pink-light text-black font-semibold px-8 py-3 rounded-full transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold px-8 py-3 rounded-full transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
           :disabled="isLoading"
           @click="handleSpotifyLogin"
@@ -51,7 +51,7 @@
 
         <!-- Manual/Guest Login Button -->
         <button
-          class="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold px-8 py-3 rounded-full transition-colors border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full bg-zinc-700 hover:bg-zinc-600 text-white font-semibold px-8 py-3 rounded-full transition-colors border border-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
           :disabled="isLoading"
           @click="showNameInput = true"

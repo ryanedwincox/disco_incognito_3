@@ -6,7 +6,7 @@
       <p class="text-zinc-400 text-sm">See who guessed correctly and who the Dancer Incognito really was.</p>
     </header>
 
-    <section class="max-w-4xl mx-auto bg-zinc-900/80 rounded-3xl p-6 space-y-6">
+    <section class="max-w-4xl mx-auto bg-zinc-900/80 rounded-3xl border border-zinc-500 p-6 space-y-6">
       <div>
         <h3 class="text-sm uppercase text-zinc-400">Dancer Incognito</h3>
         <p class="text-2xl font-semibold">DJ Host</p>
@@ -24,7 +24,7 @@
           </li>
         </ul>
       </div>
-      <button class="w-full bg-disco-pink text-black font-semibold py-3 rounded-full" type="button">
+      <button class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors" type="button">
         Next Round
       </button>
     </section>

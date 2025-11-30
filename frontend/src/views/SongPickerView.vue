@@ -10,14 +10,14 @@
 
     <div class="max-w-3xl mx-auto space-y-6">
       <!-- Spectator mode message for non-Spotify users -->
-      <div v-if="!isSpotifyUser" class="bg-zinc-900 rounded-3xl p-6 text-center space-y-4">
+      <div v-if="!isSpotifyUser" class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 text-center space-y-4">
         <div class="text-5xl mb-2">🎵</div>
         <h3 class="text-xl font-semibold">Spotify Login Required</h3>
         <p class="text-zinc-400 text-sm max-w-md mx-auto">
           You're logged in as a guest. To add songs to the game, you'll need to log in with Spotify.
         </p>
         <button
-          class="w-full max-w-xs mx-auto border border-zinc-700 text-zinc-300 font-medium py-3 rounded-full hover:bg-zinc-800 transition-colors"
+          class="w-full max-w-xs mx-auto bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
           type="button"
           @click="goBack"
         >
@@ -35,7 +35,7 @@
         />
 
         <div class="grid gap-4 md:grid-cols-2">
-        <div class="bg-zinc-900 rounded-3xl p-5">
+        <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
           <h3 class="text-lg font-semibold mb-3">
             {{ isTestMode ? 'Random Song Pair' : 'Search Results' }}
           </h3>
@@ -49,19 +49,19 @@
             {{ isTestMode ? 'Random songs will appear when you click "Generate Random Pair"' : 'Results appear here in test mode once the Spotify adapter is wired.' }}
           </p>
         </div>
-        <div class="bg-zinc-900 rounded-3xl p-5">
+        <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
           <h3 class="text-lg font-semibold mb-3">Actions</h3>
           <div class="space-y-3">
             <button
               v-if="isTestMode"
-              class="w-full border border-disco-pink text-disco-pink font-medium py-3 rounded-full hover:bg-disco-pink/10 transition-colors"
+              class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
               type="button"
               @click="generateRandomPair"
             >
               Generate Random Pair
             </button>
             <button
-              class="w-full bg-disco-pink text-black font-semibold py-3 rounded-full hover:bg-disco-pink-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               type="button"
               :disabled="!isTestMode || selectedPair.length === 0"
               @click="savePair"
@@ -69,7 +69,7 @@
               {{ isSaving ? 'Saving...' : 'Save Pair' }}
             </button>
             <button
-              class="w-full border border-zinc-700 text-zinc-300 font-medium py-3 rounded-full hover:bg-zinc-800 transition-colors"
+              class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
               type="button"
               @click="goBack"
             >

@@ -9,8 +9,8 @@ module.exports = {
     extend: {
       colors: {
         "disco-pink": {
-          DEFAULT: "#FF1493",
-          light: "#FF69B4"
+          DEFAULT: "#D6006F",
+          hover: "#E91E84"
         }
       },
       fontFamily: {
