@@ -179,9 +179,9 @@ async function joinRoomViaUI(page: Page, roomCode: string): Promise<void> {
 }
 
 test.describe('Guessing Phase Flow', () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   test('player can navigate to guess page, see all players, cast vote, and cannot vote twice', async ({
     page,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     serverContext,
   }) => {
     // Setup: Create room with host and add players
@@ -272,9 +272,9 @@ test.describe('Guessing Phase Flow', () => {
 });
 
 test.describe('Results Reveal Flow', () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   test('all players vote, navigate to results, verify Dancer Incognito revealed with highlight, host sees Finish Round button', async ({
     page,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     serverContext,
   }) => {
     // Setup: Create room with host and add players via API
