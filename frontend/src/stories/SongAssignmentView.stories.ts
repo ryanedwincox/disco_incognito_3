@@ -1,6 +1,6 @@
-// Story: SongRevealView - Song reveal before playback with regular and incognito player states
+// Story: SongAssignmentView - Song assignment before playback with regular and incognito player states
 import type { Meta, StoryObj } from '@storybook/vue3';
-import SongRevealView from '../views/SongRevealView.vue';
+import SongAssignmentView from '../views/SongAssignmentView.vue';
 import type { TrackInfo } from '../stores/music';
 
 const mockSong: TrackInfo = {
@@ -23,9 +23,9 @@ const mockIncognitoSong: TrackInfo = {
   uri: 'spotify:track:0987654321',
 };
 
-const meta: Meta<typeof SongRevealView> = {
-  title: 'Views/SongRevealView',
-  component: SongRevealView,
+const meta: Meta<typeof SongAssignmentView> = {
+  title: 'Views/SongAssignmentView',
+  component: SongAssignmentView,
   tags: ['autodocs'],
   parameters: {
     layout: 'fullscreen',

@@ -207,12 +207,12 @@ async function startGameAsHost(
   await expect(startButton).toBeVisible({ timeout: 5000 });
   await startButton.click();
 
-  // Wait for navigation to /reveal route
-  await page.waitForURL('**/rooms/*/reveal', { timeout: 10000 });
+  // Wait for navigation to /assignment route
+  await page.waitForURL('**/rooms/*/assignment', { timeout: 10000 });
   await page.waitForLoadState('networkidle');
-  console.log('✅ Navigated to /reveal route');
+  console.log('✅ Navigated to /assignment route');
 
-  // Verify we're on the SongRevealView
+  // Verify we're on the SongAssignmentView
   const yourSongHeader = page.locator('h2:has-text("Your Song")');
   await expect(yourSongHeader).toBeVisible({ timeout: 5000 });
   console.log('✅ Your Song header visible');
@@ -249,7 +249,7 @@ async function startGameAsHost(
   await expect(instructions).toBeVisible();
   console.log('✅ Instructions section visible');
 
-  // Screenshot: SongRevealView with song assignment
+  // Screenshot: SongAssignmentView with song assignment
   const gameStartedPath = getArtifactsPath(testName, '08-game-started.png');
   await page.screenshot({ path: gameStartedPath, fullPage: true });
   screenshots.push({ name: '08-game-started.png', path: gameStartedPath });

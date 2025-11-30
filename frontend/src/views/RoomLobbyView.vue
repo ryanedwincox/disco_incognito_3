@@ -209,8 +209,8 @@ async function startGame() {
       }
 
       console.log('Game started, status:', data.status)
-      // Navigate to the song reveal view
-      router.push(`/rooms/${roomCode.value}/reveal`)
+      // Navigate to the song assignment view
+      router.push(`/rooms/${roomCode.value}/assignment`)
     } else {
       const error = await response.json()
       console.error('Failed to start game:', error.detail)
