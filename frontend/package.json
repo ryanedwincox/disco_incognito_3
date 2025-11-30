@@ -10,6 +10,8 @@
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build -o storybook-static",
     "storybook:screenshots": "node scripts/storybook-screenshots.mjs",
+    "storybook:test-visual": "node scripts/storybook-visual-regression.mjs",
+    "storybook:update-baselines": "node scripts/storybook-visual-regression.mjs --update-baselines",
     "test:unit": "vitest --run",
     "test:watch": "vitest",
     "test:e2e:login": "node tests/e2e/login-flow.test.mjs",

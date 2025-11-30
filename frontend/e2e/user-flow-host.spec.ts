@@ -1,5 +1,5 @@
-// User flow E2E test: Combined flow from landing -> login -> room creation
-// Screenshots are saved to artifacts/screenshots/user-flow/ and compared against baselines
+// Host user flow E2E test: Combined flow from landing -> login -> room creation -> multiplayer game start
+// Screenshots are saved to artifacts/screenshots/user-flow-host/ and compared against baselines
 import {
   test,
   expect,
@@ -10,7 +10,9 @@ import {
 } from './fixtures';
 import type { Page } from '@playwright/test';
 
-const TEST_NAME = 'user-flow';
+const BACKEND_URL = 'http://localhost:8000';
+
+const TEST_NAME = 'user-flow-host';
 
 // Helper: Load and verify landing page
 async function loadLandingPage(page: Page): Promise<void> {
@@ -127,11 +129,141 @@ async function addSongPair(
   return screenshots;
 }
 
-test.describe('User Flow: Landing → Login → Room Creation → Song Pair', () => {
+// Helper: Add players via REST API
+async function addPlayersViaREST(roomCode: string): Promise<void> {
+  // Add player 2
+  const response1 = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      player_id: 'player-2',
+      display_name: 'Player Two',
+    }),
+  });
+  if (!response1.ok) {
+    throw new Error(`Failed to add player 2: ${await response1.text()}`);
+  }
+
+  // Add player 3
+  const response2 = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}/join`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      player_id: 'player-3',
+      display_name: 'Player Three',
+    }),
+  });
+  if (!response2.ok) {
+    throw new Error(`Failed to add player 3: ${await response2.text()}`);
+  }
+
+  console.log('Added 2 players via REST API');
+}
+
+// Helper: Start game via host clicking button
+async function startGameAsHost(
+  page: Page,
+  testName: string,
+  hostPlayerId: string,
+  roomCode: string
+): Promise<{ name: string; path: string }[]> {
+  const screenshots: { name: string; path: string }[] = [];
+
+  // Refresh page to see updated player list
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+
+  // Wait for player list to update (3 players should be visible)
+  await page.waitForSelector('ul.space-y-3 li:nth-child(3)', { timeout: 5000 });
+
+  // Screenshot: Room lobby with 3 players
+  const threePlayersPath = getArtifactsPath(testName, '07-lobby-three-players.png');
+  await page.screenshot({ path: threePlayersPath, fullPage: true });
+  screenshots.push({ name: '07-lobby-three-players.png', path: threePlayersPath });
+  console.log(`Screenshot saved: ${threePlayersPath}`);
+
+  // Verify 3 players are shown
+  const playerItems = await page.locator('ul.space-y-3 li').count();
+  expect(playerItems).toBe(3);
+  console.log(`✅ Verified ${playerItems} players in lobby`);
+
+  // Click Start Game button (visible only to host)
+  const startButton = page.getByRole('button', { name: 'Start Game' });
+  await expect(startButton).toBeVisible({ timeout: 5000 });
+  await startButton.click();
+
+  // Wait for navigation to /reveal route
+  await page.waitForURL('**/rooms/*/reveal', { timeout: 10000 });
+  await page.waitForLoadState('networkidle');
+  console.log('✅ Navigated to /reveal route');
+
+  // Verify we're on the SongRevealView
+  const yourSongHeader = page.locator('h2:has-text("Your Song")');
+  await expect(yourSongHeader).toBeVisible({ timeout: 5000 });
+  console.log('✅ Your Song header visible');
+
+  // Verify song title is shown (h3 with song name)
+  const songTitle = page.locator('h3.text-2xl.font-bold');
+  await expect(songTitle).toBeVisible();
+  const titleText = await songTitle.textContent();
+  expect(titleText).not.toBe('Unknown Song');
+  console.log(`✅ Song title displayed: ${titleText}`);
+
+  // Verify artist is shown
+  const songArtist = page.locator('p.text-lg.text-zinc-400');
+  await expect(songArtist).toBeVisible();
+  const artistText = await songArtist.textContent();
+  expect(artistText).not.toBe('Unknown Artist');
+  console.log(`✅ Song artist displayed: ${artistText}`);
+
+  // Verify song type badge shows "Your Song" (no incognito indication)
+  const songBadge = page.locator('span.px-4.py-2.rounded-full');
+  await expect(songBadge).toBeVisible();
+  const badgeText = await songBadge.textContent();
+  expect(badgeText).toContain('Your Song');
+  expect(badgeText).not.toContain('Incognito');
+  console.log(`✅ Song badge displayed: ${badgeText}`);
+
+  // Verify "I'm Ready!" button is visible
+  const readyButton = page.getByRole('button', { name: "I'm Ready!" });
+  await expect(readyButton).toBeVisible();
+  console.log('✅ Ready button visible');
+
+  // Verify instructions section is displayed
+  const instructions = page.locator('.bg-zinc-900\\/50.rounded-2xl');
+  await expect(instructions).toBeVisible();
+  console.log('✅ Instructions section visible');
+
+  // Screenshot: SongRevealView with song assignment
+  const gameStartedPath = getArtifactsPath(testName, '08-game-started.png');
+  await page.screenshot({ path: gameStartedPath, fullPage: true });
+  screenshots.push({ name: '08-game-started.png', path: gameStartedPath });
+  console.log(`Screenshot saved: ${gameStartedPath}`);
+
+  // Verify room status changed via API
+  const roomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+  const roomData = await roomResponse.json();
+  expect(roomData.status).toBe('song_selection');
+  console.log(`✅ Room status verified: ${roomData.status}`);
+
+  // Verify current_round with player_assignments exists
+  expect(roomData.current_round).toBeDefined();
+  expect(roomData.current_round.player_assignments).toBeDefined();
+
+  // Security: Verify incognito_player_id is NOT exposed in API response
+  // This ensures players cannot determine who the Dancer Incognito is via API
+  expect(roomData.current_round.incognito_player_id).toBeUndefined();
+  expect(roomData.dancer_incognito_player_id).toBeUndefined();
+  console.log('✅ Security verified: incognito identity NOT exposed in API response');
+
+  return screenshots;
+}
+
+test.describe('Host User Flow: Landing → Login → Room Creation → Song Pair → Multiplayer Game Start', () => {
   const screenshots: { name: string; path: string }[] = [];
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  test('complete user flow with screenshot verification', async ({ page, serverContext }) => {
+  test('complete host user flow with screenshot verification', async ({ page, serverContext }) => {
     // Step 1: Load landing page
     await loadLandingPage(page);
 
@@ -165,7 +297,16 @@ test.describe('User Flow: Landing → Login → Room Creation → Song Pair', ()
     screenshots.push(...songPairScreenshots);
     console.log(`Added ${songPairScreenshots.length} song pair screenshots`);
 
-    console.log('✅ User flow completed successfully');
+    // Step 5: Add 2 more players via REST API
+    await addPlayersViaREST(roomCode);
+
+    // Step 6: Start game as host (with screenshots)
+    // Host player ID in test mode is 'test-user-123'
+    const gameStartScreenshots = await startGameAsHost(page, TEST_NAME, 'test-user-123', roomCode);
+    screenshots.push(...gameStartScreenshots);
+    console.log(`Added ${gameStartScreenshots.length} game start screenshots`);
+
+    console.log('✅ Host user flow completed successfully');
 
     // Compare screenshots against baselines
     console.log('\n--- Screenshot Comparison ---');

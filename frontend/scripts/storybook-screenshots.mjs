@@ -14,8 +14,8 @@ const __dirname = dirname(__filename);
 const frontendDir = resolve(__dirname, '..');
 const artifactsDir = resolve(frontendDir, '..', 'artifacts', 'screenshots');
 
-// Stories to capture screenshots for
-const STORIES = [
+// Stories to capture screenshots for (exported for visual regression tests)
+export const STORIES = [
   { id: 'views-loginview--default', name: 'LoginView-Default' },
   { id: 'views-roomselectionview--spotify-user', name: 'RoomSelectionView-SpotifyUser' },
   { id: 'views-roomselectionview--guest-user', name: 'RoomSelectionView-GuestUser' },
@@ -37,9 +37,9 @@ const STORIES = [
   { id: 'views-serverdisconnecteddemoview--default', name: 'ServerDisconnectedDemoView-Default' },
 ];
 
-const STORYBOOK_PORT = 6006;
+export const STORYBOOK_PORT = 6006;
 const STORYBOOK_URL = `http://localhost:${STORYBOOK_PORT}`;
-const VIEWPORT = { width: 390, height: 844 };
+export const VIEWPORT = { width: 390, height: 844 };
 
 async function waitForStorybook(url, maxAttempts = 30) {
   console.log(`Waiting for Storybook at ${url}...`);
