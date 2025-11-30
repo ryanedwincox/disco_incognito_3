@@ -5,6 +5,9 @@ module.exports = {
     "./index.html",
     "./src/**/*.{vue,js,ts,jsx,tsx}"
   ],
+  safelist: [
+    "pb-24"  // Ensure padding-bottom-24 is always compiled (used in SongRevealView)
+  ],
   theme: {
     extend: {
       colors: {

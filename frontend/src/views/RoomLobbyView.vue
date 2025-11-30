@@ -116,12 +116,51 @@ onMounted(async () => {
             isConnected: p.is_connected
           }))
         )
+
+        // Auto-join if current user is not already in the room
+        const userId = authStore.user?.id
+        const displayName = authStore.user?.displayName || 'Guest'
+        const isInRoom = data.players.some((p: { id: string }) => p.id === userId)
+
+        if (userId && !isInRoom) {
+          await joinRoomAsPlayer(userId, displayName)
+        }
       }
     }
   } catch (error) {
     console.log('Could not fetch room data:', error)
   }
 })
+
+async function joinRoomAsPlayer(playerId: string, displayName: string) {
+  try {
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        player_id: playerId,
+        display_name: displayName,
+      }),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      if (data.players) {
+        roomStore.setPlayers(
+          data.players.map((p: { id: string; display_name: string; is_host: boolean; is_connected: boolean }) => ({
+            id: p.id,
+            name: p.display_name,
+            isHost: p.is_host,
+            isConnected: p.is_connected
+          }))
+        )
+      }
+      console.log('Successfully joined room:', roomCode.value)
+    }
+  } catch (error) {
+    console.log('Could not join room:', error)
+  }
+}
 
 function leaveRoom() {
   console.log('Leaving room:', roomCode.value)

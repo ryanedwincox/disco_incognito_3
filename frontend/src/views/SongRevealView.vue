@@ -1,6 +1,6 @@
 <!-- Song reveal view showing the player's assigned song before playback. Displays song title, artist, album art with indication of 'your song' vs 'incognito song'. Props-driven for Storybook demonstration. -->
 <template>
-  <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
+  <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12" style="padding-bottom: 6rem;">
     <header class="text-center mb-8 space-y-2">
       <h2 class="text-3xl font-semibold">Your Song</h2>
       <p class="text-zinc-400 text-sm max-w-md mx-auto">

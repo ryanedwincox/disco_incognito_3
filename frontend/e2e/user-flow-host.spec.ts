@@ -160,6 +160,21 @@ async function addPlayersViaREST(roomCode: string): Promise<void> {
   console.log('Added 2 players via REST API');
 }
 
+// Helper: Mark other players as ready via REST API
+async function markOtherPlayersReady(roomCode: string, playerIds: string[]): Promise<void> {
+  for (const playerId of playerIds) {
+    const response = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}/ready`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ player_id: playerId }),
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to mark player ${playerId} ready: ${await response.text()}`);
+    }
+    console.log(`Marked player ${playerId} as ready via API`);
+  }
+}
+
 // Helper: Start game via host clicking button
 async function startGameAsHost(
   page: Page,
@@ -259,6 +274,84 @@ async function startGameAsHost(
   return screenshots;
 }
 
+// Helper: Click ready button and verify navigation to playback view
+async function clickReadyAndWaitForPlayback(
+  page: Page,
+  testName: string,
+  roomCode: string
+): Promise<{ name: string; path: string }[]> {
+  const screenshots: { name: string; path: string }[] = [];
+
+  // Click "I'm Ready!" button
+  const readyButton = page.getByRole('button', { name: "I'm Ready!" });
+  await expect(readyButton).toBeVisible();
+  await readyButton.click();
+  console.log('✅ Clicked Ready button');
+
+  // Verify ready button is hidden after clicking
+  await expect(readyButton).not.toBeVisible({ timeout: 2000 });
+  console.log('✅ Ready button hidden after clicking');
+
+  // Screenshot: After clicking ready (button hidden)
+  const readyClickedPath = getArtifactsPath(testName, '09-ready-clicked.png');
+  await page.screenshot({ path: readyClickedPath, fullPage: true });
+  screenshots.push({ name: '09-ready-clicked.png', path: readyClickedPath });
+  console.log(`Screenshot saved: ${readyClickedPath}`);
+
+  // Mark other players as ready via API
+  await markOtherPlayersReady(roomCode, ['player-2', 'player-3']);
+
+  // Screenshot: All players ready (before navigation)
+  const allReadyPath = getArtifactsPath(testName, '10-all-players-ready.png');
+  await page.screenshot({ path: allReadyPath, fullPage: true });
+  screenshots.push({ name: '10-all-players-ready.png', path: allReadyPath });
+  console.log(`Screenshot saved: ${allReadyPath}`);
+
+  // Refresh to trigger navigation (since we don't have WebSocket)
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+
+  // Wait for navigation to /play route (GameView)
+  await page.waitForURL('**/rooms/*/play', { timeout: 10000 });
+  console.log('✅ Navigated to /play route');
+
+  // Verify we're on the GameView
+  const roundHeader = page.locator('h2:has-text("Round In Progress")');
+  await expect(roundHeader).toBeVisible({ timeout: 5000 });
+  console.log('✅ Round In Progress header visible');
+
+  // Verify Time Remaining label is shown
+  const timeLabel = page.locator('p:has-text("Time Remaining")');
+  await expect(timeLabel).toBeVisible();
+  console.log('✅ Time Remaining label visible');
+
+  // Verify countdown timer is displayed
+  const countdownTimer = page.locator('p.text-6xl.font-bold');
+  await expect(countdownTimer).toBeVisible();
+  const timerText = await countdownTimer.textContent();
+  expect(timerText).toMatch(/\d{2}:\d{2}/);
+  console.log(`✅ Countdown timer displayed: ${timerText}`);
+
+  // Verify MusicPlayerBar is visible (has backdrop-blur-sm and border-t classes)
+  const musicPlayerBar = page.locator('.backdrop-blur-sm.border-t');
+  await expect(musicPlayerBar).toBeVisible();
+  console.log('✅ MusicPlayerBar visible');
+
+  // Screenshot: Music playing view
+  const musicPlayingPath = getArtifactsPath(testName, '11-music-playing.png');
+  await page.screenshot({ path: musicPlayingPath, fullPage: true });
+  screenshots.push({ name: '11-music-playing.png', path: musicPlayingPath });
+  console.log(`Screenshot saved: ${musicPlayingPath}`);
+
+  // Verify room status is 'playing' via API
+  const roomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+  const roomData = await roomResponse.json();
+  expect(roomData.status).toBe('playing');
+  console.log(`✅ Room status verified: ${roomData.status}`);
+
+  return screenshots;
+}
+
 test.describe('Host User Flow: Landing → Login → Room Creation → Song Pair → Multiplayer Game Start', () => {
   const screenshots: { name: string; path: string }[] = [];
 
@@ -305,6 +398,11 @@ test.describe('Host User Flow: Landing → Login → Room Creation → Song Pair
     const gameStartScreenshots = await startGameAsHost(page, TEST_NAME, 'test-user-123', roomCode);
     screenshots.push(...gameStartScreenshots);
     console.log(`Added ${gameStartScreenshots.length} game start screenshots`);
+
+    // Step 7: Click ready and wait for all players, navigate to playback
+    const playbackScreenshots = await clickReadyAndWaitForPlayback(page, TEST_NAME, roomCode);
+    screenshots.push(...playbackScreenshots);
+    console.log(`Added ${playbackScreenshots.length} playback screenshots`);
 
     console.log('✅ Host user flow completed successfully');
 

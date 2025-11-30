@@ -54,6 +54,12 @@ class AddSongPairRequest(BaseModel):
     artist_b: str = Field(..., description='Artist of track B')
 
 
+class PlayerReadyRequest(BaseModel):
+    """Request model for marking a player as ready."""
+
+    player_id: str = Field(..., description='Player ID')
+
+
 class CreateRoomResponse(BaseModel):
     """Response model for room creation."""
 
@@ -310,5 +316,58 @@ async def start_game(
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {incognito_player.id}')
+
+    return RoomStateResponse.from_room_state(room)
+
+
+@router.post('/{room_code}/ready', summary='Mark player as ready', response_model=RoomStateResponse)
+async def mark_player_ready(
+    room_code: str,
+    body: PlayerReadyRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoomStateResponse:
+    """
+    Mark a player as ready to start playback.
+
+    When all players are ready, transitions room status to 'playing'.
+    Returns updated room state.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify room is in song_selection state
+    if room.status != 'song_selection':
+        raise HTTPException(status_code=400, detail=f'Cannot mark ready from {room.status} state')
+
+    # Verify current_round exists
+    if not room.current_round:
+        raise HTTPException(status_code=400, detail='No active round')
+
+    # Verify player is in room
+    player = next((p for p in room.players if p.id == body.player_id), None)
+    if not player:
+        raise HTTPException(status_code=403, detail='Player not in room')
+
+    # Add player to ready list if not already there
+    if body.player_id not in room.current_round.ready_players:
+        room.current_round.ready_players.append(body.player_id)
+
+    # Check if all players are ready
+    all_player_ids = {p.id for p in room.players}
+    ready_player_ids = set(room.current_round.ready_players)
+    all_ready = all_player_ids == ready_player_ids
+
+    if all_ready:
+        room.status = 'playing'
+        logger.info(f'All players ready in room {room_code}, transitioning to playing')
+
+    # Save updated room
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info(f'Player {body.player_id} marked ready in room {room_code} ({len(ready_player_ids)}/{len(all_player_ids)} ready)')
 
     return RoomStateResponse.from_room_state(room)
