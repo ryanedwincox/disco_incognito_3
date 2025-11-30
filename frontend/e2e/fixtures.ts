@@ -20,6 +20,24 @@ const ARTIFACTS_DIR = path.join(ROOT_DIR, 'artifacts');
 const SCREENSHOTS_DIR = path.join(ARTIFACTS_DIR, 'screenshots');
 const BASELINES_DIR = path.join(__dirname, 'screenshots');
 
+// For worktrees, use main repo's .venv (worktrees share the same .venv)
+// Worktrees have a .git file (not directory) pointing to gitdir
+function getMainRepoDir(): string {
+  const gitPath = path.join(ROOT_DIR, '.git');
+  if (fs.existsSync(gitPath) && fs.statSync(gitPath).isFile()) {
+    // Worktree: .git is a file containing "gitdir: /path/to/.git/worktrees/name"
+    const gitContent = fs.readFileSync(gitPath, 'utf-8').trim();
+    const match = gitContent.match(/^gitdir:\s*(.+)$/);
+    if (match) {
+      // Go from .git/worktrees/name to .git to main repo
+      return path.resolve(match[1], '..', '..', '..');
+    }
+  }
+  return ROOT_DIR;
+}
+const MAIN_REPO_DIR = getMainRepoDir();
+const VENV_DIR = path.join(MAIN_REPO_DIR, '.venv');
+
 // Ports
 const BACKEND_PORT = 8000;
 const FRONTEND_PORT = 3000;
@@ -97,8 +115,8 @@ export const test = base.extend<TestFixtures>({
       // Start backend with isolated storage
       const testStorageFile = path.join(TEST_DATA_DIR, 'disco_incognito.json');
       const backendProcess = spawn(
-        path.join(ROOT_DIR, '.venv/bin/uvicorn'),
-        ['app.main:app', '--host', '0.0.0.0', '--port', String(BACKEND_PORT)],
+        'python3',
+        ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', String(BACKEND_PORT)],
         {
           cwd: BACKEND_DIR,
           env: {
