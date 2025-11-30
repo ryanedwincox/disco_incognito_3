@@ -167,14 +167,22 @@ class TestMusicAdapter(MusicStreamingAdapter):
         }
 
     async def get_playback_state(self, access_token: str) -> dict[str, Any]:
-        """Return mock playback state."""
+        """Return mock playback state with a mock track for E2E testing visibility."""
         logger.info('Returning test mode playback state')
         return {
-            'is_playing': False,
-            'track': None,
-            'device_id': 'test-device-id',
-            'progress_ms': 0,
-            'duration_ms': 0,
+            'is_playing': True,
+            'track': {
+                'id': 'test-track-1',
+                'uri': 'test:track:1',
+                'name': "Stayin' Alive",
+                'artist': 'Bee Gees',
+                'album': 'Saturday Night Fever',
+                'duration_ms': 285000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273f98d90cb3a9e82e797024e32',
+            },
+            'device_id': 'test-device-1',
+            'progress_ms': 45000,
+            'duration_ms': 285000,
         }
 
     # Search and Track Information
