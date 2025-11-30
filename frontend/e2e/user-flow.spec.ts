@@ -192,58 +192,43 @@ async function startGameAsHost(
   await expect(startButton).toBeVisible({ timeout: 5000 });
   await startButton.click();
 
-  // Wait for navigation to /playing route
-  await page.waitForURL('**/rooms/*/playing', { timeout: 10000 });
+  // Wait for navigation to /reveal route
+  await page.waitForURL('**/rooms/*/reveal', { timeout: 10000 });
   await page.waitForLoadState('networkidle');
-  console.log('✅ Navigated to /playing route');
+  console.log('✅ Navigated to /reveal route');
 
-  // Verify we're on the GamePlayingView
-  const nowPlayingHeader = page.locator('h2:has-text("Now Playing")');
-  await expect(nowPlayingHeader).toBeVisible({ timeout: 5000 });
-  console.log('✅ Now Playing header visible');
+  // Verify we're on the SongRevealView
+  const yourSongHeader = page.locator('h2:has-text("Your Song")');
+  await expect(yourSongHeader).toBeVisible({ timeout: 5000 });
+  console.log('✅ Your Song header visible');
 
-  // Verify room code is displayed
-  const roomCodeDisplay = page.locator('[data-testid="room-code"]');
-  await expect(roomCodeDisplay).toBeVisible();
-  await expect(roomCodeDisplay).toContainText(roomCode);
-  console.log('✅ Room code displayed');
-
-  // Verify song card is displayed
-  const songCard = page.locator('[data-testid="song-card"]');
-  await expect(songCard).toBeVisible({ timeout: 5000 });
-  console.log('✅ Song card visible');
-
-  // Verify album art placeholder
-  const albumArt = page.locator('[data-testid="album-art-placeholder"]');
-  await expect(albumArt).toBeVisible();
-  console.log('✅ Album art placeholder visible');
-
-  // Verify song title is shown
-  const songTitle = page.locator('[data-testid="song-title"]');
+  // Verify song title is shown (h3 with song name)
+  const songTitle = page.locator('h3.text-2xl.font-bold');
   await expect(songTitle).toBeVisible();
   const titleText = await songTitle.textContent();
-  expect(titleText).not.toBe('Loading...');
+  expect(titleText).not.toBe('Unknown Song');
   console.log(`✅ Song title displayed: ${titleText}`);
 
   // Verify artist is shown
-  const songArtist = page.locator('[data-testid="song-artist"]');
+  const songArtist = page.locator('p.text-lg.text-zinc-400');
   await expect(songArtist).toBeVisible();
   const artistText = await songArtist.textContent();
-  expect(artistText).not.toBe('by ...');
+  expect(artistText).not.toBe('Unknown Artist');
   console.log(`✅ Song artist displayed: ${artistText}`);
 
-  // Verify "Listening now..." status indicator
-  const listeningStatus = page.locator('[data-testid="listening-status"]');
-  await expect(listeningStatus).toBeVisible();
-  await expect(listeningStatus).toContainText('Listening now...');
-  console.log('✅ Listening status indicator visible');
+  // Verify song type badge is displayed (either "Your Song" or "Incognito Song")
+  const songBadge = page.locator('span.px-4.py-2.rounded-full');
+  await expect(songBadge).toBeVisible();
+  const badgeText = await songBadge.textContent();
+  expect(badgeText).toMatch(/Your Song|Incognito Song/);
+  console.log(`✅ Song badge displayed: ${badgeText}`);
 
-  // Verify player list is displayed
-  const playerList = page.locator('[data-testid="player-list"]');
-  await expect(playerList).toBeVisible();
-  console.log('✅ Player list visible');
+  // Verify instructions section is displayed
+  const instructions = page.locator('.bg-zinc-900\\/50.rounded-2xl');
+  await expect(instructions).toBeVisible();
+  console.log('✅ Instructions section visible');
 
-  // Screenshot: GamePlayingView with song assignment
+  // Screenshot: SongRevealView with song assignment
   const gameStartedPath = getArtifactsPath(testName, '08-game-started.png');
   await page.screenshot({ path: gameStartedPath, fullPage: true });
   screenshots.push({ name: '08-game-started.png', path: gameStartedPath });
@@ -264,10 +249,6 @@ async function startGameAsHost(
   expect(roomData.current_round.incognito_player_id).toBeUndefined();
   expect(roomData.dancer_incognito_player_id).toBeUndefined();
   console.log('✅ Security verified: incognito identity NOT exposed in API response');
-
-  // Verify status is displayed in UI (song_selection status on GamePlayingView)
-  const statusText = page.locator('text=song_selection');
-  await expect(statusText).toBeVisible();
 
   return screenshots;
 }
