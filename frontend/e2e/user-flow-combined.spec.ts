@@ -228,13 +228,15 @@ interface ScreenshotCollector {
 // ============================================================================
 
 test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   test('host creates room, player joins, both see game flow with screenshot verification', async ({
     browser,
-    serverContext: _serverContext,
+    serverContext,
   }: {
     browser: Browser;
     serverContext: { backendProcess: unknown; frontendProcess: unknown };
   }) => {
+    void serverContext; // Required to trigger fixture - starts servers
     const collector: ScreenshotCollector = { hostScreenshots: [], playerScreenshots: [] };
 
     // Create separate browser contexts for host and player
