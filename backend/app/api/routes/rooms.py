@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from ...core.rate_limit import RATE_LIMITS, limiter
+from ...core.settings import settings
 from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
 from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, RoundResultsResponse, SongInfo, SongPair
@@ -292,11 +293,15 @@ async def start_game(
     if not room.song_pairs:
         raise HTTPException(status_code=400, detail='Need at least one song pair to start the game')
 
-    # Pick random song pair
-    selected_pair = random.choice(room.song_pairs)
-
-    # Randomly select incognito player
-    incognito_player = random.choice(room.players)
+    # Pick song pair (deterministic in test mode for reproducible E2E tests)
+    if settings.spotify_mode.lower() == 'test':
+        selected_pair = room.song_pairs[0]  # Always first pair
+        incognito_player = room.players[0]  # Always first player (host)
+        use_song_a_for_majority = True
+    else:
+        selected_pair = random.choice(room.song_pairs)
+        incognito_player = random.choice(room.players)
+        use_song_a_for_majority = random.choice([True, False])
 
     # Create SongInfo objects for the two songs
     song_a = SongInfo(
@@ -310,8 +315,8 @@ async def start_game(
         artist=selected_pair.artist_b,
     )
 
-    # Randomly decide which song is for majority vs incognito
-    if random.choice([True, False]):
+    # Decide which song is for majority vs incognito
+    if use_song_a_for_majority:
         song_for_majority, song_for_incognito = song_a, song_b
     else:
         song_for_majority, song_for_incognito = song_b, song_a

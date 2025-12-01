@@ -62,7 +62,13 @@ import { websocketService } from '@/services/websocket'
 const wsStore = useWebSocketStore()
 const reconnecting = ref(false)
 
-const isDisconnected = computed(() => wsStore.status === 'disconnected' || wsStore.status === 'connecting')
+// Only show banner if:
+// 1. We've previously had a successful connection (hasEverConnected)
+// 2. AND we're currently disconnected or connecting (lost connection)
+// This prevents showing the banner during initial page load / first connection attempt
+const isDisconnected = computed(
+  () => wsStore.hasEverConnected && (wsStore.status === 'disconnected' || wsStore.status === 'connecting')
+)
 
 // Watch for status changes
 watch(
