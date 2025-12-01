@@ -8,14 +8,30 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 from .api.router import api_router
+from .core.rate_limit import limiter
 from .core.settings import settings
 from .dependencies.storage import get_storage_adapter
 
 app = FastAPI(title='Disco Incognito API', version='0.1.0')
+
+# Register rate limiter
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Handle rate limit exceeded errors with 429 response."""
+    return JSONResponse(
+        status_code=429,
+        content={'detail': 'Rate limit exceeded. Please try again later.'},
+    )
+
 
 # In test/debug mode, allow all origins for E2E testing with dynamic ports
 cors_origins = ['*'] if settings.debug else settings.allowed_origins_list

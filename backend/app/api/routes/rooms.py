@@ -4,16 +4,15 @@ Provides endpoints for creating and managing game rooms. Handles room creation,
 player joining, and room state retrieval.
 """
 
-from __future__ import annotations
-
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 import random
 import uuid
 
+from ...core.rate_limit import RATE_LIMITS, limiter
 from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
 from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, RoundResultsResponse, SongInfo, SongPair
@@ -83,7 +82,9 @@ class CreateRoomResponse(BaseModel):
 
 
 @router.post('', summary='Create a new room', response_model=CreateRoomResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def create_room(
+    request: Request,
     body: CreateRoomRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -138,7 +139,9 @@ async def create_room(
 
 
 @router.get('/{room_code}', summary='Get room by code', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def get_room(
+    request: Request,
     room_code: str,
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> RoomStateResponse:
@@ -158,7 +161,9 @@ async def get_room(
 
 
 @router.post('/{room_code}/join', summary='Join a room', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def join_room(
+    request: Request,
     room_code: str,
     body: JoinRoomRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -201,7 +206,9 @@ async def join_room(
 
 
 @router.post('/{room_code}/songs', summary='Add a song pair to room', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def add_song_pair(
+    request: Request,
     room_code: str,
     body: AddSongPairRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -248,7 +255,9 @@ async def add_song_pair(
 
 
 @router.post('/{room_code}/start', summary='Start the game', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def start_game(
+    request: Request,
     room_code: str,
     body: StartGameRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -334,7 +343,9 @@ async def start_game(
 
 
 @router.post('/{room_code}/ready', summary='Mark player as ready', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def mark_player_ready(
+    request: Request,
     room_code: str,
     body: PlayerReadyRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -387,7 +398,9 @@ async def mark_player_ready(
 
 
 @router.post('/{room_code}/vote', summary='Cast a vote for Dancer Incognito', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def cast_vote(
+    request: Request,
     room_code: str,
     body: VoteRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -453,7 +466,9 @@ async def cast_vote(
 
 
 @router.get('/{room_code}/results', summary='Get round results', response_model=RoundResultsResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def get_results(
+    request: Request,
     room_code: str,
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> RoundResultsResponse:
@@ -494,7 +509,9 @@ async def get_results(
 
 
 @router.post('/{room_code}/finish-round', summary='Finish round and return to lobby', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def finish_round(
+    request: Request,
     room_code: str,
     body: FinishRoundRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),

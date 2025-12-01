@@ -5,17 +5,16 @@ tokens, and test mode authentication. Manages the full authentication lifecycle 
 token exchange and user info retrieval.
 """
 
-from __future__ import annotations
-
 import logging
 import secrets
 import urllib.parse
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 
+from ...core.rate_limit import RATE_LIMITS, limiter
 from ...core.settings import settings
 from ...dependencies.storage import get_storage_adapter
 from ...services.spotify import SpotifyAuthService
@@ -37,7 +36,9 @@ def get_spotify_service() -> SpotifyAuthService:
 
 
 @router.get('/login', summary='Begin Spotify OAuth flow')
+@limiter.limit(RATE_LIMITS['auth'])
 async def login(
+    request: Request,
     service: SpotifyAuthService = Depends(get_spotify_service),
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> dict[str, str]:
@@ -88,7 +89,9 @@ async def login(
 
 
 @router.get('/callback', summary='Handle Spotify OAuth callback')
+@limiter.limit(RATE_LIMITS['auth'])
 async def callback(
+    request: Request,
     code: str | None = Query(None, description='Authorization code from Spotify'),
     state: str | None = Query(None, description='State parameter from OAuth flow'),
     error: str | None = Query(None, description='Error parameter from OAuth flow'),
@@ -155,7 +158,8 @@ async def callback(
 
 
 @router.post('/refresh', summary='Refresh access token')
-async def refresh(refresh_token: str, service: SpotifyAuthService = Depends(get_spotify_service)) -> dict[str, str]:
+@limiter.limit(RATE_LIMITS['auth'])
+async def refresh(request: Request, refresh_token: str, service: SpotifyAuthService = Depends(get_spotify_service)) -> dict[str, str]:
     """
     Refresh an expired access token using a refresh token.
 
@@ -179,7 +183,9 @@ async def refresh(refresh_token: str, service: SpotifyAuthService = Depends(get_
 
 
 @router.post('/test-login', summary='Create test user (test mode only)')
+@limiter.limit(RATE_LIMITS['auth'])
 async def test_login(
+    request: Request,
     service: SpotifyAuthService = Depends(get_spotify_service),
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> dict[str, str]:
@@ -229,7 +235,9 @@ async def test_login(
 
 
 @router.post('/manual-login', summary='Manual login with display name')
+@limiter.limit(RATE_LIMITS['auth'])
 async def manual_login(
+    request: Request,
     body: ManualLoginRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> dict[str, str]:
@@ -274,7 +282,8 @@ async def manual_login(
 
 
 @router.post('/logout', summary='Logout user')
-async def logout() -> dict[str, str]:
+@limiter.limit(RATE_LIMITS['auth'])
+async def logout(request: Request) -> dict[str, str]:
     """
     Logout user and clear session.
 

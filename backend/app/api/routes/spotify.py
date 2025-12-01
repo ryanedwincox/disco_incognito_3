@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 
+from ...core.rate_limit import RATE_LIMITS, limiter
 from ...services.spotify import SpotifyAuthService
 
 router = APIRouter(prefix='/spotify', tags=['Spotify'])
@@ -34,7 +33,9 @@ class TransferPlaybackRequest(BaseModel):
 
 
 @router.get('/search', summary='Search for tracks')
+@limiter.limit(RATE_LIMITS['spotify'])
 async def search_tracks(
+    request: Request,
     q: str,
     limit: int = 20,
     access_token: str = Depends(get_access_token),
@@ -59,8 +60,10 @@ async def search_tracks(
 
 
 @router.post('/play', summary='Play a track')
+@limiter.limit(RATE_LIMITS['spotify'])
 async def play_track(
-    request: PlayTrackRequest,
+    request: Request,
+    body: PlayTrackRequest,
     access_token: str = Depends(get_access_token),
     service: SpotifyAuthService = Depends(get_spotify_service),
 ) -> dict:
@@ -68,13 +71,13 @@ async def play_track(
     Start playback of a specific track.
 
     Args:
-        request: Contains track_uri and optional device_id
+        body: Contains track_uri and optional device_id
 
     Returns:
         Dict with success status
     """
     try:
-        result = await service.play_track(access_token, request.track_uri, request.device_id)
+        result = await service.play_track(access_token, body.track_uri, body.device_id)
         return result
     except Exception as e:
         logger.error(f'Error playing track: {e}')
@@ -82,7 +85,9 @@ async def play_track(
 
 
 @router.post('/pause', summary='Pause playback')
+@limiter.limit(RATE_LIMITS['spotify'])
 async def pause_playback(
+    request: Request,
     device_id: str | None = None,
     access_token: str = Depends(get_access_token),
     service: SpotifyAuthService = Depends(get_spotify_service),
@@ -105,7 +110,9 @@ async def pause_playback(
 
 
 @router.get('/playback', summary='Get current playback state')
+@limiter.limit(RATE_LIMITS['spotify'])
 async def get_playback_state(
+    request: Request,
     access_token: str = Depends(get_access_token),
     service: SpotifyAuthService = Depends(get_spotify_service),
 ) -> dict:
@@ -124,7 +131,9 @@ async def get_playback_state(
 
 
 @router.get('/devices', summary='Get available devices')
+@limiter.limit(RATE_LIMITS['spotify'])
 async def get_devices(
+    request: Request,
     access_token: str = Depends(get_access_token),
     service: SpotifyAuthService = Depends(get_spotify_service),
 ) -> dict:
@@ -143,8 +152,10 @@ async def get_devices(
 
 
 @router.post('/transfer', summary='Transfer playback to device')
+@limiter.limit(RATE_LIMITS['spotify'])
 async def transfer_playback(
-    request: TransferPlaybackRequest,
+    request: Request,
+    body: TransferPlaybackRequest,
     access_token: str = Depends(get_access_token),
     service: SpotifyAuthService = Depends(get_spotify_service),
 ) -> dict:
@@ -152,13 +163,13 @@ async def transfer_playback(
     Transfer playback to a different device.
 
     Args:
-        request: Contains device_id and optional play flag
+        body: Contains device_id and optional play flag
 
     Returns:
         Dict with success status
     """
     try:
-        result = await service.transfer_playback(access_token, request.device_id, request.play)
+        result = await service.transfer_playback(access_token, body.device_id, body.play)
         return result
     except Exception as e:
         logger.error(f'Error transferring playback: {e}')
