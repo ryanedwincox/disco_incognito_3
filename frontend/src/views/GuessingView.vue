@@ -44,8 +44,9 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePlayerStore } from '@/stores/player';
 import { useAuthStore } from '@/stores/auth';
+import { useRoomApi } from '@/composables/useRoomApi';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const { handleRoomResponse, API_URL } = useRoomApi();
 
 interface GuessingPlayer {
   id: string;
@@ -98,6 +99,12 @@ async function fetchRoom() {
     authStore.loadFromStorage();
 
     const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}`);
+
+    // Handle expired room (404)
+    if (await handleRoomResponse(response)) {
+      return;
+    }
+
     if (!response.ok) {
       throw new Error(`Failed to fetch room: ${response.status}`);
     }
@@ -148,6 +155,11 @@ async function vote(guessedPlayerId: string) {
         guessed_player_id: guessedPlayerId,
       }),
     });
+
+    // Handle expired room (404)
+    if (await handleRoomResponse(response)) {
+      return;
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

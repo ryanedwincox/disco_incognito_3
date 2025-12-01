@@ -8,8 +8,6 @@ devices, and playback states for testing all game flows.
 from __future__ import annotations
 
 import logging
-import random
-import uuid
 from typing import Any
 from urllib.parse import urlencode
 
@@ -73,9 +71,14 @@ class TestMusicAdapter(MusicStreamingAdapter):
     and testing without requiring real streaming service credentials or API calls.
     """
 
+    # Class-level counter for deterministic name generation across instances
+    _user_counter = 0
+
     def __init__(self, redirect_uri: str, scopes: list[str]) -> None:
         """
         Initialize the test adapter.
+
+        Resets the user counter on initialization to ensure deterministic test runs.
 
         Args:
             redirect_uri: OAuth redirect URI
@@ -84,7 +87,9 @@ class TestMusicAdapter(MusicStreamingAdapter):
         self.redirect_uri = redirect_uri
         self.scopes = scopes
         self.scope_string = ' '.join(scopes)
-        logger.info('TestMusicAdapter initialized')
+        # Reset counter on adapter creation for deterministic test runs
+        TestMusicAdapter._user_counter = 0
+        logger.info('TestMusicAdapter initialized (user counter reset)')
 
     # OAuth and Authentication
     async def create_authorize_url(self, state: str) -> str:
@@ -124,17 +129,21 @@ class TestMusicAdapter(MusicStreamingAdapter):
 
     async def get_user_info(self, access_token: str) -> dict[str, Any]:
         """
-        Return mock user profile information with a random disco-themed name.
+        Return mock user profile information with a deterministic disco-themed name.
 
-        Each call generates a unique user with a fun name like "Groovy Dancer" or "Funky Star".
+        Uses a counter-based approach for deterministic test runs. Names cycle through
+        adjective/noun combinations in a predictable order.
         """
-        # Generate random disco-themed username
-        adjective = random.choice(DISCO_ADJECTIVES)
-        noun = random.choice(DISCO_NOUNS)
+        # Deterministic name generation using counter
+        adj_index = TestMusicAdapter._user_counter % len(DISCO_ADJECTIVES)
+        noun_index = TestMusicAdapter._user_counter % len(DISCO_NOUNS)
+        adjective = DISCO_ADJECTIVES[adj_index]
+        noun = DISCO_NOUNS[noun_index]
         display_name = f'{adjective} {noun}'
 
-        # Generate unique user ID
-        user_id = f'test-user-{uuid.uuid4().hex[:8]}'
+        # Deterministic user ID based on counter
+        user_id = f'test-user-{TestMusicAdapter._user_counter:04d}'
+        TestMusicAdapter._user_counter += 1
 
         logger.info(f'Returning test mode user info: {display_name} ({user_id})')
         return {

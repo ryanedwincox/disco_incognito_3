@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -26,6 +26,9 @@ class DateTimeEncoder(json.JSONEncoder):
         return super().default(obj)
 
 from .base import StorageAdapter
+
+# Room expires after 60 minutes of inactivity
+ROOM_EXPIRATION_MINUTES = 60
 
 
 class JSONFileStorage(StorageAdapter):
@@ -53,7 +56,31 @@ class JSONFileStorage(StorageAdapter):
     async def get_room(self, room_code: str) -> dict[str, Any] | None:
         state = await self.load()
         rooms = state.get('rooms', {})
-        return rooms.get(room_code)
+        room = rooms.get(room_code)
+
+        if room is None:
+            return None
+
+        # Check if room has expired (60 min inactivity)
+        last_active = room.get('last_active_at')
+        if last_active:
+            # Parse ISO format timestamp
+            if isinstance(last_active, str):
+                last_active_dt = datetime.fromisoformat(last_active.replace('Z', '+00:00'))
+            else:
+                last_active_dt = last_active
+
+            # Normalize to UTC for comparison
+            if last_active_dt.tzinfo is None:
+                last_active_dt = last_active_dt.replace(tzinfo=timezone.utc)
+
+            expiration_threshold = datetime.now(timezone.utc) - timedelta(minutes=ROOM_EXPIRATION_MINUTES)
+            if last_active_dt < expiration_threshold:
+                # Room expired - delete it and return None
+                await self.delete_room(room_code)
+                return None
+
+        return room
 
     async def upsert_room(self, room_code: str, data: dict[str, Any]) -> None:
         state = await self.load()
@@ -85,6 +112,38 @@ class JSONFileStorage(StorageAdapter):
         if token in sessions:
             del sessions[token]
             await self.save(state)
+
+    async def cleanup_expired_rooms(self) -> int:
+        """Remove all expired rooms. Returns count of rooms deleted."""
+        state = await self.load()
+        rooms = state.get('rooms', {})
+
+        if not rooms:
+            return 0
+
+        expiration_threshold = datetime.now(timezone.utc) - timedelta(minutes=ROOM_EXPIRATION_MINUTES)
+        expired_codes: list[str] = []
+
+        for room_code, room in rooms.items():
+            last_active = room.get('last_active_at')
+            if last_active:
+                if isinstance(last_active, str):
+                    last_active_dt = datetime.fromisoformat(last_active.replace('Z', '+00:00'))
+                else:
+                    last_active_dt = last_active
+
+                if last_active_dt.tzinfo is None:
+                    last_active_dt = last_active_dt.replace(tzinfo=timezone.utc)
+
+                if last_active_dt < expiration_threshold:
+                    expired_codes.append(room_code)
+
+        if expired_codes:
+            for code in expired_codes:
+                del rooms[code]
+            await self.save(state)
+
+        return len(expired_codes)
 
     def _read_file(self) -> dict[str, Any]:
         with self._lock:

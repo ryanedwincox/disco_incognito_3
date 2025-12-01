@@ -4,16 +4,16 @@ Provides endpoints for creating and managing game rooms. Handles room creation,
 player joining, and room state retrieval.
 """
 
-from __future__ import annotations
-
 import logging
-
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
-
 import random
 import uuid
+from datetime import datetime
 
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, Field
+
+from ...core.rate_limit import RATE_LIMITS, limiter
+from ...core.settings import settings
 from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
 from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, RoundResultsResponse, SongInfo, SongPair
@@ -83,7 +83,9 @@ class CreateRoomResponse(BaseModel):
 
 
 @router.post('', summary='Create a new room', response_model=CreateRoomResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def create_room(
+    request: Request,
     body: CreateRoomRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -111,7 +113,7 @@ async def create_room(
             is_connected=True,
         )
 
-        # Create room state
+        # Create room state (last_active_at is set by default in RoomState)
         room = RoomState(
             code=body.room_code,
             host_id=current_user.user_id,
@@ -138,7 +140,9 @@ async def create_room(
 
 
 @router.get('/{room_code}', summary='Get room by code', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def get_room(
+    request: Request,
     room_code: str,
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> RoomStateResponse:
@@ -158,7 +162,9 @@ async def get_room(
 
 
 @router.post('/{room_code}/join', summary='Join a room', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def join_room(
+    request: Request,
     room_code: str,
     body: JoinRoomRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -192,7 +198,8 @@ async def join_room(
         )
         room.players.append(new_player)
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Player {body.player_id} joined room {room_code}')
@@ -201,7 +208,9 @@ async def join_room(
 
 
 @router.post('/{room_code}/songs', summary='Add a song pair to room', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def add_song_pair(
+    request: Request,
     room_code: str,
     body: AddSongPairRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -239,7 +248,8 @@ async def add_song_pair(
     )
     room.song_pairs.append(song_pair)
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Song pair {pair_id} added to room {room_code} by player {body.player_id}')
@@ -248,7 +258,9 @@ async def add_song_pair(
 
 
 @router.post('/{room_code}/start', summary='Start the game', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def start_game(
+    request: Request,
     room_code: str,
     body: StartGameRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -281,11 +293,15 @@ async def start_game(
     if not room.song_pairs:
         raise HTTPException(status_code=400, detail='Need at least one song pair to start the game')
 
-    # Pick random song pair
-    selected_pair = random.choice(room.song_pairs)
-
-    # Randomly select incognito player
-    incognito_player = random.choice(room.players)
+    # Pick song pair (deterministic in test mode for reproducible E2E tests)
+    if settings.spotify_mode.lower() == 'test':
+        selected_pair = room.song_pairs[0]  # Always first pair
+        incognito_player = room.players[0]  # Always first player (host)
+        use_song_a_for_majority = True
+    else:
+        selected_pair = random.choice(room.song_pairs)
+        incognito_player = random.choice(room.players)
+        use_song_a_for_majority = random.choice([True, False])
 
     # Create SongInfo objects for the two songs
     song_a = SongInfo(
@@ -299,8 +315,8 @@ async def start_game(
         artist=selected_pair.artist_b,
     )
 
-    # Randomly decide which song is for majority vs incognito
-    if random.choice([True, False]):
+    # Decide which song is for majority vs incognito
+    if use_song_a_for_majority:
         song_for_majority, song_for_incognito = song_a, song_b
     else:
         song_for_majority, song_for_incognito = song_b, song_a
@@ -325,7 +341,8 @@ async def start_game(
     room.status = 'song_selection'
     room.dancer_incognito_player_id = incognito_player.id
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {incognito_player.id}')
@@ -334,7 +351,9 @@ async def start_game(
 
 
 @router.post('/{room_code}/ready', summary='Mark player as ready', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def mark_player_ready(
+    request: Request,
     room_code: str,
     body: PlayerReadyRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -378,7 +397,8 @@ async def mark_player_ready(
         room.status = 'playing'
         logger.info(f'All players ready in room {room_code}, transitioning to playing')
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Player {body.player_id} marked ready in room {room_code} ({len(ready_player_ids)}/{len(all_player_ids)} ready)')
@@ -387,7 +407,9 @@ async def mark_player_ready(
 
 
 @router.post('/{room_code}/vote', summary='Cast a vote for Dancer Incognito', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def cast_vote(
+    request: Request,
     room_code: str,
     body: VoteRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -444,7 +466,8 @@ async def cast_vote(
         room.status = 'results'
         logger.info(f'All players voted in room {room_code}, transitioning to results')
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Player {body.player_id} voted for {body.guessed_player_id} in room {room_code} ({len(voted_player_ids)}/{len(all_player_ids)} voted)')
@@ -453,7 +476,9 @@ async def cast_vote(
 
 
 @router.get('/{room_code}/results', summary='Get round results', response_model=RoundResultsResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def get_results(
+    request: Request,
     room_code: str,
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> RoundResultsResponse:
@@ -494,7 +519,9 @@ async def get_results(
 
 
 @router.post('/{room_code}/finish-round', summary='Finish round and return to lobby', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
 async def finish_round(
+    request: Request,
     room_code: str,
     body: FinishRoundRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
@@ -540,7 +567,8 @@ async def finish_round(
     room.current_round = None
     room.dancer_incognito_player_id = None
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Round finished in room {room_code} by host {body.player_id}')
