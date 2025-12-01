@@ -11,6 +11,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from ...core.settings import settings
+from ...music.test_adapter import TestMusicAdapter
 from ...testing.mock_data import clear_test_data, seed_test_data
 
 router = APIRouter(prefix='/testing', tags=['Testing'])
@@ -84,3 +85,21 @@ async def get_status() -> dict[str, bool]:
         Dict with test mode status
     """
     return {'test_mode_enabled': is_test_mode(), 'spotify_mode': settings.spotify_mode, 'debug': settings.debug}
+
+
+@router.post('/reset-user-counter', summary='Reset test user counter')
+async def reset_user_counter() -> dict[str, str]:
+    """
+    Reset the TestMusicAdapter user counter for deterministic E2E tests.
+
+    This ensures each test run generates the same sequence of user names,
+    making screenshot comparisons reliable.
+
+    Only available in test/debug mode.
+    """
+    if not is_test_mode():
+        raise HTTPException(status_code=403, detail='Reset user counter is only available in test/debug mode')
+
+    TestMusicAdapter.reset_user_counter()
+    logger.info('Test user counter reset to 0')
+    return {'message': 'User counter reset to 0'}

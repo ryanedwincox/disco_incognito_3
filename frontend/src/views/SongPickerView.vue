@@ -1,10 +1,10 @@
-<!-- Song pair selection interface for adding tracks to the game pool. In test mode, generates random disco song pairs. In live mode, provides Spotify search. Handles pair saving and navigation back to lobby. -->
+<!-- Song selection interface for adding tracks to the game pool. Provides Spotify search (mock in test mode, real in live mode). Handles song saving and allows adding multiple songs. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
     <header class="text-center mb-8 space-y-2">
-      <h2 class="text-3xl font-semibold">Pick a Pair</h2>
+      <h2 class="text-3xl font-semibold">Add Songs</h2>
       <p class="text-zinc-400 text-sm max-w-md mx-auto">
-        {{ isTestMode ? 'In test mode: Click "Save Pair" to add random disco songs!' : 'Search Spotify tracks, pick two songs, and drop them into the room pool.' }}
+        Search for tracks and add them to the room pool. Add at least 2 songs to start the game.
       </p>
     </header>
 
@@ -28,56 +28,101 @@
       <!-- Song picker for Spotify users -->
       <template v-else>
         <input
-          v-if="!isTestMode"
+          v-model="searchQuery"
           class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg"
-          placeholder="Search Spotify"
+          placeholder="Search for songs..."
           type="search"
+          @input="handleSearchInput"
         />
 
         <div class="grid gap-4 md:grid-cols-2">
-        <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
-          <h3 class="text-lg font-semibold mb-3">
-            {{ isTestMode ? 'Random Song Pair' : 'Search Results' }}
-          </h3>
-          <div v-if="isTestMode && selectedPair.length > 0" class="space-y-2">
-            <div v-for="(song, index) in selectedPair" :key="index" class="bg-zinc-800 rounded-xl p-3">
-              <p class="font-medium">{{ song.name }}</p>
-              <p class="text-sm text-zinc-400">{{ song.artist }}</p>
+          <!-- Search Results -->
+          <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
+            <h3 class="text-lg font-semibold mb-3">Search Results</h3>
+            <div v-if="isSearching" class="text-zinc-500 text-center py-4">
+              Searching...
+            </div>
+            <div v-else-if="searchResults.length > 0" class="space-y-2 max-h-80 overflow-y-auto">
+              <button
+                v-for="track in searchResults"
+                :key="track.id"
+                class="w-full text-left bg-zinc-800 hover:bg-zinc-700 rounded-xl p-3 transition-colors"
+                :class="{ 'ring-2 ring-disco-pink': isSelected(track) }"
+                type="button"
+                @click="selectTrack(track)"
+              >
+                <div class="flex items-center gap-3">
+                  <img
+                    :src="track.album_art"
+                    :alt="track.album"
+                    class="w-12 h-12 rounded-lg object-cover"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium truncate">{{ track.name }}</p>
+                    <p class="text-sm text-zinc-400 truncate">{{ track.artist }}</p>
+                  </div>
+                  <div v-if="isSelected(track)" class="text-disco-pink font-bold text-lg">
+                    ✓
+                  </div>
+                </div>
+              </button>
+            </div>
+            <p v-else class="text-zinc-500">
+              {{ searchQuery ? 'No results found' : 'Type to search for songs' }}
+            </p>
+          </div>
+
+          <!-- Selected Song & Actions -->
+          <div class="space-y-4">
+            <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
+              <h3 class="text-lg font-semibold mb-3">Selected Song</h3>
+              <div v-if="selectedTrack" class="space-y-2">
+                <div class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
+                  <img
+                    :src="selectedTrack.album_art"
+                    :alt="selectedTrack.album"
+                    class="w-10 h-10 rounded-lg object-cover"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium truncate">{{ selectedTrack.name }}</p>
+                    <p class="text-sm text-zinc-400 truncate">{{ selectedTrack.artist }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="text-zinc-400 hover:text-white p-1"
+                    @click="clearSelection"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+              <p v-else class="text-zinc-500">
+                Select a song from search results
+              </p>
+            </div>
+
+            <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
+              <h3 class="text-lg font-semibold mb-3">Actions</h3>
+              <div class="space-y-3">
+                <button
+                  class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="button"
+                  :disabled="!selectedTrack || isSaving"
+                  @click="addSong"
+                >
+                  {{ isSaving ? 'Adding...' : 'Add Song' }}
+                </button>
+                <button
+                  class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
+                  type="button"
+                  @click="goBack"
+                >
+                  Back to Lobby
+                </button>
+              </div>
             </div>
           </div>
-          <p v-else class="text-zinc-500">
-            {{ isTestMode ? 'Random songs will appear when you click "Generate Random Pair"' : 'Results appear here in test mode once the Spotify adapter is wired.' }}
-          </p>
         </div>
-        <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
-          <h3 class="text-lg font-semibold mb-3">Actions</h3>
-          <div class="space-y-3">
-            <button
-              v-if="isTestMode"
-              class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
-              type="button"
-              @click="generateRandomPair"
-            >
-              Generate Random Pair
-            </button>
-            <button
-              class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              type="button"
-              :disabled="!isTestMode || selectedPair.length === 0"
-              @click="savePair"
-            >
-              {{ isSaving ? 'Saving...' : 'Save Pair' }}
-            </button>
-            <button
-              class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
-              type="button"
-              @click="goBack"
-            >
-              Back to Lobby
-            </button>
-          </div>
-        </div>
-      </div>
 
         <div v-if="successMessage" class="bg-green-900/30 border border-green-500 text-green-200 px-4 py-3 rounded-xl text-sm text-center">
           {{ successMessage }}
@@ -101,66 +146,93 @@ const { handleRoomResponse, API_URL } = useRoomApi()
 const isTestMode = computed(() => import.meta.env.VITE_TEST_MODE === 'true')
 const isSpotifyUser = computed(() => authStore.isSpotifyUser)
 
-interface Song {
+interface Track {
   id: string
   name: string
   artist: string
+  album: string
+  album_art: string
   uri: string
 }
 
-const selectedPair = ref<Song[]>([])
+const selectedTrack = ref<Track | null>(null)
 const isSaving = ref(false)
 const successMessage = ref('')
+const searchQuery = ref('')
+const searchResults = ref<Track[]>([])
+const isSearching = ref(false)
+let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
-// Disco-themed song library for test mode
-const DISCO_SONGS = [
-  { name: "Stayin' Alive", artist: "Bee Gees" },
-  { name: "September", artist: "Earth, Wind & Fire" },
-  { name: "I Will Survive", artist: "Gloria Gaynor" },
-  { name: "Le Freak", artist: "Chic" },
-  { name: "Dancing Queen", artist: "ABBA" },
-  { name: "Boogie Wonderland", artist: "Earth, Wind & Fire" },
-  { name: "Don't Stop 'Til You Get Enough", artist: "Michael Jackson" },
-  { name: "Ring My Bell", artist: "Anita Ward" },
-  { name: "Last Dance", artist: "Donna Summer" },
-  { name: "Celebration", artist: "Kool & The Gang" },
-  { name: "Y.M.C.A.", artist: "Village People" },
-  { name: "Disco Inferno", artist: "The Trammps" },
-  { name: "Hot Stuff", artist: "Donna Summer" },
-  { name: "Super Freak", artist: "Rick James" },
-  { name: "Get Down Tonight", artist: "KC and the Sunshine Band" },
-  { name: "Car Wash", artist: "Rose Royce" },
-  { name: "Play That Funky Music", artist: "Wild Cherry" },
-  { name: "That's the Way (I Like It)", artist: "KC and the Sunshine Band" },
-  { name: "Brick House", artist: "Commodores" },
-  { name: "I'm Coming Out", artist: "Diana Ross" }
-]
-
-function generateRandomPair() {
-  // Get two random different songs
-  const shuffled = [...DISCO_SONGS].sort(() => 0.5 - Math.random())
-  const [song1, song2] = shuffled.slice(0, 2)
-
-  selectedPair.value = [
-    {
-      id: `test-song-${Date.now()}-1`,
-      name: song1.name,
-      artist: song1.artist,
-      uri: `spotify:track:test-${Date.now()}-1`
-    },
-    {
-      id: `test-song-${Date.now()}-2`,
-      name: song2.name,
-      artist: song2.artist,
-      uri: `spotify:track:test-${Date.now()}-2`
-    }
-  ]
-
-  console.log('Generated random pair:', selectedPair.value)
+// Get access token - use mock token in test mode
+function getAccessToken(): string {
+  if (isTestMode.value) {
+    return 'test-access-token'
+  }
+  return authStore.accessToken || ''
 }
 
-async function savePair() {
-  if (selectedPair.value.length !== 2) {
+// Debounced search handler
+function handleSearchInput() {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+  searchTimeout = setTimeout(() => {
+    performSearch()
+  }, 300)
+}
+
+async function performSearch() {
+  const query = searchQuery.value.trim()
+  if (!query) {
+    searchResults.value = []
+    return
+  }
+
+  isSearching.value = true
+  try {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const token = getAccessToken()
+
+    const response = await fetch(`${API_URL}/api/spotify/search?q=${encodeURIComponent(query)}&limit=20`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error('Search failed')
+    }
+
+    const data = await response.json()
+    searchResults.value = data.tracks || []
+  } catch (error) {
+    console.error('Search error:', error)
+    searchResults.value = []
+  } finally {
+    isSearching.value = false
+  }
+}
+
+function isSelected(track: Track): boolean {
+  return selectedTrack.value?.id === track.id
+}
+
+function selectTrack(track: Track) {
+  if (selectedTrack.value?.id === track.id) {
+    // Clicking same track deselects it
+    selectedTrack.value = null
+  } else {
+    // Select new track (replaces any previous selection)
+    selectedTrack.value = track
+  }
+}
+
+function clearSelection() {
+  selectedTrack.value = null
+}
+
+async function addSong() {
+  if (!selectedTrack.value) {
     return
   }
 
@@ -183,12 +255,9 @@ async function savePair() {
       },
       body: JSON.stringify({
         player_id: userId,
-        track_a: selectedPair.value[0].uri,
-        track_b: selectedPair.value[1].uri,
-        title_a: selectedPair.value[0].name,
-        artist_a: selectedPair.value[0].artist,
-        title_b: selectedPair.value[1].name,
-        artist_b: selectedPair.value[1].artist,
+        track_uri: selectedTrack.value.uri,
+        title: selectedTrack.value.name,
+        artist: selectedTrack.value.artist,
       }),
     })
 
@@ -199,19 +268,22 @@ async function savePair() {
 
     if (!response.ok) {
       const error = await response.json()
-      throw new Error(error.detail || 'Failed to save')
+      throw new Error(error.detail || 'Failed to add song')
     }
 
-    console.log('Saved song pair to room:', roomCode)
-    successMessage.value = `Saved pair: "${selectedPair.value[0].name}" and "${selectedPair.value[1].name}"!`
+    console.log('Added song to room:', roomCode)
+    successMessage.value = `Added "${selectedTrack.value.name}" to the room!`
 
-    // Wait a moment then go back to lobby
+    // Clear selection to allow adding more songs
+    selectedTrack.value = null
+
+    // Clear success message after a few seconds
     setTimeout(() => {
-      goBack()
-    }, 1500)
+      successMessage.value = ''
+    }, 3000)
   } catch (error: unknown) {
-    console.error('Failed to save pair:', error)
-    successMessage.value = 'Failed to save song pair'
+    console.error('Failed to add song:', error)
+    successMessage.value = 'Failed to add song'
   } finally {
     isSaving.value = false
   }

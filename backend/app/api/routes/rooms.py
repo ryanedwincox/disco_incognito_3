@@ -16,7 +16,7 @@ from ...core.rate_limit import RATE_LIMITS, limiter
 from ...core.settings import settings
 from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
-from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, RoundResultsResponse, SongInfo, SongPair
+from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, RoundResultsResponse, Song, SongInfo
 from ...storage.base import StorageAdapter
 
 router = APIRouter(prefix='/rooms', tags=['Rooms'])
@@ -42,16 +42,13 @@ class StartGameRequest(BaseModel):
     player_id: str = Field(..., description='Player ID (must be host)')
 
 
-class AddSongPairRequest(BaseModel):
-    """Request model for adding a song pair to a room."""
+class AddSongRequest(BaseModel):
+    """Request model for adding a song to a room."""
 
     player_id: str = Field(..., description='Player ID')
-    track_a: str = Field(..., description='Spotify URI for track A')
-    track_b: str = Field(..., description='Spotify URI for track B')
-    title_a: str = Field(..., description='Title of track A')
-    artist_a: str = Field(..., description='Artist of track A')
-    title_b: str = Field(..., description='Title of track B')
-    artist_b: str = Field(..., description='Artist of track B')
+    track_uri: str = Field(..., description='Spotify URI for track')
+    title: str = Field(..., description='Title of track')
+    artist: str = Field(..., description='Artist of track')
 
 
 class PlayerReadyRequest(BaseModel):
@@ -207,18 +204,18 @@ async def join_room(
     return RoomStateResponse.from_room_state(room)
 
 
-@router.post('/{room_code}/songs', summary='Add a song pair to room', response_model=RoomStateResponse)
+@router.post('/{room_code}/songs', summary='Add a song to room', response_model=RoomStateResponse)
 @limiter.limit(RATE_LIMITS['rooms'])
-async def add_song_pair(
+async def add_song(
     request: Request,
     room_code: str,
-    body: AddSongPairRequest,
+    body: AddSongRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> RoomStateResponse:
     """
-    Add a song pair to the room.
+    Add a song to the room's song pool.
 
-    Creates a SongPair and adds it to the room's song_pairs list.
+    Creates a Song and adds it to the room's songs list.
     Returns updated room state.
     Security: Excludes incognito player identity from response.
     """
@@ -234,25 +231,22 @@ async def add_song_pair(
     if not player:
         raise HTTPException(status_code=403, detail='Player not in room')
 
-    # Create song pair
-    pair_id = f'pair-{uuid.uuid4().hex[:8]}'
-    song_pair = SongPair(
-        id=pair_id,
-        track_a=body.track_a,
-        track_b=body.track_b,
-        title_a=body.title_a,
-        artist_a=body.artist_a,
-        title_b=body.title_b,
-        artist_b=body.artist_b,
+    # Create song
+    song_id = f'song-{uuid.uuid4().hex[:8]}'
+    song = Song(
+        id=song_id,
+        track_uri=body.track_uri,
+        title=body.title,
+        artist=body.artist,
         added_by=body.player_id,
     )
-    room.song_pairs.append(song_pair)
+    room.songs.append(song)
 
     # Update last_active_at and save
     room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    logger.info(f'Song pair {pair_id} added to room {room_code} by player {body.player_id}')
+    logger.info(f'Song {song_id} added to room {room_code} by player {body.player_id}')
 
     return RoomStateResponse.from_room_state(room)
 
@@ -268,7 +262,7 @@ async def start_game(
     """
     Start the game (host only).
 
-    Picks a random song pair, assigns incognito player, and assigns songs to all players.
+    Picks two random songs from the pool, assigns incognito player, and assigns songs to all players.
     Transitions room status from 'lobby' to 'song_selection'.
     Returns updated room state.
     Security: Excludes incognito player identity from response. Players can only see
@@ -289,30 +283,30 @@ async def start_game(
     if room.status != 'lobby':
         raise HTTPException(status_code=400, detail=f'Cannot start game from {room.status} state')
 
-    # Verify there's at least one song pair
-    if not room.song_pairs:
-        raise HTTPException(status_code=400, detail='Need at least one song pair to start the game')
+    # Verify there are at least 2 songs
+    if len(room.songs) < 2:
+        raise HTTPException(status_code=400, detail='Need at least 2 songs to start the game')
 
-    # Pick song pair (deterministic in test mode for reproducible E2E tests)
+    # Pick two songs (deterministic in test mode for reproducible E2E tests)
     if settings.spotify_mode.lower() == 'test':
-        selected_pair = room.song_pairs[0]  # Always first pair
+        selected_songs = room.songs[:2]  # Always first two songs
         incognito_player = room.players[0]  # Always first player (host)
         use_song_a_for_majority = True
     else:
-        selected_pair = random.choice(room.song_pairs)
+        selected_songs = random.sample(room.songs, 2)
         incognito_player = random.choice(room.players)
         use_song_a_for_majority = random.choice([True, False])
 
     # Create SongInfo objects for the two songs
     song_a = SongInfo(
-        id=selected_pair.track_a,
-        title=selected_pair.title_a,
-        artist=selected_pair.artist_a,
+        id=selected_songs[0].track_uri,
+        title=selected_songs[0].title,
+        artist=selected_songs[0].artist,
     )
     song_b = SongInfo(
-        id=selected_pair.track_b,
-        title=selected_pair.title_b,
-        artist=selected_pair.artist_b,
+        id=selected_songs[1].track_uri,
+        title=selected_songs[1].title,
+        artist=selected_songs[1].artist,
     )
 
     # Decide which song is for majority vs incognito
@@ -529,8 +523,8 @@ async def finish_round(
     """
     Finish the current round and return to lobby (host only).
 
-    Removes the used song pair from the pool, resets room status to 'lobby',
-    and clears the current round. Players can then start a new round if song pairs remain.
+    Removes the used songs from the pool, resets room status to 'lobby',
+    and clears the current round. Players can then start a new round if enough songs remain.
     """
     room_data = await storage.get_room(room_code)
 
@@ -551,16 +545,19 @@ async def finish_round(
     if not room.current_round:
         raise HTTPException(status_code=400, detail='No active round to finish')
 
-    # Find and remove the used song pair by matching the song_for_majority track ID
-    used_track_id = room.current_round.song_for_majority.id
-    original_pair_count = len(room.song_pairs)
-    room.song_pairs = [
-        pair for pair in room.song_pairs
-        if pair.track_a != used_track_id and pair.track_b != used_track_id
+    # Find and remove the used songs by matching their track URIs
+    used_track_ids = {
+        room.current_round.song_for_majority.id,
+        room.current_round.song_for_incognito.id,
+    }
+    original_song_count = len(room.songs)
+    room.songs = [
+        song for song in room.songs
+        if song.track_uri not in used_track_ids
     ]
 
-    if len(room.song_pairs) < original_pair_count:
-        logger.info(f'Removed used song pair from room {room_code} ({original_pair_count} -> {len(room.song_pairs)} pairs)')
+    if len(room.songs) < original_song_count:
+        logger.info(f'Removed used songs from room {room_code} ({original_song_count} -> {len(room.songs)} songs)')
 
     # Reset room state for next round
     room.status = 'lobby'

@@ -116,8 +116,8 @@ async function createRoom(page: Page): Promise<string> {
   return '310';
 }
 
-// Helper: Navigate to song picker, generate pair, save it
-async function addSongPair(page: Page, rolePrefix: string): Promise<{ name: string; path: string }[]> {
+// Helper: Navigate to song picker, add two songs (one at a time), go back to lobby
+async function addSongs(page: Page, rolePrefix: string): Promise<{ name: string; path: string }[]> {
   const screenshots: { name: string; path: string }[] = [];
 
   // Click 'Pick Songs' button to navigate to song picker
@@ -135,38 +135,66 @@ async function addSongPair(page: Page, rolePrefix: string): Promise<{ name: stri
   screenshots.push({ name: `${rolePrefix}-04-song-picker-empty.png`, path: emptyPath });
   console.log(`Screenshot saved: ${emptyPath}`);
 
-  // Click 'Generate Random Pair' button
-  const generateButton = page.getByRole('button', { name: 'Generate Random Pair' });
-  await expect(generateButton).toBeVisible();
-  await generateButton.click();
+  // Search for tracks using the search input (use 'chic' to match Chic's "Le Freak" and "Good Times")
+  const searchInput = page.locator('input[type="search"]');
+  await expect(searchInput).toBeVisible();
+  await searchInput.fill('chic');
 
-  // Wait for song pair to be displayed
-  await page.waitForSelector('.bg-zinc-800.rounded-xl', { timeout: 5000 });
+  // Wait for search results to load
+  await page.waitForSelector('.max-h-80 button', { timeout: 10000 });
 
-  // Screenshot: Song picker with generated pair
+  // Select first track from search results
+  const trackButtons = page.locator('.max-h-80 button');
+  await trackButtons.nth(0).click();
+
+  // Wait for track to be selected (shown in Selected Song section)
+  await page.waitForSelector('text=Selected Song', { timeout: 5000 });
+
+  // Screenshot: Song picker with first song selected
   const generatedPath = getArtifactsPath(TEST_NAME, `${rolePrefix}-05-song-picker-generated.png`);
   await page.screenshot({ path: generatedPath, fullPage: true });
   screenshots.push({ name: `${rolePrefix}-05-song-picker-generated.png`, path: generatedPath });
   console.log(`Screenshot saved: ${generatedPath}`);
 
-  // Click 'Save Pair' button
-  const saveButton = page.getByRole('button', { name: 'Save Pair' });
-  await expect(saveButton).toBeVisible();
-  await expect(saveButton).toBeEnabled();
-  await saveButton.click();
+  // Click 'Add Song' button
+  const addButton = page.getByRole('button', { name: 'Add Song' });
+  await expect(addButton).toBeVisible();
+  await expect(addButton).toBeEnabled();
+  await addButton.click();
 
-  // Wait for success message
+  // Wait for success message for first song
   const successMessage = page.locator('.bg-green-900\\/30');
   await expect(successMessage).toBeVisible({ timeout: 5000 });
-  await expect(successMessage).toContainText('Saved pair');
+  await expect(successMessage).toContainText('Added');
+  console.log('First song added');
 
-  // Screenshot: Song picker with success message
+  // Select second track from search results
+  await trackButtons.nth(1).click();
+
+  // Wait for second track to be selected
+  await page.waitForSelector('text=Selected Song', { timeout: 5000 });
+
+  // Click 'Add Song' button for second song
+  await expect(addButton).toBeEnabled();
+  await addButton.click();
+
+  // Wait for success message for second song
+  await expect(successMessage).toBeVisible({ timeout: 5000 });
+  await expect(successMessage).toContainText('Added');
+  console.log('Second song added');
+
+  // Screenshot: Song picker with success message after adding both songs
   const savedPath = getArtifactsPath(TEST_NAME, `${rolePrefix}-06-song-picker-saved.png`);
   await page.screenshot({ path: savedPath, fullPage: true });
   screenshots.push({ name: `${rolePrefix}-06-song-picker-saved.png`, path: savedPath });
   console.log(`Screenshot saved: ${savedPath}`);
 
-  // Wait for auto-redirect back to lobby
+  // Click 'Back to Lobby' button (no auto-redirect anymore)
+  const backButton = page.getByRole('button', { name: 'Back to Lobby' });
+  await expect(backButton).toBeVisible();
+  await backButton.click();
+
+  // Wait for navigation back to lobby
   await page.waitForURL('**/rooms/310', { timeout: 5000 });
   await page.waitForLoadState('networkidle');
 
@@ -239,6 +267,10 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
     void serverContext; // Required to trigger fixture - starts servers
     const collector: ScreenshotCollector = { hostScreenshots: [], playerScreenshots: [] };
 
+    // Reset test user counter for deterministic player names in screenshots
+    await fetch(`${BACKEND_URL}/api/testing/reset-user-counter`, { method: 'POST' });
+    console.log('✅ Reset test user counter for deterministic names');
+
     // Create separate browser contexts for host and player
     const hostContext: BrowserContext = await browser.newContext();
     const playerContext: BrowserContext = await browser.newContext();
@@ -276,7 +308,7 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       console.log(`Host screenshot: ${hostLobbyPath}`);
 
       // Host: Add song pair
-      const songPairScreenshots = await addSongPair(hostPage, 'host');
+      const songPairScreenshots = await addSongs(hostPage, 'host');
       collector.hostScreenshots.push(...songPairScreenshots);
 
       // ========================================================================
@@ -739,9 +771,9 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       expect(finalRoomData.status).toBe('lobby');
       console.log(`✅ Room status: ${finalRoomData.status}`);
 
-      // Verify song pair was removed (started with 1, should have 0)
-      expect(finalRoomData.song_pairs.length).toBe(0);
-      console.log(`✅ Song pairs remaining: ${finalRoomData.song_pairs.length}`);
+      // Verify used songs were removed (started with 2, should have 0 after using both)
+      expect(finalRoomData.songs.length).toBe(0);
+      console.log(`✅ Songs remaining: ${finalRoomData.songs.length}`);
 
       // Verify Start Game button is visible for host (UI shows button, but clicking would fail with no songs)
       // Note: Backend validates song pairs on /start endpoint and returns 400 if none exist

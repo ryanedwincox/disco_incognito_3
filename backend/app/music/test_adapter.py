@@ -71,8 +71,8 @@ class TestMusicAdapter(MusicStreamingAdapter):
     and testing without requiring real streaming service credentials or API calls.
     """
 
-    # Class-level counter for deterministic name generation across instances
-    _user_counter = 0
+    # Class-level counter for deterministic user generation across instances
+    _user_counter: int = 0
 
     def __init__(self, redirect_uri: str, scopes: list[str]) -> None:
         """
@@ -90,6 +90,11 @@ class TestMusicAdapter(MusicStreamingAdapter):
         # Reset counter on adapter creation for deterministic test runs
         TestMusicAdapter._user_counter = 0
         logger.info('TestMusicAdapter initialized (user counter reset)')
+
+    @classmethod
+    def reset_user_counter(cls) -> None:
+        """Reset the user counter for test isolation."""
+        cls._user_counter = 0
 
     # OAuth and Authentication
     async def create_authorize_url(self, state: str) -> str:
@@ -131,18 +136,27 @@ class TestMusicAdapter(MusicStreamingAdapter):
         """
         Return mock user profile information with a deterministic disco-themed name.
 
-        Uses a counter-based approach for deterministic test runs. Names cycle through
-        adjective/noun combinations in a predictable order.
+        Uses a counter to generate deterministic names for E2E test reproducibility.
+        Each call generates a unique user with a fun name like "Groovy Dancer" or "Funky Star".
         """
-        # Deterministic name generation using counter
-        adj_index = TestMusicAdapter._user_counter % len(DISCO_ADJECTIVES)
-        noun_index = TestMusicAdapter._user_counter % len(DISCO_NOUNS)
-        adjective = DISCO_ADJECTIVES[adj_index]
-        noun = DISCO_NOUNS[noun_index]
+        # Generate deterministic disco-themed username using counter
+        # Counter cycles through adjectives first, then nouns
+        adj_count = len(DISCO_ADJECTIVES)
+        noun_count = len(DISCO_NOUNS)
+        total_combinations = adj_count * noun_count
+
+        idx = TestMusicAdapter._user_counter % total_combinations
+        adj_idx = idx % adj_count
+        noun_idx = idx // adj_count
+
+        adjective = DISCO_ADJECTIVES[adj_idx]
+        noun = DISCO_NOUNS[noun_idx]
         display_name = f'{adjective} {noun}'
 
-        # Deterministic user ID based on counter
-        user_id = f'test-user-{TestMusicAdapter._user_counter:04d}'
+        # Generate deterministic user ID based on counter (8 hex chars for compatibility)
+        user_id = f'test-user-{TestMusicAdapter._user_counter:08x}'
+
+        # Increment counter for next call
         TestMusicAdapter._user_counter += 1
 
         logger.info(f'Returning test mode user info: {display_name} ({user_id})')
@@ -196,13 +210,13 @@ class TestMusicAdapter(MusicStreamingAdapter):
 
     # Search and Track Information
     async def search_tracks(self, access_token: str, query: str, limit: int = 20) -> list[dict[str, Any]]:
-        """Return mock search results."""
+        """Return mock search results with fuzzy matching on disco/funk catalog."""
         logger.info(f"Test mode: Searching for '{query}'")
-        # Mock tracks that match common disco/dance songs
+        # Expanded disco/funk catalog (~25 songs)
         mock_tracks = [
             {
                 'id': 'test-track-1',
-                'uri': 'test:track:1',
+                'uri': 'spotify:track:test1',
                 'name': "Stayin' Alive",
                 'artist': 'Bee Gees',
                 'album': 'Saturday Night Fever',
@@ -211,7 +225,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
             },
             {
                 'id': 'test-track-2',
-                'uri': 'test:track:2',
+                'uri': 'spotify:track:test2',
                 'name': 'September',
                 'artist': 'Earth, Wind & Fire',
                 'album': 'The Best of Earth, Wind & Fire Vol. 1',
@@ -220,28 +234,223 @@ class TestMusicAdapter(MusicStreamingAdapter):
             },
             {
                 'id': 'test-track-3',
-                'uri': 'test:track:3',
-                'name': 'I Wanna Dance with Somebody',
-                'artist': 'Whitney Houston',
-                'album': 'Whitney',
-                'duration_ms': 291000,
-                'album_art': 'https://i.scdn.co/image/ab67616d0000b273f7f1b7e42f3b8f8ddac3a0e1',
+                'uri': 'spotify:track:test3',
+                'name': 'I Will Survive',
+                'artist': 'Gloria Gaynor',
+                'album': 'Love Tracks',
+                'duration_ms': 198000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273d7b169a4fef5a9247f0e4022',
             },
             {
                 'id': 'test-track-4',
-                'uri': 'test:track:4',
-                'name': "Don't Stop Believin'",
-                'artist': 'Journey',
-                'album': 'Escape',
-                'duration_ms': 251000,
-                'album_art': 'https://i.scdn.co/image/ab67616d0000b273c5653f9038e42efba85151ee',
+                'uri': 'spotify:track:test4',
+                'name': 'Le Freak',
+                'artist': 'Chic',
+                'album': "C'est Chic",
+                'duration_ms': 311000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273e7b169a4fef5a9247f0e4023',
+            },
+            {
+                'id': 'test-track-5',
+                'uri': 'spotify:track:test5',
+                'name': 'Dancing Queen',
+                'artist': 'ABBA',
+                'album': 'Arrival',
+                'duration_ms': 231000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273f7b169a4fef5a9247f0e4024',
+            },
+            {
+                'id': 'test-track-6',
+                'uri': 'spotify:track:test6',
+                'name': 'Boogie Wonderland',
+                'artist': 'Earth, Wind & Fire',
+                'album': 'I Am',
+                'duration_ms': 288000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273g7b169a4fef5a9247f0e4025',
+            },
+            {
+                'id': 'test-track-7',
+                'uri': 'spotify:track:test7',
+                'name': "Don't Stop 'Til You Get Enough",
+                'artist': 'Michael Jackson',
+                'album': 'Off the Wall',
+                'duration_ms': 366000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273h7b169a4fef5a9247f0e4026',
+            },
+            {
+                'id': 'test-track-8',
+                'uri': 'spotify:track:test8',
+                'name': 'Ring My Bell',
+                'artist': 'Anita Ward',
+                'album': 'Songs of Love',
+                'duration_ms': 234000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273i7b169a4fef5a9247f0e4027',
+            },
+            {
+                'id': 'test-track-9',
+                'uri': 'spotify:track:test9',
+                'name': 'Last Dance',
+                'artist': 'Donna Summer',
+                'album': 'Thank God It\'s Friday',
+                'duration_ms': 267000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273j7b169a4fef5a9247f0e4028',
+            },
+            {
+                'id': 'test-track-10',
+                'uri': 'spotify:track:test10',
+                'name': 'Celebration',
+                'artist': 'Kool & The Gang',
+                'album': 'Celebrate!',
+                'duration_ms': 264000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273k7b169a4fef5a9247f0e4029',
+            },
+            {
+                'id': 'test-track-11',
+                'uri': 'spotify:track:test11',
+                'name': 'Y.M.C.A.',
+                'artist': 'Village People',
+                'album': 'Cruisin\'',
+                'duration_ms': 292000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273l7b169a4fef5a9247f0e4030',
+            },
+            {
+                'id': 'test-track-12',
+                'uri': 'spotify:track:test12',
+                'name': 'Disco Inferno',
+                'artist': 'The Trammps',
+                'album': 'Disco Inferno',
+                'duration_ms': 330000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273m7b169a4fef5a9247f0e4031',
+            },
+            {
+                'id': 'test-track-13',
+                'uri': 'spotify:track:test13',
+                'name': 'Hot Stuff',
+                'artist': 'Donna Summer',
+                'album': 'Bad Girls',
+                'duration_ms': 237000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273n7b169a4fef5a9247f0e4032',
+            },
+            {
+                'id': 'test-track-14',
+                'uri': 'spotify:track:test14',
+                'name': 'Super Freak',
+                'artist': 'Rick James',
+                'album': 'Street Songs',
+                'duration_ms': 212000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273o7b169a4fef5a9247f0e4033',
+            },
+            {
+                'id': 'test-track-15',
+                'uri': 'spotify:track:test15',
+                'name': 'Get Down Tonight',
+                'artist': 'KC and the Sunshine Band',
+                'album': 'KC and the Sunshine Band',
+                'duration_ms': 192000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273p7b169a4fef5a9247f0e4034',
+            },
+            {
+                'id': 'test-track-16',
+                'uri': 'spotify:track:test16',
+                'name': 'Car Wash',
+                'artist': 'Rose Royce',
+                'album': 'Car Wash',
+                'duration_ms': 242000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273q7b169a4fef5a9247f0e4035',
+            },
+            {
+                'id': 'test-track-17',
+                'uri': 'spotify:track:test17',
+                'name': 'Play That Funky Music',
+                'artist': 'Wild Cherry',
+                'album': 'Wild Cherry',
+                'duration_ms': 305000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273r7b169a4fef5a9247f0e4036',
+            },
+            {
+                'id': 'test-track-18',
+                'uri': 'spotify:track:test18',
+                'name': "That's the Way (I Like It)",
+                'artist': 'KC and the Sunshine Band',
+                'album': 'KC and the Sunshine Band',
+                'duration_ms': 187000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273s7b169a4fef5a9247f0e4037',
+            },
+            {
+                'id': 'test-track-19',
+                'uri': 'spotify:track:test19',
+                'name': 'Brick House',
+                'artist': 'Commodores',
+                'album': 'Commodores',
+                'duration_ms': 206000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273t7b169a4fef5a9247f0e4038',
+            },
+            {
+                'id': 'test-track-20',
+                'uri': 'spotify:track:test20',
+                'name': "I'm Coming Out",
+                'artist': 'Diana Ross',
+                'album': 'Diana',
+                'duration_ms': 322000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273u7b169a4fef5a9247f0e4039',
+            },
+            {
+                'id': 'test-track-21',
+                'uri': 'spotify:track:test21',
+                'name': 'Give Up the Funk',
+                'artist': 'Parliament',
+                'album': 'Mothership Connection',
+                'duration_ms': 337000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273v7b169a4fef5a9247f0e4040',
+            },
+            {
+                'id': 'test-track-22',
+                'uri': 'spotify:track:test22',
+                'name': 'Get Up Offa That Thing',
+                'artist': 'James Brown',
+                'album': 'Get Up Offa That Thing',
+                'duration_ms': 257000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273w7b169a4fef5a9247f0e4041',
+            },
+            {
+                'id': 'test-track-23',
+                'uri': 'spotify:track:test23',
+                'name': 'Funkytown',
+                'artist': 'Lipps Inc.',
+                'album': 'Mouth to Mouth',
+                'duration_ms': 287000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273x7b169a4fef5a9247f0e4042',
+            },
+            {
+                'id': 'test-track-24',
+                'uri': 'spotify:track:test24',
+                'name': 'Heart of Glass',
+                'artist': 'Blondie',
+                'album': 'Parallel Lines',
+                'duration_ms': 254000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273y7b169a4fef5a9247f0e4043',
+            },
+            {
+                'id': 'test-track-25',
+                'uri': 'spotify:track:test25',
+                'name': 'Good Times',
+                'artist': 'Chic',
+                'album': 'Risqué',
+                'duration_ms': 482000,
+                'album_art': 'https://i.scdn.co/image/ab67616d0000b273z7b169a4fef5a9247f0e4044',
             },
         ]
 
-        # Simple filter based on query
+        # Fuzzy matching: check if query words appear in name, artist, or album
         if query:
             query_lower = query.lower()
-            filtered = [track for track in mock_tracks if query_lower in track['name'].lower() or query_lower in track['artist'].lower()]
+            query_words = query_lower.split()
+
+            def matches(track: dict[str, Any]) -> bool:
+                searchable = f"{track['name']} {track['artist']} {track['album']}".lower()
+                return any(word in searchable for word in query_words)
+
+            filtered = [track for track in mock_tracks if matches(track)]
             return filtered[:limit]
 
         return mock_tracks[:limit]
