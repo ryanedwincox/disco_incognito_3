@@ -68,6 +68,23 @@ async function addPlayerViaAPI(roomCode: string, playerId: string, displayName: 
   console.log(`Added player ${displayName} (${playerId})`);
 }
 
+// Helper: Cast vote via REST API
+async function castVoteViaAPI(roomCode: string, voterId: string, guessedId: string): Promise<void> {
+  const response = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}/vote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      player_id: voterId,
+      guessed_player_id: guessedId,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to cast vote for ${voterId}: ${await response.text()}`);
+  }
+  console.log(`Player ${voterId} voted for ${guessedId}`);
+}
+
 // ============================================================================
 // Host-specific Helpers
 // ============================================================================
@@ -474,12 +491,193 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       console.log('✅ MusicPlayerBar visible for both');
 
       // Verify room status is 'playing'
+      const playingRoomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+      const playingRoomData = await playingRoomResponse.json();
+      expect(playingRoomData.status).toBe('playing');
+      console.log(`✅ Room status: ${playingRoomData.status}`);
+
+      // ========================================================================
+      // PHASE 7: Both navigate to guess page, cast votes
+      // ========================================================================
+      console.log('\n=== PHASE 7: Navigate to guess page, cast votes ===');
+
+      // Host: Navigate to guess page
+      await hostPage.goto(`${FRONTEND_URL}/rooms/${roomCode}/guess`);
+      await hostPage.waitForLoadState('networkidle');
+
+      // Wait for guess page to load
+      const hostGuessHeader = hostPage.locator('h2:has-text("Who Is The Dancer Incognito?")');
+      await expect(hostGuessHeader).toBeVisible({ timeout: 5000 });
+      console.log('✅ Host on guess page');
+
+      const hostGuessPath = getArtifactsPath(TEST_NAME, 'host-12-guess-page.png');
+      await hostPage.screenshot({ path: hostGuessPath, fullPage: true });
+      collector.hostScreenshots.push({ name: 'host-12-guess-page.png', path: hostGuessPath });
+      console.log(`Host screenshot: ${hostGuessPath}`);
+
+      // Player: Navigate to guess page
+      await playerPage.goto(`${FRONTEND_URL}/rooms/${roomCode}/guess`);
+      await playerPage.waitForLoadState('networkidle');
+
+      const playerGuessHeader = playerPage.locator('h2:has-text("Who Is The Dancer Incognito?")');
+      await expect(playerGuessHeader).toBeVisible({ timeout: 5000 });
+      console.log('✅ Player on guess page');
+
+      const playerGuessPath = getArtifactsPath(TEST_NAME, 'player-09-guess-page.png');
+      await playerPage.screenshot({ path: playerGuessPath, fullPage: true });
+      collector.playerScreenshots.push({ name: 'player-09-guess-page.png', path: playerGuessPath });
+      console.log(`Player screenshot: ${playerGuessPath}`);
+
+      // Host: Cast vote for Player Three (the only player with a known name)
+      const hostVoteButton = hostPage.getByRole('button', { name: 'Guess Player Three' });
+      await expect(hostVoteButton).toBeVisible();
+      await hostVoteButton.click();
+      await hostPage.waitForSelector('.bg-green-900\\/30', { timeout: 5000 });
+      console.log('✅ Host cast vote for Player Three');
+
+      const hostVoteCastPath = getArtifactsPath(TEST_NAME, 'host-13-vote-cast.png');
+      await hostPage.screenshot({ path: hostVoteCastPath, fullPage: true });
+      collector.hostScreenshots.push({ name: 'host-13-vote-cast.png', path: hostVoteCastPath });
+      console.log(`Host screenshot: ${hostVoteCastPath}`);
+
+      // Player: Cast vote for Player Three
+      const playerVoteButton = playerPage.getByRole('button', { name: 'Guess Player Three' });
+      await expect(playerVoteButton).toBeVisible();
+      await playerVoteButton.click();
+      await playerPage.waitForSelector('.bg-green-900\\/30', { timeout: 5000 });
+      console.log('✅ Player cast vote for Player Three');
+
+      const playerVoteCastPath = getArtifactsPath(TEST_NAME, 'player-10-vote-cast.png');
+      await playerPage.screenshot({ path: playerVoteCastPath, fullPage: true });
+      collector.playerScreenshots.push({ name: 'player-10-vote-cast.png', path: playerVoteCastPath });
+      console.log(`Player screenshot: ${playerVoteCastPath}`);
+
+      // Player-3: Cast vote via API (simulate third player voting)
+      await castVoteViaAPI(roomCode, 'player-3', 'player-3'); // player-3 votes for self
+      console.log('✅ Player-3 voted via API');
+
+      // ========================================================================
+      // PHASE 8: Navigate to results, verify reveal
+      // ========================================================================
+      console.log('\n=== PHASE 8: Navigate to results ===');
+
+      // Host: Navigate to results
+      await hostPage.goto(`${FRONTEND_URL}/rooms/${roomCode}/results`);
+      await hostPage.waitForLoadState('networkidle');
+
+      // Wait for results to load
+      await hostPage.waitForSelector('.bg-disco-pink\\/20', { timeout: 5000 });
+      console.log('✅ Host on results page');
+
+      // Verify Dancer Incognito revealed
+      const hostIncognitoSection = hostPage.locator('.bg-disco-pink\\/20');
+      await expect(hostIncognitoSection).toBeVisible();
+      const hostIncognitoLabel = hostIncognitoSection.locator('h3:has-text("Dancer Incognito")');
+      await expect(hostIncognitoLabel).toBeVisible();
+      console.log('✅ Host sees Dancer Incognito revealed');
+
+      // Verify votes displayed
+      const hostVotesHeader = hostPage.locator('h3:has-text("Votes")');
+      await expect(hostVotesHeader).toBeVisible();
+      const hostVoteItems = hostPage.locator('ul.space-y-2 li');
+      await expect(hostVoteItems).toHaveCount(3);
+      console.log('✅ Host sees all 3 votes displayed');
+
+      const hostResultsPath = getArtifactsPath(TEST_NAME, 'host-14-results-page.png');
+      await hostPage.screenshot({ path: hostResultsPath, fullPage: true });
+      collector.hostScreenshots.push({ name: 'host-14-results-page.png', path: hostResultsPath });
+      console.log(`Host screenshot: ${hostResultsPath}`);
+
+      // Player: Navigate to results
+      await playerPage.goto(`${FRONTEND_URL}/rooms/${roomCode}/results`);
+      await playerPage.waitForLoadState('networkidle');
+
+      await playerPage.waitForSelector('.bg-disco-pink\\/20', { timeout: 5000 });
+      console.log('✅ Player on results page');
+
+      // Verify Dancer Incognito revealed from player perspective
+      const playerIncognitoSection = playerPage.locator('.bg-disco-pink\\/20');
+      await expect(playerIncognitoSection).toBeVisible();
+      console.log('✅ Player sees Dancer Incognito revealed');
+
+      const playerResultsPath = getArtifactsPath(TEST_NAME, 'player-11-results-page.png');
+      await playerPage.screenshot({ path: playerResultsPath, fullPage: true });
+      collector.playerScreenshots.push({ name: 'player-11-results-page.png', path: playerResultsPath });
+      console.log(`Player screenshot: ${playerResultsPath}`);
+
+      // Verify room status is 'results'
+      const resultsRoomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+      const resultsRoomData = await resultsRoomResponse.json();
+      expect(resultsRoomData.status).toBe('results');
+      console.log(`✅ Room status: ${resultsRoomData.status}`);
+
+      // ========================================================================
+      // PHASE 9: Host clicks Finish Round, both navigate to lobby
+      // ========================================================================
+      console.log('\n=== PHASE 9: Host finishes round ===');
+
+      // Verify Finish Round button visible for host
+      const finishButton = hostPage.getByRole('button', { name: 'Finish Round' });
+      await expect(finishButton).toBeVisible();
+      console.log('✅ Host sees Finish Round button');
+
+      // Verify Finish Round button NOT visible for player
+      const playerFinishButton = playerPage.getByRole('button', { name: 'Finish Round' });
+      await expect(playerFinishButton).not.toBeVisible();
+      console.log('✅ Player does NOT see Finish Round button');
+
+      // Host: Click Finish Round
+      await finishButton.click();
+      console.log('✅ Host clicked Finish Round');
+
+      // Host: Wait for navigation to lobby
+      await hostPage.waitForURL(`**/rooms/${roomCode}`, { timeout: 10000 });
+      await hostPage.waitForLoadState('networkidle');
+      console.log('✅ Host navigated to lobby');
+
+      const hostBackLobbyPath = getArtifactsPath(TEST_NAME, 'host-15-back-in-lobby.png');
+      await hostPage.screenshot({ path: hostBackLobbyPath, fullPage: true });
+      collector.hostScreenshots.push({ name: 'host-15-back-in-lobby.png', path: hostBackLobbyPath });
+      console.log(`Host screenshot: ${hostBackLobbyPath}`);
+
+      // Player: Navigate to lobby
+      await playerPage.goto(`${FRONTEND_URL}/rooms/${roomCode}`);
+      await playerPage.waitForLoadState('networkidle');
+      console.log('✅ Player navigated to lobby');
+
+      const playerBackLobbyPath = getArtifactsPath(TEST_NAME, 'player-12-back-in-lobby.png');
+      await playerPage.screenshot({ path: playerBackLobbyPath, fullPage: true });
+      collector.playerScreenshots.push({ name: 'player-12-back-in-lobby.png', path: playerBackLobbyPath });
+      console.log(`Player screenshot: ${playerBackLobbyPath}`);
+
+      // ========================================================================
+      // PHASE 10: Verify lobby state - room status, song pair removed, Start Game visibility
+      // ========================================================================
+      console.log('\n=== PHASE 10: Verify lobby state ===');
+
+      // Verify room status is 'lobby'
       const finalRoomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
       const finalRoomData = await finalRoomResponse.json();
-      expect(finalRoomData.status).toBe('playing');
-      console.log(`✅ Final room status: ${finalRoomData.status}`);
+      expect(finalRoomData.status).toBe('lobby');
+      console.log(`✅ Room status: ${finalRoomData.status}`);
 
-      console.log('\n✅ Combined host+player flow completed successfully');
+      // Verify song pair was removed (started with 1, should have 0)
+      expect(finalRoomData.song_pairs.length).toBe(0);
+      console.log(`✅ Song pairs remaining: ${finalRoomData.song_pairs.length}`);
+
+      // Verify Start Game button is visible for host (UI shows button, but clicking would fail with no songs)
+      // Note: Backend validates song pairs on /start endpoint and returns 400 if none exist
+      const hostStartButton = hostPage.getByRole('button', { name: 'Start Game' });
+      await expect(hostStartButton).toBeVisible();
+      console.log('✅ Host sees Start Game button (backend validates song requirement)');
+
+      // Verify room code still displayed
+      const hostRoomCode = hostPage.locator('.text-4xl.font-bold');
+      await expect(hostRoomCode).toBeVisible();
+      await expect(hostRoomCode).toContainText(roomCode);
+      console.log('✅ Room code displayed in lobby');
+
+      console.log('\n✅ Combined host+player flow completed successfully (all 10 phases)');
 
       // ========================================================================
       // Screenshot Comparison
