@@ -530,33 +530,76 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       collector.playerScreenshots.push({ name: 'player-09-guess-page.png', path: playerGuessPath });
       console.log(`Player screenshot: ${playerGuessPath}`);
 
-      // Host: Cast vote for Player Three (the only player with a known name)
-      const hostVoteButton = hostPage.getByRole('button', { name: 'Guess Player Three' });
+      // Fetch room to get all player IDs for distributed voting strategy
+      const guessingRoomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+      const guessingRoomData = await guessingRoomResponse.json();
+      const allPlayers = guessingRoomData.players;
+
+      // Find player-3's ID and the other two players
+      const player3 = allPlayers.find((p: { id: string }) => p.id === 'player-3');
+      const otherPlayers = allPlayers.filter((p: { id: string }) => p.id !== 'player-3');
+
+      // Strategy: Distribute votes to guarantee at least one correct guess
+      // Host votes for first other player (not player-3), Player votes for player-3, player-3 votes for second other player
+      const hostTarget = otherPlayers[0]; // Host votes for browser player
+      const playerTarget = player3; // Player votes for Player Three
+      const player3Target = otherPlayers[1] || otherPlayers[0]; // player-3 votes for host or fallback
+
+      console.log(`Voting strategy: Host -> ${hostTarget.display_name}, Player -> ${playerTarget.display_name}, player-3 -> ${player3Target.display_name}`);
+
+      // Host: Cast vote for the browser player (distributed voting)
+      const hostVoteButton = hostPage.getByRole('button', { name: `Guess ${hostTarget.display_name}` });
       await expect(hostVoteButton).toBeVisible();
       await hostVoteButton.click();
       await hostPage.waitForSelector('.bg-green-900\\/30', { timeout: 5000 });
-      console.log('✅ Host cast vote for Player Three');
+      console.log(`✅ Host cast vote for ${hostTarget.display_name}`);
 
       const hostVoteCastPath = getArtifactsPath(TEST_NAME, 'host-13-vote-cast.png');
       await hostPage.screenshot({ path: hostVoteCastPath, fullPage: true });
       collector.hostScreenshots.push({ name: 'host-13-vote-cast.png', path: hostVoteCastPath });
       console.log(`Host screenshot: ${hostVoteCastPath}`);
 
-      // Player: Cast vote for Player Three
-      const playerVoteButton = playerPage.getByRole('button', { name: 'Guess Player Three' });
+      // Host: Verify vote buttons are disabled after voting
+      const hostDisabledButtons = hostPage.locator('button:has-text("Voted"), button:has-text("Your Vote")');
+      const hostDisabledCount = await hostDisabledButtons.count();
+      expect(hostDisabledCount).toBeGreaterThan(0);
+      const firstHostDisabledButton = hostDisabledButtons.first();
+      await expect(firstHostDisabledButton).toBeDisabled();
+      console.log(`✅ Host vote buttons disabled (${hostDisabledCount} buttons showing voted state)`);
+
+      const hostDisabledButtonsPath = getArtifactsPath(TEST_NAME, 'host-13b-vote-buttons-disabled.png');
+      await hostPage.screenshot({ path: hostDisabledButtonsPath, fullPage: true });
+      collector.hostScreenshots.push({ name: 'host-13b-vote-buttons-disabled.png', path: hostDisabledButtonsPath });
+      console.log(`Host screenshot: ${hostDisabledButtonsPath}`);
+
+      // Player: Cast vote for Player Three (distributed voting)
+      const playerVoteButton = playerPage.getByRole('button', { name: `Guess ${playerTarget.display_name}` });
       await expect(playerVoteButton).toBeVisible();
       await playerVoteButton.click();
       await playerPage.waitForSelector('.bg-green-900\\/30', { timeout: 5000 });
-      console.log('✅ Player cast vote for Player Three');
+      console.log(`✅ Player cast vote for ${playerTarget.display_name}`);
 
       const playerVoteCastPath = getArtifactsPath(TEST_NAME, 'player-10-vote-cast.png');
       await playerPage.screenshot({ path: playerVoteCastPath, fullPage: true });
       collector.playerScreenshots.push({ name: 'player-10-vote-cast.png', path: playerVoteCastPath });
       console.log(`Player screenshot: ${playerVoteCastPath}`);
 
-      // Player-3: Cast vote via API (simulate third player voting)
-      await castVoteViaAPI(roomCode, 'player-3', 'player-3'); // player-3 votes for self
-      console.log('✅ Player-3 voted via API');
+      // Player: Verify vote buttons are disabled after voting
+      const playerDisabledButtons = playerPage.locator('button:has-text("Voted"), button:has-text("Your Vote")');
+      const playerDisabledCount = await playerDisabledButtons.count();
+      expect(playerDisabledCount).toBeGreaterThan(0);
+      const firstPlayerDisabledButton = playerDisabledButtons.first();
+      await expect(firstPlayerDisabledButton).toBeDisabled();
+      console.log(`✅ Player vote buttons disabled (${playerDisabledCount} buttons showing voted state)`);
+
+      const playerDisabledButtonsPath = getArtifactsPath(TEST_NAME, 'player-10b-vote-buttons-disabled.png');
+      await playerPage.screenshot({ path: playerDisabledButtonsPath, fullPage: true });
+      collector.playerScreenshots.push({ name: 'player-10b-vote-buttons-disabled.png', path: playerDisabledButtonsPath });
+      console.log(`Player screenshot: ${playerDisabledButtonsPath}`);
+
+      // Player-3: Cast vote via API (distributed voting - votes for host/other browser player)
+      await castVoteViaAPI(roomCode, 'player-3', player3Target.id);
+      console.log(`✅ Player-3 voted via API for ${player3Target.display_name}`);
 
       // ========================================================================
       // PHASE 8: Navigate to results, verify reveal
@@ -590,6 +633,28 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       collector.hostScreenshots.push({ name: 'host-14-results-page.png', path: hostResultsPath });
       console.log(`Host screenshot: ${hostResultsPath}`);
 
+      // Host: Verify correct guessers have .text-green-400 highlighting
+      // With distributed voting strategy, at least one player should have guessed correctly
+      // Fetch results API to verify correct_guessers array
+      const hostResultsApiResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}/results`);
+      const hostResultsApiData = await hostResultsApiResponse.json();
+      const correctGuessersCount = hostResultsApiData.correct_guessers?.length ?? 0;
+      console.log(`API: ${correctGuessersCount} correct guessers (incognito: ${hostResultsApiData.incognito_player_id})`);
+
+      // With distributed voting, we should always have at least one correct guesser
+      expect(correctGuessersCount).toBeGreaterThan(0);
+
+      // Verify UI shows green highlighting for correct guessers
+      const hostCorrectGuessers = hostPage.locator('.text-green-400');
+      const hostCorrectCount = await hostCorrectGuessers.count();
+      expect(hostCorrectCount).toBeGreaterThan(0);
+      console.log(`✅ Host sees ${hostCorrectCount} correct guesser elements with text-green-400 highlighting`);
+
+      const hostHighlightedPath = getArtifactsPath(TEST_NAME, 'host-14b-correct-guessers-highlighted.png');
+      await hostPage.screenshot({ path: hostHighlightedPath, fullPage: true });
+      collector.hostScreenshots.push({ name: 'host-14b-correct-guessers-highlighted.png', path: hostHighlightedPath });
+      console.log(`Host screenshot: ${hostHighlightedPath}`);
+
       // Player: Navigate to results
       await playerPage.goto(`${FRONTEND_URL}/rooms/${roomCode}/results`);
       await playerPage.waitForLoadState('networkidle');
@@ -606,6 +671,17 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       await playerPage.screenshot({ path: playerResultsPath, fullPage: true });
       collector.playerScreenshots.push({ name: 'player-11-results-page.png', path: playerResultsPath });
       console.log(`Player screenshot: ${playerResultsPath}`);
+
+      // Player: Verify correct guessers have .text-green-400 highlighting
+      const playerCorrectGuessers = playerPage.locator('.text-green-400');
+      const playerCorrectCount = await playerCorrectGuessers.count();
+      expect(playerCorrectCount).toBeGreaterThan(0);
+      console.log(`✅ Player sees ${playerCorrectCount} correct guesser elements with text-green-400 highlighting`);
+
+      const playerHighlightedPath = getArtifactsPath(TEST_NAME, 'player-11b-correct-guessers-highlighted.png');
+      await playerPage.screenshot({ path: playerHighlightedPath, fullPage: true });
+      collector.playerScreenshots.push({ name: 'player-11b-correct-guessers-highlighted.png', path: playerHighlightedPath });
+      console.log(`Player screenshot: ${playerHighlightedPath}`);
 
       // Verify room status is 'results'
       const resultsRoomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
