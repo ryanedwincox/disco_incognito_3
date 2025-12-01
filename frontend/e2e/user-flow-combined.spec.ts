@@ -267,6 +267,10 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
     void serverContext; // Required to trigger fixture - starts servers
     const collector: ScreenshotCollector = { hostScreenshots: [], playerScreenshots: [] };
 
+    // Reset test user counter for deterministic player names in screenshots
+    await fetch(`${BACKEND_URL}/api/testing/reset-user-counter`, { method: 'POST' });
+    console.log('✅ Reset test user counter for deterministic names');
+
     // Create separate browser contexts for host and player
     const hostContext: BrowserContext = await browser.newContext();
     const playerContext: BrowserContext = await browser.newContext();

@@ -73,6 +73,9 @@ class TestMusicAdapter(MusicStreamingAdapter):
     and testing without requiring real streaming service credentials or API calls.
     """
 
+    # Class-level counter for deterministic user generation across instances
+    _user_counter: int = 0
+
     def __init__(self, redirect_uri: str, scopes: list[str]) -> None:
         """
         Initialize the test adapter.
@@ -85,6 +88,11 @@ class TestMusicAdapter(MusicStreamingAdapter):
         self.scopes = scopes
         self.scope_string = ' '.join(scopes)
         logger.info('TestMusicAdapter initialized')
+
+    @classmethod
+    def reset_user_counter(cls) -> None:
+        """Reset the user counter for test isolation."""
+        cls._user_counter = 0
 
     # OAuth and Authentication
     async def create_authorize_url(self, state: str) -> str:
@@ -124,17 +132,30 @@ class TestMusicAdapter(MusicStreamingAdapter):
 
     async def get_user_info(self, access_token: str) -> dict[str, Any]:
         """
-        Return mock user profile information with a random disco-themed name.
+        Return mock user profile information with a deterministic disco-themed name.
 
+        Uses a counter to generate deterministic names for E2E test reproducibility.
         Each call generates a unique user with a fun name like "Groovy Dancer" or "Funky Star".
         """
-        # Generate random disco-themed username
-        adjective = random.choice(DISCO_ADJECTIVES)
-        noun = random.choice(DISCO_NOUNS)
+        # Generate deterministic disco-themed username using counter
+        # Counter cycles through adjectives first, then nouns
+        adj_count = len(DISCO_ADJECTIVES)
+        noun_count = len(DISCO_NOUNS)
+        total_combinations = adj_count * noun_count
+
+        idx = TestMusicAdapter._user_counter % total_combinations
+        adj_idx = idx % adj_count
+        noun_idx = idx // adj_count
+
+        adjective = DISCO_ADJECTIVES[adj_idx]
+        noun = DISCO_NOUNS[noun_idx]
         display_name = f'{adjective} {noun}'
 
-        # Generate unique user ID
-        user_id = f'test-user-{uuid.uuid4().hex[:8]}'
+        # Generate deterministic user ID based on counter (8 hex chars for compatibility)
+        user_id = f'test-user-{TestMusicAdapter._user_counter:08x}'
+
+        # Increment counter for next call
+        TestMusicAdapter._user_counter += 1
 
         logger.info(f'Returning test mode user info: {display_name} ({user_id})')
         return {
