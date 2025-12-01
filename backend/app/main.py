@@ -81,18 +81,68 @@ async def cleanup_expired_rooms() -> None:
 
 
 @app.websocket('/api/ws/rooms/{room_code}/ws')
-async def websocket_endpoint(websocket: WebSocket, room_code: str, user_id: str) -> None:
+async def websocket_endpoint(
+    websocket: WebSocket,
+    room_code: str,
+    user_id: str,
+    reconnect_token: str | None = None
+) -> None:
     """WebSocket endpoint for real-time room communication.
 
     Connects user to room, broadcasts connect/disconnect events, and maintains
-    connection for room updates.
+    connection for room updates. Supports reconnection via reconnect_token.
 
     Args:
         websocket: The WebSocket connection
         room_code: The room code to connect to
         user_id: The user's unique identifier (from query parameter)
+        reconnect_token: Optional reconnection token for resuming a session
     """
-    await connection_manager.connect(room_code, user_id, websocket)
+    # If reconnect_token is provided, validate it
+    if reconnect_token:
+        logger.info(f'Reconnection attempt with token for user {user_id} in room {room_code}')
+        validation = await connection_manager.validate_reconnect_token(reconnect_token)
+
+        if not validation:
+            # Invalid or expired token
+            await websocket.accept()
+            await websocket.send_json({
+                'type': 'reconnect_failed',
+                'reason': 'Invalid or expired reconnection token'
+            })
+            await websocket.close()
+            return
+
+        # Validate that the token matches the user and room
+        if validation['user_id'] != user_id or validation['room_code'] != room_code:
+            await websocket.accept()
+            await websocket.send_json({
+                'type': 'reconnect_failed',
+                'reason': 'Reconnection token does not match user or room'
+            })
+            await websocket.close()
+            return
+
+        logger.info(f'Reconnection successful for user {user_id} in room {room_code}')
+
+    # Connect the user
+    connection_info = await connection_manager.connect(room_code, user_id, websocket, reconnect_token)
+
+    # Send connection success with reconnect token
+    await websocket.send_json({
+        'type': 'connected',
+        'reconnect_token': connection_info['reconnect_token']
+    })
+
+    # If this is a reconnection, send full room state
+    if reconnect_token:
+        storage = get_storage_adapter()
+        room_data = await storage.get_room(room_code)
+        if room_data:
+            await websocket.send_json({
+                'type': 'room_state',
+                'data': room_data
+            })
 
     try:
         # Keep connection alive and listen for messages

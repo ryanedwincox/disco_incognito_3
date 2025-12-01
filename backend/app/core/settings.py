@@ -13,6 +13,9 @@ from pathlib import Path
 from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Reconnection token expires after 5 minutes (configurable)
+RECONNECT_TOKEN_EXPIRATION_MINUTES = 5
+
 
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""

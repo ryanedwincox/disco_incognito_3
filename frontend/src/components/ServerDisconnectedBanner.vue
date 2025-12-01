@@ -57,6 +57,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useWebSocketStore } from '@/stores/websocket'
+import { websocketService } from '@/services/websocket'
 
 const wsStore = useWebSocketStore()
 const reconnecting = ref(false)
@@ -79,12 +80,8 @@ watch(
 
 function retry() {
   reconnecting.value = true
-  // TODO: Implement WebSocket reconnection logic
-  // For now, just simulate retry
-  setTimeout(() => {
-    console.log('Attempting to reconnect to server...')
-    // This will be replaced with actual WebSocket reconnection
-  }, 500)
+  console.log('Retry button clicked - attempting to reconnect...')
+  websocketService.reconnect()
 }
 </script>
 
