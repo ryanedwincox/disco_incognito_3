@@ -17,6 +17,7 @@
           Leave
         </button>
         <button
+          v-if="authStore.isSpotifyUser"
           class="w-full md:w-auto px-6 py-3 rounded-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold transition-colors"
           type="button"
           @click="pickSongs"
