@@ -135,15 +135,23 @@ async function addSongPair(page: Page, rolePrefix: string): Promise<{ name: stri
   screenshots.push({ name: `${rolePrefix}-04-song-picker-empty.png`, path: emptyPath });
   console.log(`Screenshot saved: ${emptyPath}`);
 
-  // Click 'Generate Random Pair' button
-  const generateButton = page.getByRole('button', { name: 'Generate Random Pair' });
-  await expect(generateButton).toBeVisible();
-  await generateButton.click();
+  // Search for tracks using the search input (use 'chic' to match Chic's "Le Freak" and "Good Times")
+  const searchInput = page.locator('input[type="search"]');
+  await expect(searchInput).toBeVisible();
+  await searchInput.fill('chic');
 
-  // Wait for song pair to be displayed
-  await page.waitForSelector('.bg-zinc-800.rounded-xl', { timeout: 5000 });
+  // Wait for search results to load
+  await page.waitForSelector('.max-h-80 button', { timeout: 10000 });
 
-  // Screenshot: Song picker with generated pair
+  // Select first two tracks from search results
+  const trackButtons = page.locator('.max-h-80 button');
+  await trackButtons.nth(0).click();
+  await trackButtons.nth(1).click();
+
+  // Wait for both tracks to be selected (shown in Selected Pair section)
+  await page.waitForSelector('text=Selected Pair (2/2)', { timeout: 5000 });
+
+  // Screenshot: Song picker with selected pair (replaces old 'generated' screenshot)
   const generatedPath = getArtifactsPath(TEST_NAME, `${rolePrefix}-05-song-picker-generated.png`);
   await page.screenshot({ path: generatedPath, fullPage: true });
   screenshots.push({ name: `${rolePrefix}-05-song-picker-generated.png`, path: generatedPath });
