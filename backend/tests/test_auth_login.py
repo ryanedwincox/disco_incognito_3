@@ -93,10 +93,10 @@ def test_test_login_user_id_format(client):
     # Should start with "test-user-"
     assert user_id.startswith('test-user-')
 
-    # Should have 4-digit zero-padded counter after the prefix
+    # Should have 8-digit hex counter after the prefix (e.g., test-user-00000000)
     suffix = user_id.replace('test-user-', '')
-    assert len(suffix) == 4
-    assert suffix.isdigit()  # Deterministic counter format
+    assert len(suffix) == 8
+    assert all(c in '0123456789abcdef' for c in suffix)  # Deterministic hex counter format
 
 
 def test_test_login_email_format(client):

@@ -21,6 +21,7 @@ const TEST_DATA_DIR = path.join(ROOT_DIR, 'test-data');
 const ARTIFACTS_DIR = path.join(ROOT_DIR, 'artifacts');
 const SCREENSHOTS_DIR = path.join(ARTIFACTS_DIR, 'screenshots');
 const BASELINES_DIR = path.join(__dirname, 'screenshots');
+const VENV_PYTHON = path.join(ROOT_DIR, '.venv', 'bin', 'python3');
 
 // For worktrees, use main repo's .venv (worktrees share the same .venv)
 // Worktrees have a .git file (not directory) pointing to gitdir
@@ -115,9 +116,11 @@ export const test = base.extend<TestFixtures>({
       await new Promise((r) => setTimeout(r, 1000));
 
       // Start backend with isolated storage
+      // Use venv python directly for reproducible environment
       const testStorageFile = path.join(TEST_DATA_DIR, 'disco_incognito.json');
+      const pythonPath = fs.existsSync(VENV_PYTHON) ? VENV_PYTHON : 'python3';
       const backendProcess = spawn(
-        'python3',
+        pythonPath,
         ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', String(BACKEND_PORT)],
         {
           cwd: BACKEND_DIR,
