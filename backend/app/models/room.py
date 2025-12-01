@@ -27,14 +27,13 @@ class SongInfo(BaseModel):
     artist: str
 
 
-class SongPair(BaseModel):
+class Song(BaseModel):
+    """Individual song in the room's song pool."""
+
     id: str
-    track_a: str
-    track_b: str
-    title_a: str
-    artist_a: str
-    title_b: str
-    artist_b: str
+    track_uri: str
+    title: str
+    artist: str
     added_by: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -78,7 +77,7 @@ class RoomState(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_active_at: datetime = Field(default_factory=datetime.utcnow)
     players: list[Player] = Field(default_factory=list)
-    song_pairs: list[SongPair] = Field(default_factory=list)
+    songs: list[Song] = Field(default_factory=list)
     status: str = 'lobby'
     dancer_incognito_player_id: str | None = None
     current_round: CurrentRound | None = None
@@ -89,7 +88,7 @@ class RoomState(BaseModel):
                 'code': '123',
                 'host_id': 'player-1',
                 'players': [{'id': 'player-1', 'display_name': 'Host', 'is_host': True, 'is_connected': True}],
-                'song_pairs': [],
+                'songs': [],
                 'status': 'lobby',
             }
         }
@@ -108,7 +107,7 @@ class RoomStateResponse(BaseModel):
     created_at: datetime
     last_active_at: datetime
     players: list[Player]
-    song_pairs: list[SongPair]
+    songs: list[Song]
     status: str
     current_round: CurrentRoundResponse | None = None
 
@@ -129,7 +128,7 @@ class RoomStateResponse(BaseModel):
             created_at=room.created_at,
             last_active_at=room.last_active_at,
             players=room.players,
-            song_pairs=room.song_pairs,
+            songs=room.songs,
             status=room.status,
             current_round=current_round_response,
         )
