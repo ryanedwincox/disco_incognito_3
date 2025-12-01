@@ -13,10 +13,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
+import logging
+
 from .api.router import api_router
 from .core.rate_limit import limiter
 from .core.settings import settings
 from .dependencies.storage import get_storage_adapter
+from .storage.json_file import JSONFileStorage
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title='Disco Incognito API', version='0.1.0')
 
@@ -59,6 +64,16 @@ async def ensure_storage_file() -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
         path.write_text('{}', encoding='utf-8')
+
+
+@app.on_event('startup')
+async def cleanup_expired_rooms() -> None:
+    """Clean up expired rooms on application startup."""
+    storage = get_storage_adapter()
+    if isinstance(storage, JSONFileStorage):
+        deleted_count = await storage.cleanup_expired_rooms()
+        if deleted_count > 0:
+            logger.info(f'Cleaned up {deleted_count} expired room(s) on startup')
 
 
 @app.websocket('/api/ws/rooms/{room_code}/ws')

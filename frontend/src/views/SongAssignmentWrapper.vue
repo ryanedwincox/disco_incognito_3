@@ -20,16 +20,16 @@ import { useRoute, useRouter } from 'vue-router'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useMusicStore, type TrackInfo } from '../stores/music'
+import { useRoomApi } from '../composables/useRoomApi'
 import SongAssignmentView from './SongAssignmentView.vue'
 import MusicPlayerBar from '../components/MusicPlayerBar.vue'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const route = useRoute()
 const router = useRouter()
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
 const musicStore = useMusicStore()
+const { handleRoomResponse, API_URL } = useRoomApi()
 
 const roomCode = computed(() => route.params.code as string)
 const currentUserId = computed(() => authStore.user?.id ?? null)
@@ -69,6 +69,12 @@ onMounted(async () => {
   if (!roomStore.assignedSong && currentUserId.value) {
     try {
       const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}`)
+
+      // Handle expired room (404)
+      if (await handleRoomResponse(response)) {
+        return
+      }
+
       if (response.ok) {
         const data = await response.json()
 
@@ -118,6 +124,11 @@ async function handleReady() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ player_id: currentUserId.value })
     })
+
+    // Handle expired room (404)
+    if (await handleRoomResponse(response)) {
+      return
+    }
 
     if (response.ok) {
       isReady.value = true

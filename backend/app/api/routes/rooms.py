@@ -5,12 +5,12 @@ player joining, and room state retrieval.
 """
 
 import logging
+import random
+import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-
-import random
-import uuid
 
 from ...core.rate_limit import RATE_LIMITS, limiter
 from ...dependencies.auth import AuthenticatedUser, get_current_user
@@ -112,7 +112,7 @@ async def create_room(
             is_connected=True,
         )
 
-        # Create room state
+        # Create room state (last_active_at is set by default in RoomState)
         room = RoomState(
             code=body.room_code,
             host_id=current_user.user_id,
@@ -197,7 +197,8 @@ async def join_room(
         )
         room.players.append(new_player)
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Player {body.player_id} joined room {room_code}')
@@ -246,7 +247,8 @@ async def add_song_pair(
     )
     room.song_pairs.append(song_pair)
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Song pair {pair_id} added to room {room_code} by player {body.player_id}')
@@ -334,7 +336,8 @@ async def start_game(
     room.status = 'song_selection'
     room.dancer_incognito_player_id = incognito_player.id
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {incognito_player.id}')
@@ -389,7 +392,8 @@ async def mark_player_ready(
         room.status = 'playing'
         logger.info(f'All players ready in room {room_code}, transitioning to playing')
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Player {body.player_id} marked ready in room {room_code} ({len(ready_player_ids)}/{len(all_player_ids)} ready)')
@@ -457,7 +461,8 @@ async def cast_vote(
         room.status = 'results'
         logger.info(f'All players voted in room {room_code}, transitioning to results')
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Player {body.player_id} voted for {body.guessed_player_id} in room {room_code} ({len(voted_player_ids)}/{len(all_player_ids)} voted)')
@@ -557,7 +562,8 @@ async def finish_round(
     room.current_round = None
     room.dancer_incognito_player_id = None
 
-    # Save updated room
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Round finished in room {room_code} by host {body.player_id}')

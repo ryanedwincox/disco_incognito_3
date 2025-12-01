@@ -60,8 +60,9 @@ import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { usePlayerStore } from '@/stores/player';
 import { useAuthStore } from '@/stores/auth';
+import { useRoomApi } from '@/composables/useRoomApi';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const { handleRoomResponse, API_URL } = useRoomApi();
 
 interface RoomPlayer {
   id: string;
@@ -141,6 +142,12 @@ async function fetchResults() {
 
     // Fetch room data for player list and host info
     const roomResponse = await fetch(`${API_URL}/api/rooms/${roomCode.value}`);
+
+    // Handle expired room (404)
+    if (await handleRoomResponse(roomResponse)) {
+      return;
+    }
+
     if (!roomResponse.ok) {
       throw new Error(`Failed to fetch room: ${roomResponse.status}`);
     }
@@ -179,6 +186,11 @@ async function finishRound() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ player_id: currentUserId }),
     });
+
+    // Handle expired room (404)
+    if (await handleRoomResponse(response)) {
+      return;
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
