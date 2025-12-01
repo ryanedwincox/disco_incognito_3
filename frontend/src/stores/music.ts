@@ -6,6 +6,7 @@
 import { defineStore } from "pinia";
 import axios from "axios";
 import { useAuthStore } from "./auth";
+import { useNotificationStore } from "./notifications";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -44,6 +45,9 @@ interface MusicState {
   playbackState: PlaybackState;
   selectedTrack: TrackInfo | null;
   error: string | null;
+  isRetrying: boolean;
+  retryAttempt: number;
+  playbackError: string | null;
 }
 
 export const useMusicStore = defineStore("music", {
@@ -61,7 +65,10 @@ export const useMusicStore = defineStore("music", {
       durationMs: 0
     },
     selectedTrack: null,
-    error: null
+    error: null,
+    isRetrying: false,
+    retryAttempt: 0,
+    playbackError: null
   }),
 
   getters: {
@@ -85,6 +92,12 @@ export const useMusicStore = defineStore("music", {
 
     clearError() {
       this.error = null;
+    },
+
+    clearPlaybackError() {
+      this.playbackError = null;
+      this.retryAttempt = 0;
+      this.isRetrying = false;
     },
 
     setSelectedTrack(track: TrackInfo | null) {
@@ -151,22 +164,57 @@ export const useMusicStore = defineStore("music", {
 
     async playTrack(trackUri: string, deviceId?: string): Promise<boolean> {
       this.error = null;
+      this.playbackError = null;
       console.log('playTrack called:', { trackUri, deviceId });
 
-      try {
-        await axios.post(
-          `${API_URL}/api/spotify/play`,
-          { track_uri: trackUri, device_id: deviceId },
-          { headers: this.getAuthHeaders() }
-        );
+      // Retry with exponential backoff
+      const maxAttempts = 3;
+      const delays = [1000, 2000, 4000]; // 1s, 2s, 4s
 
-        this.playbackState.isPlaying = true;
-        return true;
-      } catch (error) {
-        console.error("Play failed:", error);
-        this.error = "Failed to play track";
-        return false;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          if (attempt > 0) {
+            this.isRetrying = true;
+            this.retryAttempt = attempt;
+            console.log(`Retry attempt ${attempt + 1}/${maxAttempts} after ${delays[attempt - 1]}ms`);
+            await new Promise(resolve => setTimeout(resolve, delays[attempt - 1]));
+          }
+
+          await axios.post(
+            `${API_URL}/api/spotify/play`,
+            { track_uri: trackUri, device_id: deviceId },
+            { headers: this.getAuthHeaders() }
+          );
+
+          // Success - clear retry state
+          this.playbackState.isPlaying = true;
+          this.isRetrying = false;
+          this.retryAttempt = 0;
+          this.playbackError = null;
+          return true;
+        } catch (error) {
+          console.error(`Play failed (attempt ${attempt + 1}/${maxAttempts}):`, error);
+
+          // If this is the last attempt, show error
+          if (attempt === maxAttempts - 1) {
+            this.isRetrying = false;
+            this.retryAttempt = 0;
+            this.playbackError = "Failed to play track after 3 attempts";
+            this.error = "Failed to play track";
+
+            // Show toast notification
+            const notificationStore = useNotificationStore();
+            notificationStore.error(
+              "Playback Failed",
+              "Unable to start playback after multiple attempts. Please check your connection and try again."
+            );
+            return false;
+          }
+          // Otherwise, continue to next retry
+        }
       }
+
+      return false;
     },
 
     async pausePlayback(deviceId?: string): Promise<boolean> {

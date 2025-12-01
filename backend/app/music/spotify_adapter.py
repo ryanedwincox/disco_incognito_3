@@ -13,6 +13,7 @@ from typing import Any
 import spotipy
 from fastapi import HTTPException, status
 from spotipy.oauth2 import SpotifyOAuth
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from .base import MusicStreamingAdapter
 
@@ -125,8 +126,14 @@ class SpotifyAdapter(MusicStreamingAdapter):
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to get user information')
 
     # Playback Control
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=4),
+        retry=retry_if_exception_type((spotipy.SpotifyException, ConnectionError)),
+        reraise=True
+    )
     async def play_track(self, access_token: str, track_uri: str, device_id: str | None = None) -> dict[str, Any]:
-        """Start playback of a specific track."""
+        """Start playback of a specific track with automatic retry on transient failures."""
         try:
             sp = self._create_client(access_token)
             sp.start_playback(device_id=device_id, uris=[track_uri])
@@ -139,8 +146,14 @@ class SpotifyAdapter(MusicStreamingAdapter):
             logger.error(f'Error playing track: {e}')
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to play track')
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=4),
+        retry=retry_if_exception_type((spotipy.SpotifyException, ConnectionError)),
+        reraise=True
+    )
     async def pause_playback(self, access_token: str, device_id: str | None = None) -> dict[str, Any]:
-        """Pause current playback."""
+        """Pause current playback with automatic retry on transient failures."""
         try:
             sp = self._create_client(access_token)
             sp.pause_playback(device_id=device_id)
@@ -153,8 +166,14 @@ class SpotifyAdapter(MusicStreamingAdapter):
             logger.error(f'Error pausing playback: {e}')
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Failed to pause playback')
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=4),
+        retry=retry_if_exception_type((spotipy.SpotifyException, ConnectionError)),
+        reraise=True
+    )
     async def get_playback_state(self, access_token: str) -> dict[str, Any]:
-        """Get current playback state."""
+        """Get current playback state with automatic retry on transient failures."""
         try:
             sp = self._create_client(access_token)
             playback = sp.current_playback()

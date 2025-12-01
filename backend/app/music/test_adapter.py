@@ -8,8 +8,6 @@ devices, and playback states for testing all game flows.
 from __future__ import annotations
 
 import logging
-import random
-import uuid
 from typing import Any
 from urllib.parse import urlencode
 
@@ -80,6 +78,8 @@ class TestMusicAdapter(MusicStreamingAdapter):
         """
         Initialize the test adapter.
 
+        Resets the user counter on initialization to ensure deterministic test runs.
+
         Args:
             redirect_uri: OAuth redirect URI
             scopes: List of required scopes
@@ -87,7 +87,9 @@ class TestMusicAdapter(MusicStreamingAdapter):
         self.redirect_uri = redirect_uri
         self.scopes = scopes
         self.scope_string = ' '.join(scopes)
-        logger.info('TestMusicAdapter initialized')
+        # Reset counter on adapter creation for deterministic test runs
+        TestMusicAdapter._user_counter = 0
+        logger.info('TestMusicAdapter initialized (user counter reset)')
 
     @classmethod
     def reset_user_counter(cls) -> None:

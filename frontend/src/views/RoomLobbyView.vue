@@ -73,17 +73,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+import { useRoomApi } from '../composables/useRoomApi'
+import { websocketService } from '../services/websocket'
 
 const router = useRouter()
 const route = useRoute()
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
+const { handleRoomResponse, API_URL } = useRoomApi()
 
 const roomCode = computed(() => (route.params.code as string) || '123')
 const players = computed(() => roomStore.players)
@@ -105,6 +106,12 @@ onMounted(async () => {
   // Fetch room data from API if available
   try {
     const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}`)
+
+    // Handle expired room (404)
+    if (await handleRoomResponse(response)) {
+      return
+    }
+
     if (response.ok) {
       const data = await response.json()
       if (data.players) {
@@ -130,6 +137,17 @@ onMounted(async () => {
   } catch (error) {
     console.log('Could not fetch room data:', error)
   }
+
+  // Connect to WebSocket for real-time updates
+  const userId = authStore.user?.id
+  if (userId) {
+    websocketService.connect(roomCode.value, userId)
+  }
+})
+
+onUnmounted(() => {
+  // Disconnect from WebSocket when leaving the room
+  websocketService.disconnect()
 })
 
 async function joinRoomAsPlayer(playerId: string, displayName: string) {
@@ -142,6 +160,11 @@ async function joinRoomAsPlayer(playerId: string, displayName: string) {
         display_name: displayName,
       }),
     })
+
+    // Handle expired room (404)
+    if (await handleRoomResponse(response)) {
+      return
+    }
 
     if (response.ok) {
       const data = await response.json()
@@ -190,6 +213,11 @@ async function startGame() {
         player_id: currentUserId.value,
       }),
     })
+
+    // Handle expired room (404)
+    if (await handleRoomResponse(response)) {
+      return
+    }
 
     if (response.ok) {
       const data = await response.json()

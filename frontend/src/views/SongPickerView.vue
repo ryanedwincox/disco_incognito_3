@@ -136,10 +136,12 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useRoomApi } from '../composables/useRoomApi'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const { handleRoomResponse, API_URL } = useRoomApi()
 
 const isTestMode = computed(() => import.meta.env.VITE_TEST_MODE === 'true')
 const isSpotifyUser = computed(() => authStore.isSpotifyUser)
@@ -245,7 +247,6 @@ async function addSong() {
 
   try {
     const roomCode = route.params.code
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
     const response = await fetch(`${API_URL}/api/rooms/${roomCode}/songs`, {
       method: 'POST',
@@ -259,6 +260,11 @@ async function addSong() {
         artist: selectedTrack.value.artist,
       }),
     })
+
+    // Handle expired room (404)
+    if (await handleRoomResponse(response)) {
+      return
+    }
 
     if (!response.ok) {
       const error = await response.json()

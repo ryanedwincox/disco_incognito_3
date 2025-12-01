@@ -57,11 +57,18 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useWebSocketStore } from '@/stores/websocket'
+import { websocketService } from '@/services/websocket'
 
 const wsStore = useWebSocketStore()
 const reconnecting = ref(false)
 
-const isDisconnected = computed(() => wsStore.status === 'disconnected' || wsStore.status === 'connecting')
+// Only show banner if:
+// 1. We've previously had a successful connection (hasEverConnected)
+// 2. AND we're currently disconnected or connecting (lost connection)
+// This prevents showing the banner during initial page load / first connection attempt
+const isDisconnected = computed(
+  () => wsStore.hasEverConnected && (wsStore.status === 'disconnected' || wsStore.status === 'connecting')
+)
 
 // Watch for status changes
 watch(
@@ -79,12 +86,8 @@ watch(
 
 function retry() {
   reconnecting.value = true
-  // TODO: Implement WebSocket reconnection logic
-  // For now, just simulate retry
-  setTimeout(() => {
-    console.log('Attempting to reconnect to server...')
-    // This will be replaced with actual WebSocket reconnection
-  }, 500)
+  console.log('Retry button clicked - attempting to reconnect...')
+  websocketService.reconnect()
 }
 </script>
 
