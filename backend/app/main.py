@@ -19,11 +19,15 @@ from .api.router import api_router
 from .core.rate_limit import limiter
 from .core.settings import settings
 from .dependencies.storage import get_storage_adapter
+from .services.websocket_manager import ConnectionManager
 from .storage.json_file import JSONFileStorage
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title='Disco Incognito API', version='0.1.0')
+
+# WebSocket connection manager
+connection_manager = ConnectionManager()
 
 # Register rate limiter
 app.state.limiter = limiter
@@ -77,18 +81,31 @@ async def cleanup_expired_rooms() -> None:
 
 
 @app.websocket('/api/ws/rooms/{room_code}/ws')
-async def websocket_endpoint(websocket: WebSocket, room_code: str) -> None:
-    await websocket.accept()
+async def websocket_endpoint(websocket: WebSocket, room_code: str, user_id: str) -> None:
+    """WebSocket endpoint for real-time room communication.
+
+    Connects user to room, broadcasts connect/disconnect events, and maintains
+    connection for room updates.
+
+    Args:
+        websocket: The WebSocket connection
+        room_code: The room code to connect to
+        user_id: The user's unique identifier (from query parameter)
+    """
+    await connection_manager.connect(room_code, user_id, websocket)
+
     try:
-        await websocket.send_json(
-            {
-                'type': 'system',
-                'message': 'WebSocket placeholder for room',
-                'room': room_code,
-            }
-        )
-        # TODO: Implement real-time room messaging in Phase 3.
-        await websocket.close()
+        # Keep connection alive and listen for messages
+        while True:
+            # Wait for any message from client (keepalive or future message types)
+            data = await websocket.receive_text()
+            # For now, we just maintain the connection
+            # Future: handle client messages here
+            logger.debug(f'Received message from user {user_id} in room {room_code}: {data}')
+
     except WebSocketDisconnect:
-        # Connection closed by client; nothing to do yet.
-        pass
+        logger.info(f'WebSocket disconnected for user {user_id} in room {room_code}')
+    except Exception as e:
+        logger.error(f'WebSocket error for user {user_id} in room {room_code}: {e}')
+    finally:
+        await connection_manager.disconnect(room_code, user_id)

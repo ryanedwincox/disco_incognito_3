@@ -73,11 +73,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useRoomApi } from '../composables/useRoomApi'
+import { websocketService } from '../services/websocket'
 
 const router = useRouter()
 const route = useRoute()
@@ -136,6 +137,17 @@ onMounted(async () => {
   } catch (error) {
     console.log('Could not fetch room data:', error)
   }
+
+  // Connect to WebSocket for real-time updates
+  const userId = authStore.user?.id
+  if (userId) {
+    websocketService.connect(roomCode.value, userId)
+  }
+})
+
+onUnmounted(() => {
+  // Disconnect from WebSocket when leaving the room
+  websocketService.disconnect()
 })
 
 async function joinRoomAsPlayer(playerId: string, displayName: string) {
