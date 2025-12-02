@@ -38,6 +38,11 @@
 
     <section class="grid gap-6 md:grid-cols-2">
       <div class="bg-zinc-900/70 rounded-3xl border border-zinc-500 p-6">
+        <h3 class="text-lg font-semibold mb-4">Song Pairs ({{ songPairCount }})</h3>
+        <p class="text-zinc-400">Add song pairs from the song picker.</p>
+      </div>
+
+      <div class="bg-zinc-900/70 rounded-3xl border border-zinc-500 p-6">
         <h3 class="text-lg font-semibold mb-4">Players</h3>
         <ul class="space-y-3">
           <li
@@ -64,11 +69,6 @@
           </li>
         </ul>
       </div>
-
-      <div class="bg-zinc-900/70 rounded-3xl border border-zinc-500 p-6">
-        <h3 class="text-lg font-semibold mb-4">Song Pairs</h3>
-        <p class="text-zinc-400">Song pairs remain hidden until the reveal phase. Add them from the song picker.</p>
-      </div>
     </section>
   </div>
 </template>
@@ -89,6 +89,7 @@ const { handleRoomResponse, API_URL } = useRoomApi()
 
 const roomCode = computed(() => (route.params.code as string) || '123')
 const players = computed(() => roomStore.players)
+const songPairCount = computed(() => roomStore.songPairCount)
 const currentUserId = computed(() => authStore.user?.id ?? null)
 const isHost = computed(() => {
   if (!currentUserId.value) return false
