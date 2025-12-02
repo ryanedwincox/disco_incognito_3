@@ -1,6 +1,6 @@
-// Combined host+player E2E test: Both roles exercise full flows with parallel execution
-// Uses browser.newContext() for separate browser contexts (host and player)
-// Screenshots: user-flow-combined/host-*.png and user-flow-combined/player-*.png
+// Combined host+player+guest E2E test: All roles exercise full flows with parallel execution
+// Uses browser.newContext() for separate browser contexts (host, player, and guest)
+// Screenshots: user-flow-combined/host-*.png, user-flow-combined/player-*.png, and user-flow-combined/guest-*.png
 import { test, expect, getArtifactsPath, getBaselinePath, getBaselineScreenshots, compareScreenshots } from './fixtures';
 import type { Browser, Page, BrowserContext } from '@playwright/test';
 
@@ -26,6 +26,33 @@ async function loginWithSpotify(page: Page): Promise<void> {
   const loginButton = page.getByRole('button', { name: 'Login with Spotify' });
   await expect(loginButton).toBeEnabled();
   await loginButton.click();
+
+  // Wait for success message
+  const successMessage = page.locator('.bg-green-900\\/30');
+  await expect(successMessage).toBeVisible({ timeout: 10000 });
+  await expect(successMessage).toContainText('Welcome,');
+
+  // Wait for redirect to /rooms
+  await page.waitForURL('**/rooms', { timeout: 10000 });
+  await page.waitForLoadState('networkidle');
+}
+
+// Helper: Login as guest (non-Spotify user)
+async function loginAsGuest(page: Page, displayName: string): Promise<void> {
+  // Click 'Continue as Guest' to show name input
+  const guestButton = page.getByRole('button', { name: 'Continue as Guest' });
+  await expect(guestButton).toBeEnabled();
+  await guestButton.click();
+
+  // Enter display name
+  const nameInput = page.locator('#displayName');
+  await expect(nameInput).toBeVisible();
+  await nameInput.fill(displayName);
+
+  // Click 'Join as Guest'
+  const joinButton = page.getByRole('button', { name: 'Join as Guest' });
+  await expect(joinButton).toBeEnabled();
+  await joinButton.click();
 
   // Wait for success message
   const successMessage = page.locator('.bg-green-900\\/30');
@@ -249,15 +276,16 @@ async function verifyPlayerInLobby(page: Page, roomCode: string): Promise<void> 
 interface ScreenshotCollector {
   hostScreenshots: { name: string; path: string }[];
   playerScreenshots: { name: string; path: string }[];
+  guestScreenshots: { name: string; path: string }[];
 }
 
 // ============================================================================
 // Combined Test
 // ============================================================================
 
-test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () => {
+test.describe('Combined Host+Player+Guest User Flow: Real Multi-User Interaction', () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  test('host creates room, player joins, both see game flow with screenshot verification', async ({
+  test('host creates room, player and guest join, all see game flow with screenshot verification', async ({
     browser,
     serverContext,
   }: {
@@ -265,18 +293,20 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
     serverContext: { backendProcess: unknown; frontendProcess: unknown };
   }) => {
     void serverContext; // Required to trigger fixture - starts servers
-    const collector: ScreenshotCollector = { hostScreenshots: [], playerScreenshots: [] };
+    const collector: ScreenshotCollector = { hostScreenshots: [], playerScreenshots: [], guestScreenshots: [] };
 
     // Reset test user counter for deterministic player names in screenshots
     await fetch(`${BACKEND_URL}/api/testing/reset-user-counter`, { method: 'POST' });
     console.log('✅ Reset test user counter for deterministic names');
 
-    // Create separate browser contexts for host and player
+    // Create separate browser contexts for host, player, and guest
     const hostContext: BrowserContext = await browser.newContext();
     const playerContext: BrowserContext = await browser.newContext();
+    const guestContext: BrowserContext = await browser.newContext();
 
     const hostPage: Page = await hostContext.newPage();
     const playerPage: Page = await playerContext.newPage();
+    const guestPage: Page = await guestContext.newPage();
 
     try {
       // ========================================================================
@@ -341,32 +371,66 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       await verifyPlayerInLobby(playerPage, roomCode);
 
       // ========================================================================
-      // PHASE 3: Add third player via API, both see updated lobby
+      // PHASE 2b: Guest joins room (non-Spotify user)
       // ========================================================================
-      console.log('\n=== PHASE 3: Third player joins ===');
+      console.log('\n=== PHASE 2b: Guest joins room ===');
+
+      // Guest: Load landing page
+      await loadLandingPage(guestPage);
+      const guestLandingPath = getArtifactsPath(TEST_NAME, 'guest-01-landing.png');
+      await guestPage.screenshot({ path: guestLandingPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-01-landing.png', path: guestLandingPath });
+      console.log(`Guest screenshot: ${guestLandingPath}`);
+
+      // Guest: Login as guest (non-Spotify)
+      await loginAsGuest(guestPage, 'Guest Player');
+      const guestRoomSelectionPath = getArtifactsPath(TEST_NAME, 'guest-02-room-selection.png');
+      await guestPage.screenshot({ path: guestRoomSelectionPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-02-room-selection.png', path: guestRoomSelectionPath });
+      console.log(`Guest screenshot: ${guestRoomSelectionPath}`);
+
+      // Guest: Join room via UI
+      await joinRoomViaUI(guestPage, roomCode);
+      const guestLobbyPath = getArtifactsPath(TEST_NAME, 'guest-03-player-lobby.png');
+      await guestPage.screenshot({ path: guestLobbyPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-03-player-lobby.png', path: guestLobbyPath });
+      console.log(`Guest screenshot: ${guestLobbyPath}`);
+
+      // Verify guest is in lobby as non-host
+      await verifyPlayerInLobby(guestPage, roomCode);
+
+      // Verify guest does NOT see Pick Songs button (guest limitation)
+      const guestPickSongsButton = guestPage.getByRole('button', { name: 'Pick Songs' });
+      await expect(guestPickSongsButton).not.toBeVisible();
+      console.log('✅ Guest does NOT see Pick Songs button (as expected for non-Spotify user)');
+
+      // ========================================================================
+      // PHASE 3: Add fourth player via API, all see updated lobby
+      // ========================================================================
+      console.log('\n=== PHASE 3: Fourth player joins ===');
 
       // Add player-3 via API
       await addPlayerViaAPI(roomCode, 'player-3', 'Player Three');
 
-      // Host: Refresh and see all players
+      // Host: Refresh and see all players (4 total: host, player, guest, player-3)
       await hostPage.reload();
       await hostPage.waitForLoadState('networkidle');
-      await hostPage.waitForSelector('ul.space-y-3 li:nth-child(3)', { timeout: 5000 });
+      await hostPage.waitForSelector('ul.space-y-3 li:nth-child(4)', { timeout: 5000 });
 
-      const hostThreePlayersPath = getArtifactsPath(TEST_NAME, 'host-07-lobby-three-players.png');
-      await hostPage.screenshot({ path: hostThreePlayersPath, fullPage: true });
-      collector.hostScreenshots.push({ name: 'host-07-lobby-three-players.png', path: hostThreePlayersPath });
-      console.log(`Host screenshot: ${hostThreePlayersPath}`);
+      const hostFourPlayersPath = getArtifactsPath(TEST_NAME, 'host-07-lobby-four-players.png');
+      await hostPage.screenshot({ path: hostFourPlayersPath, fullPage: true });
+      collector.hostScreenshots.push({ name: 'host-07-lobby-four-players.png', path: hostFourPlayersPath });
+      console.log(`Host screenshot: ${hostFourPlayersPath}`);
 
-      // Verify 3 players in host view
+      // Verify 4 players in host view
       const hostPlayerCount = await hostPage.locator('ul.space-y-3 li').count();
-      expect(hostPlayerCount).toBe(3);
+      expect(hostPlayerCount).toBe(4);
       console.log(`✅ Host sees ${hostPlayerCount} players in lobby`);
 
       // Player: Refresh and see all players
       await playerPage.reload();
       await playerPage.waitForLoadState('networkidle');
-      await playerPage.waitForSelector('ul.space-y-3 li:nth-child(2)', { timeout: 5000 });
+      await playerPage.waitForSelector('ul.space-y-3 li:nth-child(3)', { timeout: 5000 });
 
       const playerMultiplePath = getArtifactsPath(TEST_NAME, 'player-04-lobby-multiple-players.png');
       await playerPage.screenshot({ path: playerMultiplePath, fullPage: true });
@@ -375,11 +439,26 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
 
       // Verify multiple players visible from player's view
       const playerPlayerCount = await playerPage.locator('ul.space-y-3 li').count();
-      expect(playerPlayerCount).toBeGreaterThanOrEqual(2);
+      expect(playerPlayerCount).toBeGreaterThanOrEqual(3);
       console.log(`✅ Player sees ${playerPlayerCount} players in lobby`);
 
+      // Guest: Refresh and see all players
+      await guestPage.reload();
+      await guestPage.waitForLoadState('networkidle');
+      await guestPage.waitForSelector('ul.space-y-3 li:nth-child(3)', { timeout: 5000 });
+
+      const guestMultiplePath = getArtifactsPath(TEST_NAME, 'guest-04-lobby-multiple-players.png');
+      await guestPage.screenshot({ path: guestMultiplePath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-04-lobby-multiple-players.png', path: guestMultiplePath });
+      console.log(`Guest screenshot: ${guestMultiplePath}`);
+
+      // Verify multiple players visible from guest's view
+      const guestPlayerCount = await guestPage.locator('ul.space-y-3 li').count();
+      expect(guestPlayerCount).toBeGreaterThanOrEqual(3);
+      console.log(`✅ Guest sees ${guestPlayerCount} players in lobby`);
+
       // ========================================================================
-      // PHASE 4: Host starts game, both see assignment
+      // PHASE 4: Host starts game, all see assignment
       // ========================================================================
       console.log('\n=== PHASE 4: Host starts game ===');
 
@@ -426,6 +505,24 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       collector.playerScreenshots.push({ name: 'player-05-song-assignment.png', path: playerAssignmentPath });
       console.log(`Player screenshot: ${playerAssignmentPath}`);
 
+      // Guest: Navigate to assignment (simulating real-time update)
+      await guestPage.goto(`${FRONTEND_URL}/rooms/${roomCode}/assignment`);
+      await guestPage.waitForLoadState('networkidle');
+
+      // Guest: Verify song assignment view
+      const guestYourSongHeader = guestPage.locator('h2:has-text("Your Song")');
+      await expect(guestYourSongHeader).toBeVisible({ timeout: 5000 });
+
+      const guestSongTitle = guestPage.locator('h3.text-2xl.font-bold');
+      await expect(guestSongTitle).toBeVisible();
+      const guestTitleText = await guestSongTitle.textContent();
+      console.log(`✅ Guest song: ${guestTitleText}`);
+
+      const guestAssignmentPath = getArtifactsPath(TEST_NAME, 'guest-05-song-assignment.png');
+      await guestPage.screenshot({ path: guestAssignmentPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-05-song-assignment.png', path: guestAssignmentPath });
+      console.log(`Guest screenshot: ${guestAssignmentPath}`);
+
       // Verify room status via API
       const roomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
       const roomData = await roomResponse.json();
@@ -437,9 +534,9 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       console.log('✅ Security: incognito identity NOT exposed');
 
       // ========================================================================
-      // PHASE 5: Both click ready, navigate to playback
+      // PHASE 5: All click ready, navigate to playback
       // ========================================================================
-      console.log('\n=== PHASE 5: Both players ready ===');
+      console.log('\n=== PHASE 5: All players ready ===');
 
       // Host: Click "I'm Ready!"
       const hostReadyButton = hostPage.getByRole('button', { name: "I'm Ready!" });
@@ -463,10 +560,21 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       await playerPage.screenshot({ path: playerReadyClickedPath, fullPage: true });
       collector.playerScreenshots.push({ name: 'player-06-ready-clicked.png', path: playerReadyClickedPath });
 
+      // Guest: Click "I'm Ready!"
+      const guestReadyButton = guestPage.getByRole('button', { name: "I'm Ready!" });
+      await expect(guestReadyButton).toBeVisible();
+      await guestReadyButton.click();
+      console.log('✅ Guest clicked Ready');
+
+      await expect(guestReadyButton).not.toBeVisible({ timeout: 2000 });
+      const guestReadyClickedPath = getArtifactsPath(TEST_NAME, 'guest-06-ready-clicked.png');
+      await guestPage.screenshot({ path: guestReadyClickedPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-06-ready-clicked.png', path: guestReadyClickedPath });
+
       // Mark player-3 ready via API
       await markPlayersReadyViaAPI(roomCode, ['player-3']);
 
-      // Screenshot both after all ready
+      // Screenshot all after all ready
       const hostAllReadyPath = getArtifactsPath(TEST_NAME, 'host-10-all-players-ready.png');
       await hostPage.screenshot({ path: hostAllReadyPath, fullPage: true });
       collector.hostScreenshots.push({ name: 'host-10-all-players-ready.png', path: hostAllReadyPath });
@@ -475,8 +583,12 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       await playerPage.screenshot({ path: playerAllReadyPath, fullPage: true });
       collector.playerScreenshots.push({ name: 'player-07-all-players-ready.png', path: playerAllReadyPath });
 
+      const guestAllReadyPath = getArtifactsPath(TEST_NAME, 'guest-07-all-players-ready.png');
+      await guestPage.screenshot({ path: guestAllReadyPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-07-all-players-ready.png', path: guestAllReadyPath });
+
       // ========================================================================
-      // PHASE 6: Both navigate to playback view
+      // PHASE 6: All navigate to playback view
       // ========================================================================
       console.log('\n=== PHASE 6: Navigate to playback ===');
 
@@ -490,6 +602,11 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       await playerPage.waitForLoadState('networkidle');
       await playerPage.waitForURL('**/rooms/*/play', { timeout: 10000 });
       console.log('✅ Player navigated to /play');
+
+      await guestPage.reload();
+      await guestPage.waitForLoadState('networkidle');
+      await guestPage.waitForURL('**/rooms/*/play', { timeout: 10000 });
+      console.log('✅ Guest navigated to /play');
 
       // Verify host is on GameView
       const hostRoundHeader = hostPage.locator('h2:has-text("Round In Progress")');
@@ -517,12 +634,27 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       await playerPage.screenshot({ path: playerMusicPlayingPath, fullPage: true });
       collector.playerScreenshots.push({ name: 'player-08-music-playing.png', path: playerMusicPlayingPath });
 
-      // Verify MusicPlayerBar visible for both
+      // Verify guest is on GameView
+      const guestRoundHeader = guestPage.locator('h2:has-text("Round In Progress")');
+      await expect(guestRoundHeader).toBeVisible({ timeout: 5000 });
+      const guestTimer = guestPage.locator('p.text-6xl.font-bold');
+      await expect(guestTimer).toBeVisible();
+      const guestTimerText = await guestTimer.textContent();
+      expect(guestTimerText).toMatch(/\d{2}:\d{2}/);
+      console.log(`✅ Guest timer: ${guestTimerText}`);
+
+      const guestMusicPlayingPath = getArtifactsPath(TEST_NAME, 'guest-08-music-playing.png');
+      await guestPage.screenshot({ path: guestMusicPlayingPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-08-music-playing.png', path: guestMusicPlayingPath });
+
+      // Verify MusicPlayerBar visible for all
       const hostMusicBar = hostPage.locator('.backdrop-blur-sm.border-t');
       await expect(hostMusicBar).toBeVisible();
       const playerMusicBar = playerPage.locator('.backdrop-blur-sm.border-t');
       await expect(playerMusicBar).toBeVisible();
-      console.log('✅ MusicPlayerBar visible for both');
+      const guestMusicBar = guestPage.locator('.backdrop-blur-sm.border-t');
+      await expect(guestMusicBar).toBeVisible();
+      console.log('✅ MusicPlayerBar visible for all');
 
       // Verify room status is 'playing'
       const playingRoomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
@@ -531,7 +663,7 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       console.log(`✅ Room status: ${playingRoomData.status}`);
 
       // ========================================================================
-      // PHASE 7: Both navigate to guess page, cast votes
+      // PHASE 7: All navigate to guess page, cast votes
       // ========================================================================
       console.log('\n=== PHASE 7: Navigate to guess page, cast votes ===');
 
@@ -562,22 +694,36 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       collector.playerScreenshots.push({ name: 'player-09-guess-page.png', path: playerGuessPath });
       console.log(`Player screenshot: ${playerGuessPath}`);
 
+      // Guest: Navigate to guess page
+      await guestPage.goto(`${FRONTEND_URL}/rooms/${roomCode}/guess`);
+      await guestPage.waitForLoadState('networkidle');
+
+      const guestGuessHeader = guestPage.locator('h2:has-text("Who Is The Dancer Incognito?")');
+      await expect(guestGuessHeader).toBeVisible({ timeout: 5000 });
+      console.log('✅ Guest on guess page');
+
+      const guestGuessPath = getArtifactsPath(TEST_NAME, 'guest-09-guess-page.png');
+      await guestPage.screenshot({ path: guestGuessPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-09-guess-page.png', path: guestGuessPath });
+      console.log(`Guest screenshot: ${guestGuessPath}`);
+
       // Fetch room to get all player IDs for distributed voting strategy
       const guessingRoomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
       const guessingRoomData = await guessingRoomResponse.json();
       const allPlayers = guessingRoomData.players;
 
-      // Find player-3's ID and the other two players
+      // Find player-3's ID and other players for voting strategy
       const player3 = allPlayers.find((p: { id: string }) => p.id === 'player-3');
       const otherPlayers = allPlayers.filter((p: { id: string }) => p.id !== 'player-3');
 
       // Strategy: Distribute votes to guarantee at least one correct guess
-      // Host votes for first other player (not player-3), Player votes for player-3, player-3 votes for second other player
+      // With 4 players (host, player, guest, player-3), distribute votes across different targets
       const hostTarget = otherPlayers[0]; // Host votes for browser player
       const playerTarget = player3; // Player votes for Player Three
-      const player3Target = otherPlayers[1] || otherPlayers[0]; // player-3 votes for host or fallback
+      const guestTarget = otherPlayers[1] || otherPlayers[0]; // Guest votes for another player
+      const player3Target = otherPlayers[2] || otherPlayers[0]; // player-3 votes for remaining player
 
-      console.log(`Voting strategy: Host -> ${hostTarget.display_name}, Player -> ${playerTarget.display_name}, player-3 -> ${player3Target.display_name}`);
+      console.log(`Voting strategy: Host -> ${hostTarget.display_name}, Player -> ${playerTarget.display_name}, Guest -> ${guestTarget.display_name}, player-3 -> ${player3Target.display_name}`);
 
       // Host: Cast vote for the browser player (distributed voting)
       const hostVoteButton = hostPage.getByRole('button', { name: `Guess ${hostTarget.display_name}` });
@@ -629,6 +775,31 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       collector.playerScreenshots.push({ name: 'player-10b-vote-buttons-disabled.png', path: playerDisabledButtonsPath });
       console.log(`Player screenshot: ${playerDisabledButtonsPath}`);
 
+      // Guest: Cast vote (distributed voting)
+      const guestVoteButton = guestPage.getByRole('button', { name: `Guess ${guestTarget.display_name}` });
+      await expect(guestVoteButton).toBeVisible();
+      await guestVoteButton.click();
+      await guestPage.waitForSelector('.bg-green-900\\/30', { timeout: 5000 });
+      console.log(`✅ Guest cast vote for ${guestTarget.display_name}`);
+
+      const guestVoteCastPath = getArtifactsPath(TEST_NAME, 'guest-10-vote-cast.png');
+      await guestPage.screenshot({ path: guestVoteCastPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-10-vote-cast.png', path: guestVoteCastPath });
+      console.log(`Guest screenshot: ${guestVoteCastPath}`);
+
+      // Guest: Verify vote buttons are disabled after voting
+      const guestDisabledButtons = guestPage.locator('button:has-text("Voted"), button:has-text("Your Vote")');
+      const guestDisabledCount = await guestDisabledButtons.count();
+      expect(guestDisabledCount).toBeGreaterThan(0);
+      const firstGuestDisabledButton = guestDisabledButtons.first();
+      await expect(firstGuestDisabledButton).toBeDisabled();
+      console.log(`✅ Guest vote buttons disabled (${guestDisabledCount} buttons showing voted state)`);
+
+      const guestDisabledButtonsPath = getArtifactsPath(TEST_NAME, 'guest-10b-vote-buttons-disabled.png');
+      await guestPage.screenshot({ path: guestDisabledButtonsPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-10b-vote-buttons-disabled.png', path: guestDisabledButtonsPath });
+      console.log(`Guest screenshot: ${guestDisabledButtonsPath}`);
+
       // Player-3: Cast vote via API (distributed voting - votes for host/other browser player)
       await castVoteViaAPI(roomCode, 'player-3', player3Target.id);
       console.log(`✅ Player-3 voted via API for ${player3Target.display_name}`);
@@ -653,12 +824,12 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       await expect(hostIncognitoLabel).toBeVisible();
       console.log('✅ Host sees Dancer Incognito revealed');
 
-      // Verify votes displayed
+      // Verify votes displayed (4 votes: host, player, guest, player-3)
       const hostVotesHeader = hostPage.locator('h3:has-text("Votes")');
       await expect(hostVotesHeader).toBeVisible();
       const hostVoteItems = hostPage.locator('ul.space-y-2 li');
-      await expect(hostVoteItems).toHaveCount(3);
-      console.log('✅ Host sees all 3 votes displayed');
+      await expect(hostVoteItems).toHaveCount(4);
+      console.log('✅ Host sees all 4 votes displayed');
 
       const hostResultsPath = getArtifactsPath(TEST_NAME, 'host-14-results-page.png');
       await hostPage.screenshot({ path: hostResultsPath, fullPage: true });
@@ -715,6 +886,34 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       collector.playerScreenshots.push({ name: 'player-11b-correct-guessers-highlighted.png', path: playerHighlightedPath });
       console.log(`Player screenshot: ${playerHighlightedPath}`);
 
+      // Guest: Navigate to results
+      await guestPage.goto(`${FRONTEND_URL}/rooms/${roomCode}/results`);
+      await guestPage.waitForLoadState('networkidle');
+
+      await guestPage.waitForSelector('.bg-disco-pink\\/20', { timeout: 5000 });
+      console.log('✅ Guest on results page');
+
+      // Verify Dancer Incognito revealed from guest perspective
+      const guestIncognitoSection = guestPage.locator('.bg-disco-pink\\/20');
+      await expect(guestIncognitoSection).toBeVisible();
+      console.log('✅ Guest sees Dancer Incognito revealed');
+
+      const guestResultsPath = getArtifactsPath(TEST_NAME, 'guest-11-results-page.png');
+      await guestPage.screenshot({ path: guestResultsPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-11-results-page.png', path: guestResultsPath });
+      console.log(`Guest screenshot: ${guestResultsPath}`);
+
+      // Guest: Verify correct guessers have .text-green-400 highlighting
+      const guestCorrectGuessers = guestPage.locator('.text-green-400');
+      const guestCorrectCount = await guestCorrectGuessers.count();
+      expect(guestCorrectCount).toBeGreaterThan(0);
+      console.log(`✅ Guest sees ${guestCorrectCount} correct guesser elements with text-green-400 highlighting`);
+
+      const guestHighlightedPath = getArtifactsPath(TEST_NAME, 'guest-11b-correct-guessers-highlighted.png');
+      await guestPage.screenshot({ path: guestHighlightedPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-11b-correct-guessers-highlighted.png', path: guestHighlightedPath });
+      console.log(`Guest screenshot: ${guestHighlightedPath}`);
+
       // Verify room status is 'results'
       const resultsRoomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
       const resultsRoomData = await resultsRoomResponse.json();
@@ -722,7 +921,7 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       console.log(`✅ Room status: ${resultsRoomData.status}`);
 
       // ========================================================================
-      // PHASE 9: Host clicks Finish Round, both navigate to lobby
+      // PHASE 9: Host clicks Finish Round, all navigate to lobby
       // ========================================================================
       console.log('\n=== PHASE 9: Host finishes round ===');
 
@@ -735,6 +934,11 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       const playerFinishButton = playerPage.getByRole('button', { name: 'Finish Round' });
       await expect(playerFinishButton).not.toBeVisible();
       console.log('✅ Player does NOT see Finish Round button');
+
+      // Verify Finish Round button NOT visible for guest
+      const guestFinishButton = guestPage.getByRole('button', { name: 'Finish Round' });
+      await expect(guestFinishButton).not.toBeVisible();
+      console.log('✅ Guest does NOT see Finish Round button');
 
       // Host: Click Finish Round
       await finishButton.click();
@@ -759,6 +963,16 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       await playerPage.screenshot({ path: playerBackLobbyPath, fullPage: true });
       collector.playerScreenshots.push({ name: 'player-12-back-in-lobby.png', path: playerBackLobbyPath });
       console.log(`Player screenshot: ${playerBackLobbyPath}`);
+
+      // Guest: Navigate to lobby
+      await guestPage.goto(`${FRONTEND_URL}/rooms/${roomCode}`);
+      await guestPage.waitForLoadState('networkidle');
+      console.log('✅ Guest navigated to lobby');
+
+      const guestBackLobbyPath = getArtifactsPath(TEST_NAME, 'guest-12-back-in-lobby.png');
+      await guestPage.screenshot({ path: guestBackLobbyPath, fullPage: true });
+      collector.guestScreenshots.push({ name: 'guest-12-back-in-lobby.png', path: guestBackLobbyPath });
+      console.log(`Guest screenshot: ${guestBackLobbyPath}`);
 
       // ========================================================================
       // PHASE 10: Verify lobby state - room status, song pair removed, Start Game visibility
@@ -787,14 +1001,14 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       await expect(hostRoomCode).toContainText(roomCode);
       console.log('✅ Room code displayed in lobby');
 
-      console.log('\n✅ Combined host+player flow completed successfully (all 10 phases)');
+      console.log('\n✅ Combined host+player+guest flow completed successfully (all 10 phases)');
 
       // ========================================================================
       // Screenshot Comparison
       // ========================================================================
       console.log('\n--- Screenshot Comparison ---');
 
-      const allScreenshots = [...collector.hostScreenshots, ...collector.playerScreenshots];
+      const allScreenshots = [...collector.hostScreenshots, ...collector.playerScreenshots, ...collector.guestScreenshots];
       const baselineNames = getBaselineScreenshots(TEST_NAME);
       const producedNames = allScreenshots.map((s) => s.name).sort();
 
@@ -843,6 +1057,7 @@ test.describe('Combined Host+Player User Flow: Real Multi-User Interaction', () 
       // Cleanup contexts
       await hostContext.close();
       await playerContext.close();
+      await guestContext.close();
     }
   });
 });
