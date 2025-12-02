@@ -1,11 +1,8 @@
-<!-- Song reveal view showing the player's assigned song before playback. Displays song title, artist, album art with indication of 'your song' vs 'incognito song'. Props-driven for Storybook demonstration. -->
+<!-- Song reveal view showing the player's assigned song before playback. Displays song title, artist, album art. Props-driven for Storybook demonstration. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12" style="padding-bottom: 6rem;">
-    <header class="text-center mb-8 space-y-2">
+    <header class="text-center mb-6">
       <h2 class="text-3xl font-semibold">Your Song</h2>
-      <p class="text-zinc-400 text-sm max-w-md mx-auto">
-        Get ready to dance! This is the song you'll be playing.
-      </p>
     </header>
 
     <section class="max-w-md mx-auto space-y-6">
@@ -31,21 +28,6 @@
           <p v-if="song?.album" class="text-sm text-zinc-500">{{ song.album }}</p>
         </div>
 
-        <!-- Song Type Badge -->
-        <div class="flex justify-center">
-          <span
-            class="px-4 py-2 rounded-full text-sm font-medium bg-green-500/20 text-green-400 border border-green-500"
-          >
-            🎵 Your Song
-          </span>
-        </div>
-      </div>
-
-      <!-- Instructions -->
-      <div class="bg-zinc-900/50 rounded-2xl border border-zinc-500 p-4 text-center">
-        <p class="text-sm text-zinc-400">
-          Dance to your song and try to blend in!
-        </p>
       </div>
 
       <!-- Ready Button (optional, for future use) -->
