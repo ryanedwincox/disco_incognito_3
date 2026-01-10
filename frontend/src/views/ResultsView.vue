@@ -12,12 +12,12 @@
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="max-w-4xl mx-auto bg-red-900/30 border border-red-500/50 rounded-2xl p-4 text-center">
+    <div v-else-if="error" class="max-w-lg mx-auto bg-red-900/30 border border-red-500/50 rounded-2xl p-4 text-center">
       <p class="text-red-400">{{ error }}</p>
     </div>
 
     <!-- Results -->
-    <section v-else class="max-w-4xl mx-auto bg-zinc-900/80 rounded-3xl border border-zinc-500 p-6 space-y-6">
+    <section v-else class="max-w-lg mx-auto bg-zinc-900/80 rounded-3xl border border-zinc-500 p-6 space-y-6">
       <!-- Dancer Incognito reveal with highlight -->
       <div class="bg-disco-pink/20 border-2 border-disco-pink rounded-2xl p-4 text-center">
         <h3 class="text-sm uppercase text-disco-pink">Dancer Incognito</h3>

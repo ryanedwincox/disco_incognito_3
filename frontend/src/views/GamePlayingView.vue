@@ -1,6 +1,7 @@
 <!-- Game playing view: displays assigned song after game starts. Shows song title, artist, album art placeholder, listening status, room code, and player list. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
+    <div class="max-w-lg mx-auto">
     <!-- Header with Room Code -->
     <header class="mb-8">
       <div class="flex items-start justify-between mb-6">
@@ -11,7 +12,7 @@
         </div>
       </div>
       <button
-        class="w-full md:w-auto px-6 py-3 rounded-full border border-zinc-700 text-zinc-300 hover:border-zinc-600 transition-colors"
+        class="w-full px-6 py-3 rounded-full border border-zinc-700 text-zinc-300 hover:border-zinc-600 transition-colors"
         type="button"
         @click="leaveRoom"
       >
@@ -68,6 +69,7 @@
         </li>
       </ul>
     </section>
+    </div>
   </div>
 </template>
 

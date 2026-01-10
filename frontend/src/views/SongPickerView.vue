@@ -8,7 +8,7 @@
       </p>
     </header>
 
-    <div class="max-w-3xl mx-auto space-y-6">
+    <div class="max-w-lg mx-auto space-y-6">
       <!-- Spectator mode message for non-Spotify users -->
       <div v-if="!isSpotifyUser" class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 text-center space-y-4">
         <div class="text-5xl mb-2">🎵</div>
@@ -35,7 +35,7 @@
           @input="handleSearchInput"
         />
 
-        <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-4">
           <!-- Search Results -->
           <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
             <h3 class="text-lg font-semibold mb-3">Search Results</h3>
