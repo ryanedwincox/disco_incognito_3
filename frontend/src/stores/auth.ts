@@ -138,6 +138,9 @@ export const useAuthStore = defineStore("auth", {
             displayName: data.display_name,
             email: data.email
           });
+          // Mark as Spotify user and persist to localStorage
+          this.isSpotifyUser = true;
+          localStorage.setItem("is_spotify_user", "true");
           console.log(`✅ Test mode login successful: ${data.display_name}`);
           return;
         }
