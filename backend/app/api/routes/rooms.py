@@ -7,7 +7,7 @@ player joining, and room state retrieval.
 import logging
 import random
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -24,17 +24,23 @@ router = APIRouter(prefix='/rooms', tags=['Rooms'])
 logger = logging.getLogger(__name__)
 
 
-async def broadcast_phase_changed(room_code: str, phase: str) -> None:
-    """Broadcast phase change to all connected clients in a room."""
+async def broadcast_phase_changed(room_code: str, phase: str, playback_start_time: str | None = None) -> None:
+    """Broadcast phase change to all connected clients in a room.
+
+    Args:
+        room_code: The room code to broadcast to
+        phase: The new phase (lobby, song_selection, playing, guessing, results)
+        playback_start_time: ISO timestamp when clients should start audio (for 'playing' phase)
+    """
     manager = get_connection_manager()
-    await manager.broadcast_to_room(
-        room_code,
-        {
-            'type': 'phase_changed',
-            'phase': phase,
-            'room_code': room_code,
-        }
-    )
+    message: dict = {
+        'type': 'phase_changed',
+        'phase': phase,
+        'room_code': room_code,
+    }
+    if playback_start_time is not None:
+        message['playback_start_time'] = playback_start_time
+    await manager.broadcast_to_room(room_code, message)
 
 
 class CreateRoomRequest(BaseModel):
@@ -404,9 +410,14 @@ async def mark_player_ready(
     ready_player_ids = set(room.current_round.ready_players)
     all_ready = all_player_ids == ready_player_ids
 
+    playback_start_time_iso: str | None = None
     if all_ready:
         room.status = 'playing'
-        logger.info(f'All players ready in room {room_code}, transitioning to playing')
+        # Set playback_start_time 3 seconds in the future to allow network sync
+        playback_start_time = datetime.now(timezone.utc) + timedelta(seconds=3)
+        room.current_round.playback_start_time = playback_start_time
+        playback_start_time_iso = playback_start_time.isoformat()
+        logger.info(f'All players ready in room {room_code}, transitioning to playing at {playback_start_time_iso}')
 
     # Update last_active_at and save
     room.last_active_at = datetime.utcnow()
@@ -416,7 +427,7 @@ async def mark_player_ready(
 
     # Broadcast phase change if all players are ready
     if all_ready:
-        await broadcast_phase_changed(room_code, 'playing')
+        await broadcast_phase_changed(room_code, 'playing', playback_start_time=playback_start_time_iso)
 
     return RoomStateResponse.from_room_state(room)
 

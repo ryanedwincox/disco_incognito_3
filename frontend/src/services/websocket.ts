@@ -17,6 +17,7 @@ export interface WebSocketMessage {
   reason?: string;
   phase?: string;
   room_code?: string;
+  playback_start_time?: string; // ISO timestamp when clients should start audio playback
 }
 
 const RECONNECT_TOKEN_KEY = "disco_reconnect_token";
@@ -301,8 +302,8 @@ export class WebSocketService {
    * Handle phase_changed event and navigate to appropriate view.
    */
   private handlePhaseChanged(message: WebSocketMessage): void {
-    const { phase, room_code } = message;
-    console.log(`Phase changed to: ${phase} in room ${room_code}`);
+    const { phase, room_code, playback_start_time } = message;
+    console.log(`Phase changed to: ${phase} in room ${room_code}`, { playback_start_time });
 
     if (!phase || !room_code) {
       console.warn("phase_changed event missing phase or room_code");
@@ -320,6 +321,10 @@ export class WebSocketService {
         break;
 
       case "playing":
+        // Store playback start time for synchronized audio
+        if (playback_start_time) {
+          gameStore.setPlaybackStartTime(playback_start_time);
+        }
         // Update game store and navigate to game playing view
         gameStore.setPlaying(true);
         router.push({ name: "game", params: { code: room_code } });
@@ -338,6 +343,7 @@ export class WebSocketService {
       case "lobby":
         // Reset game state and navigate back to lobby
         gameStore.setPlaying(false);
+        gameStore.setPlaybackStartTime(null);
         router.push({ name: "room-lobby", params: { code: room_code } });
         break;
 

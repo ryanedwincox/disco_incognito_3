@@ -47,6 +47,7 @@ class CurrentRound(BaseModel):
     player_assignments: dict[str, SongInfo]  # player_id -> assigned song
     ready_players: list[str] = Field(default_factory=list)  # player_ids who clicked ready
     votes: dict[str, str] = Field(default_factory=dict)  # player_id -> guessed_player_id
+    playback_start_time: datetime | None = None  # When all clients should start audio playback
 
 
 class CurrentRoundResponse(BaseModel):
