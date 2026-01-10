@@ -195,3 +195,15 @@ class ConnectionManager:
                 # Connection is dead, remove it
                 if room_code in self.active_connections and user_id in self.active_connections[room_code]:
                     del self.active_connections[room_code][user_id]
+
+
+# Singleton instance for access from routes
+_connection_manager: ConnectionManager | None = None
+
+
+def get_connection_manager() -> ConnectionManager:
+    """Get or create the singleton ConnectionManager instance."""
+    global _connection_manager
+    if _connection_manager is None:
+        _connection_manager = ConnectionManager()
+    return _connection_manager

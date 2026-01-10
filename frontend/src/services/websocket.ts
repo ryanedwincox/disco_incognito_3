@@ -3,6 +3,8 @@
  * Manages WebSocket connections to rooms and handles incoming events.
  */
 
+import router from "../router";
+import { useGameStore } from "../stores/game";
 import { useRoomStore } from "../stores/room";
 import { useWebSocketStore } from "../stores/websocket";
 
@@ -13,6 +15,9 @@ export interface WebSocketMessage {
   data?: unknown;
   reconnect_token?: string;
   reason?: string;
+  phase?: string;
+  room_code?: string;
+  playback_start_time?: string; // ISO timestamp when clients should start audio playback
 }
 
 const RECONNECT_TOKEN_KEY = "disco_reconnect_token";
@@ -184,6 +189,10 @@ export class WebSocketService {
           this.handleRoomUpdate(message);
           break;
 
+        case "phase_changed":
+          this.handlePhaseChanged(message);
+          break;
+
         default:
           console.warn("Unknown WebSocket message type:", message.type);
       }
@@ -287,6 +296,60 @@ export class WebSocketService {
   private handleRoomUpdate(message: WebSocketMessage): void {
     // Future: handle room state updates
     console.log("Room update received:", message);
+  }
+
+  /**
+   * Handle phase_changed event and navigate to appropriate view.
+   */
+  private handlePhaseChanged(message: WebSocketMessage): void {
+    const { phase, room_code, playback_start_time } = message;
+    console.log(`Phase changed to: ${phase} in room ${room_code}`, { playback_start_time });
+
+    if (!phase || !room_code) {
+      console.warn("phase_changed event missing phase or room_code");
+      return;
+    }
+
+    // Update game store
+    const gameStore = useGameStore();
+
+    // Map phase to route and update state
+    switch (phase) {
+      case "song_selection":
+        // Navigate to song assignment view
+        router.push({ name: "song-assignment", params: { code: room_code } });
+        break;
+
+      case "playing":
+        // Store playback start time for synchronized audio
+        if (playback_start_time) {
+          gameStore.setPlaybackStartTime(playback_start_time);
+        }
+        // Update game store and navigate to game playing view
+        gameStore.setPlaying(true);
+        router.push({ name: "game", params: { code: room_code } });
+        break;
+
+      case "guessing":
+        // Navigate to guessing view
+        router.push({ name: "guessing", params: { code: room_code } });
+        break;
+
+      case "results":
+        // Navigate to results view
+        router.push({ name: "results", params: { code: room_code } });
+        break;
+
+      case "lobby":
+        // Reset game state and navigate back to lobby
+        gameStore.setPlaying(false);
+        gameStore.setPlaybackStartTime(null);
+        router.push({ name: "room-lobby", params: { code: room_code } });
+        break;
+
+      default:
+        console.warn(`Unknown phase: ${phase}`);
+    }
   }
 
   /**

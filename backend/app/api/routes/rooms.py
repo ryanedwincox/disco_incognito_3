@@ -7,7 +7,7 @@ player joining, and room state retrieval.
 import logging
 import random
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -17,10 +17,30 @@ from ...core.settings import settings
 from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
 from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, RoundResultsResponse, Song, SongInfo
+from ...services.websocket_manager import get_connection_manager
 from ...storage.base import StorageAdapter
 
 router = APIRouter(prefix='/rooms', tags=['Rooms'])
 logger = logging.getLogger(__name__)
+
+
+async def broadcast_phase_changed(room_code: str, phase: str, playback_start_time: str | None = None) -> None:
+    """Broadcast phase change to all connected clients in a room.
+
+    Args:
+        room_code: The room code to broadcast to
+        phase: The new phase (lobby, song_selection, playing, guessing, results)
+        playback_start_time: ISO timestamp when clients should start audio (for 'playing' phase)
+    """
+    manager = get_connection_manager()
+    message: dict = {
+        'type': 'phase_changed',
+        'phase': phase,
+        'room_code': room_code,
+    }
+    if playback_start_time is not None:
+        message['playback_start_time'] = playback_start_time
+    await manager.broadcast_to_room(room_code, message)
 
 
 class CreateRoomRequest(BaseModel):
@@ -68,6 +88,12 @@ class FinishRoundRequest(BaseModel):
     """Request model for finishing a round (host only)."""
 
     player_id: str = Field(..., description='Player ID (must be host)')
+
+
+class LeaveRoomRequest(BaseModel):
+    """Request model for leaving a room."""
+
+    player_id: str = Field(..., description='Player ID leaving the room')
 
 
 class CreateRoomResponse(BaseModel):
@@ -341,6 +367,9 @@ async def start_game(
 
     logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {incognito_player.id}')
 
+    # Broadcast phase change to all connected clients
+    await broadcast_phase_changed(room_code, 'song_selection')
+
     return RoomStateResponse.from_room_state(room)
 
 
@@ -387,15 +416,24 @@ async def mark_player_ready(
     ready_player_ids = set(room.current_round.ready_players)
     all_ready = all_player_ids == ready_player_ids
 
+    playback_start_time_iso: str | None = None
     if all_ready:
         room.status = 'playing'
-        logger.info(f'All players ready in room {room_code}, transitioning to playing')
+        # Set playback_start_time 3 seconds in the future to allow network sync
+        playback_start_time = datetime.now(timezone.utc) + timedelta(seconds=3)
+        room.current_round.playback_start_time = playback_start_time
+        playback_start_time_iso = playback_start_time.isoformat()
+        logger.info(f'All players ready in room {room_code}, transitioning to playing at {playback_start_time_iso}')
 
     # Update last_active_at and save
     room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Player {body.player_id} marked ready in room {room_code} ({len(ready_player_ids)}/{len(all_player_ids)} ready)')
+
+    # Broadcast phase change if all players are ready
+    if all_ready:
+        await broadcast_phase_changed(room_code, 'playing', playback_start_time=playback_start_time_iso)
 
     return RoomStateResponse.from_room_state(room)
 
@@ -447,6 +485,9 @@ async def cast_vote(
     # Record the vote
     room.current_round.votes[body.player_id] = body.guessed_player_id
 
+    # Track if we need to broadcast guessing transition
+    was_playing = room.status == 'playing'
+
     # Transition to guessing if still playing
     if room.status == 'playing':
         room.status = 'guessing'
@@ -465,6 +506,12 @@ async def cast_vote(
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Player {body.player_id} voted for {body.guessed_player_id} in room {room_code} ({len(voted_player_ids)}/{len(all_player_ids)} voted)')
+
+    # Broadcast phase changes
+    if was_playing:
+        await broadcast_phase_changed(room_code, 'guessing')
+    if all_voted:
+        await broadcast_phase_changed(room_code, 'results')
 
     return RoomStateResponse.from_room_state(room)
 
@@ -570,4 +617,87 @@ async def finish_round(
 
     logger.info(f'Round finished in room {room_code} by host {body.player_id}')
 
+    # Broadcast phase change to lobby
+    await broadcast_phase_changed(room_code, 'lobby')
+
     return RoomStateResponse.from_room_state(room)
+
+
+class LeaveRoomResponse(BaseModel):
+    """Response model for leaving a room."""
+
+    room_deleted: bool = Field(..., description='True if room was deleted (last player left)')
+    room: RoomStateResponse | None = Field(None, description='Updated room state, None if deleted')
+
+
+@router.delete('/{room_code}/leave', summary='Leave a room', response_model=LeaveRoomResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
+async def leave_room(
+    request: Request,
+    room_code: str,
+    body: LeaveRoomRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> LeaveRoomResponse:
+    """
+    Leave a room.
+
+    Removes player from room's players list. If the leaving player is the host,
+    transfers host role to another player. If this is the last player, deletes the room.
+    Broadcasts player_left event to remaining players.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify player is in room
+    leaving_player = next((p for p in room.players if p.id == body.player_id), None)
+    if not leaving_player:
+        raise HTTPException(status_code=404, detail='Player not in room')
+
+    # Remove the player from the list
+    room.players = [p for p in room.players if p.id != body.player_id]
+
+    # Check if room is now empty
+    if not room.players:
+        # Delete the room
+        await storage.delete_room(room_code)
+        logger.info(f'Room {room_code} deleted (last player {body.player_id} left)')
+
+        # Disconnect the leaving player's WebSocket
+        manager = get_connection_manager()
+        await manager.disconnect(room_code, body.player_id)
+
+        return LeaveRoomResponse(room_deleted=True, room=None)
+
+    # Handle host transfer if the leaving player was the host
+    if leaving_player.is_host:
+        # Transfer host to the first remaining player
+        new_host = room.players[0]
+        new_host.is_host = True
+        room.host_id = new_host.id
+        logger.info(f'Host transferred from {body.player_id} to {new_host.id} in room {room_code}')
+
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info(f'Player {body.player_id} left room {room_code}')
+
+    # Disconnect the leaving player's WebSocket
+    manager = get_connection_manager()
+    await manager.disconnect(room_code, body.player_id)
+
+    # Broadcast player_left event to remaining players
+    await manager.broadcast_to_room(
+        room_code,
+        {
+            'type': 'player_left',
+            'user_id': body.player_id,
+            'new_host_id': room.host_id if leaving_player.is_host else None,
+        }
+    )
+
+    return LeaveRoomResponse(room_deleted=False, room=RoomStateResponse.from_room_state(room))

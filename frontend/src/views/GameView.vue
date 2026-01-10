@@ -1,4 +1,4 @@
-<!-- Active game round view with countdown timer. Shows remaining time during the 90-second listening phase. Includes the music player bar for playback control during the round. -->
+<!-- Active game round view with countdown timer. Shows remaining time during the 90-second listening phase. Includes the music player bar for playback control during the round. Coordinates synchronized audio playback using playback_start_time from server. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white flex flex-col">
     <header class="px-6 pt-12 pb-6 text-center space-y-2">
@@ -8,7 +8,9 @@
 
     <main class="flex-1 flex items-center justify-center">
       <div class="text-center space-y-4">
-        <p class="text-sm uppercase text-zinc-400">Time Remaining</p>
+        <p class="text-sm uppercase text-zinc-400">
+          {{ waitingForSync ? 'Syncing...' : 'Time Remaining' }}
+        </p>
         <p class="text-6xl font-bold text-disco-pink">01:30</p>
       </div>
     </main>
@@ -18,7 +20,88 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onUnmounted, ref } from 'vue'
 import MusicPlayerBar from '@/components/MusicPlayerBar.vue'
+import { useGameStore } from '@/stores/game'
+import { useMusicStore } from '@/stores/music'
+import { useRoomStore } from '@/stores/room'
 
-// Playback synchronization will be coordinated once Spotify integration is complete.
+const gameStore = useGameStore()
+const musicStore = useMusicStore()
+const roomStore = useRoomStore()
+
+const waitingForSync = ref(false)
+let playbackTimer: number | null = null
+
+/**
+ * Schedule audio playback for the synchronized start time.
+ * If the start time has already passed, starts immediately.
+ */
+function schedulePlayback() {
+  const startTimeStr = gameStore.playbackStartTime
+  if (!startTimeStr) {
+    console.log('No playback_start_time set, skipping sync')
+    return
+  }
+
+  const startTime = new Date(startTimeStr).getTime()
+  const now = Date.now()
+  const delayMs = startTime - now
+
+  console.log('Playback sync:', {
+    server_start_time: startTimeStr,
+    client_now: new Date().toISOString(),
+    delay_ms: delayMs
+  })
+
+  if (delayMs <= 0) {
+    // Start time already passed, start immediately
+    console.log(`Start time passed ${-delayMs}ms ago, starting playback immediately`)
+    triggerPlayback()
+  } else {
+    // Wait until the scheduled time
+    waitingForSync.value = true
+    console.log(`Waiting ${delayMs}ms until synchronized playback start`)
+    playbackTimer = window.setTimeout(() => {
+      waitingForSync.value = false
+      triggerPlayback()
+    }, delayMs)
+  }
+}
+
+/**
+ * Trigger audio playback using the music store.
+ */
+function triggerPlayback() {
+  const actualStartTime = Date.now()
+  const expectedStartTime = gameStore.playbackStartTime
+    ? new Date(gameStore.playbackStartTime).getTime()
+    : actualStartTime
+  const driftMs = actualStartTime - expectedStartTime
+
+  console.log('Triggering playback:', {
+    actual_start: new Date(actualStartTime).toISOString(),
+    expected_start: gameStore.playbackStartTime,
+    drift_ms: driftMs
+  })
+
+  // Get the assigned song for the current player and play it
+  const assignedSong = roomStore.assignedSong
+  if (assignedSong && musicStore.currentTrack) {
+    musicStore.playTrack(musicStore.currentTrack.uri, musicStore.activeDeviceId || undefined)
+  } else {
+    console.log('No track available for playback')
+  }
+}
+
+onMounted(() => {
+  schedulePlayback()
+})
+
+onUnmounted(() => {
+  if (playbackTimer !== null) {
+    clearTimeout(playbackTimer)
+    playbackTimer = null
+  }
+})
 </script>
