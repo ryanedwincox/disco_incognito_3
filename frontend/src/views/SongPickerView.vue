@@ -190,7 +190,6 @@ async function performSearch() {
 
   isSearching.value = true
   try {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
     const token = getAccessToken()
 
     const response = await fetch(`${API_URL}/api/spotify/search?q=${encodeURIComponent(query)}&limit=20`, {

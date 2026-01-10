@@ -5,6 +5,7 @@
  */
 import { defineStore } from "pinia";
 import axios from "axios";
+import { API_URL } from "../config/api";
 
 interface UserInfo {
   id: string;
@@ -20,8 +21,6 @@ interface AuthState {
   isTestMode: boolean;
   isSpotifyUser: boolean;
 }
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const useAuthStore = defineStore("auth", {
   state: (): AuthState => ({

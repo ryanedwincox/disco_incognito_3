@@ -7,8 +7,7 @@ import { defineStore } from "pinia";
 import axios from "axios";
 import { useAuthStore } from "./auth";
 import { useNotificationStore } from "./notifications";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+import { API_URL } from "../config/api";
 
 export interface TrackInfo {
   id: string;

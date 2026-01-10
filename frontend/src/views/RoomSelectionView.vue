@@ -44,9 +44,8 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notifications'
+import { API_URL } from '@/config/api'
 import axios from 'axios'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const router = useRouter()
 const authStore = useAuthStore()

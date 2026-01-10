@@ -17,7 +17,7 @@ services:
       - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
       - SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI:-http://localhost:8000/api/auth/callback}
       - PORT=${PORT:-8000}
-      - SPOTIFY_MODE=live
+      - SPOTIFY_MODE=${SPOTIFY_MODE:-test}
       - MUSIC_SERVICE=spotify
       - SESSION_STORAGE=json_file
       - SESSION_STORAGE_FILE=/app/data/disco_incognito.json
