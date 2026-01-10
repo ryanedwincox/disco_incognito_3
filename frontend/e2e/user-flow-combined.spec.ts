@@ -112,6 +112,24 @@ async function castVoteViaAPI(roomCode: string, voterId: string, guessedId: stri
   console.log(`Player ${voterId} voted for ${guessedId}`);
 }
 
+// Helper: Leave room via REST API
+async function leaveRoomViaAPI(roomCode: string, playerId: string): Promise<{ room_deleted: boolean; room: unknown }> {
+  const response = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}/leave`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      player_id: playerId,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to leave room for ${playerId}: ${await response.text()}`);
+  }
+  const data = await response.json();
+  console.log(`Player ${playerId} left room ${roomCode}, room_deleted: ${data.room_deleted}`);
+  return data;
+}
+
 // ============================================================================
 // Host-specific Helpers
 // ============================================================================
@@ -1058,6 +1076,152 @@ test.describe('Combined Host+Player+Guest User Flow: Real Multi-User Interaction
       await hostContext.close();
       await playerContext.close();
       await guestContext.close();
+    }
+  });
+
+  test('player leaves room and host transfer works correctly', async ({
+    browser,
+    serverContext,
+  }: {
+    browser: Browser;
+    serverContext: { backendProcess: unknown; frontendProcess: unknown };
+  }) => {
+    void serverContext; // Required to trigger fixture - starts servers
+
+    // Reset test user counter for deterministic player names
+    await fetch(`${BACKEND_URL}/api/testing/reset-user-counter`, { method: 'POST' });
+    console.log('✅ Reset test user counter for deterministic names');
+
+    // Create separate browser contexts for host and player
+    const hostContext: BrowserContext = await browser.newContext();
+    const playerContext: BrowserContext = await browser.newContext();
+
+    const hostPage: Page = await hostContext.newPage();
+    const playerPage: Page = await playerContext.newPage();
+
+    try {
+      // ========================================================================
+      // SETUP: Host creates room, player joins
+      // ========================================================================
+      console.log('\n=== SETUP: Host creates room, player joins ===');
+
+      // Host: Load, login, create room
+      await loadLandingPage(hostPage);
+      await loginWithSpotify(hostPage);
+      const roomCode = await createRoom(hostPage);
+      console.log(`✅ Host created room: ${roomCode}`);
+
+      // Player: Load, login, join room
+      await loadLandingPage(playerPage);
+      await loginWithSpotify(playerPage);
+      await joinRoomViaUI(playerPage, roomCode);
+      console.log('✅ Player joined room');
+
+      // Add a third player via API for testing
+      await addPlayerViaAPI(roomCode, 'player-3', 'Player Three');
+      console.log('✅ Added player-3 via API');
+
+      // ========================================================================
+      // TEST 1: Non-host player leaves room
+      // ========================================================================
+      console.log('\n=== TEST 1: Non-host player leaves room ===');
+
+      // Get room state to verify 3 players
+      let roomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+      let roomData = await roomResponse.json();
+      expect(roomData.players.length).toBe(3);
+      console.log(`✅ Room has ${roomData.players.length} players`);
+
+      // Player-3 leaves via API
+      const leaveResult = await leaveRoomViaAPI(roomCode, 'player-3');
+      expect(leaveResult.room_deleted).toBe(false);
+      console.log('✅ Player-3 left successfully');
+
+      // Verify room now has 2 players
+      roomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+      roomData = await roomResponse.json();
+      expect(roomData.players.length).toBe(2);
+      expect(roomData.host_id).toBe(roomData.players.find((p: { is_host: boolean }) => p.is_host)?.id);
+      console.log(`✅ Room now has ${roomData.players.length} players, host unchanged`);
+
+      // Host: Refresh and verify player count
+      await hostPage.reload();
+      await hostPage.waitForLoadState('networkidle');
+      const hostPlayerItems = await hostPage.locator('ul.space-y-3 li').count();
+      expect(hostPlayerItems).toBe(2);
+      console.log(`✅ Host sees ${hostPlayerItems} players after player-3 left`);
+
+      // Screenshot: Host sees updated player list
+      const hostAfterLeavePath = getArtifactsPath(TEST_NAME, 'leave-01-host-after-player-left.png');
+      await hostPage.screenshot({ path: hostAfterLeavePath, fullPage: true });
+      console.log(`Screenshot: ${hostAfterLeavePath}`);
+
+      // ========================================================================
+      // TEST 2: Host leaves and host transfers to next player
+      // ========================================================================
+      console.log('\n=== TEST 2: Host leaves, transfers to next player ===');
+
+      // Get current host ID
+      const originalHostId = roomData.host_id;
+      const playerId = roomData.players.find((p: { id: string }) => p.id !== originalHostId)?.id;
+      console.log(`Original host: ${originalHostId}, Other player: ${playerId}`);
+
+      // Host leaves via API (simulate clicking Leave button)
+      const hostLeaveResult = await leaveRoomViaAPI(roomCode, originalHostId);
+      expect(hostLeaveResult.room_deleted).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((hostLeaveResult.room as any).host_id).toBe(playerId);
+      console.log(`✅ Host left, new host is: ${playerId}`);
+
+      // Verify host transfer via API
+      roomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+      roomData = await roomResponse.json();
+      expect(roomData.host_id).toBe(playerId);
+      expect(roomData.players.length).toBe(1);
+      const newHost = roomData.players.find((p: { id: string }) => p.id === playerId);
+      expect(newHost?.is_host).toBe(true);
+      console.log(`✅ API confirms new host: ${roomData.host_id}, is_host: ${newHost?.is_host}`);
+
+      // Player: Refresh and verify they are now host
+      await playerPage.reload();
+      await playerPage.waitForLoadState('networkidle');
+
+      // Verify player now sees Start Game button (host-only)
+      const startButton = playerPage.getByRole('button', { name: 'Start Game' });
+      await expect(startButton).toBeVisible();
+      console.log('✅ Player now sees Start Game button (is new host)');
+
+      // Verify Host badge visible for the player
+      const hostBadge = playerPage.locator('text=Host').first();
+      await expect(hostBadge).toBeVisible();
+      console.log('✅ Player sees Host badge');
+
+      // Screenshot: Player is now host
+      const playerAsHostPath = getArtifactsPath(TEST_NAME, 'leave-02-player-now-host.png');
+      await playerPage.screenshot({ path: playerAsHostPath, fullPage: true });
+      console.log(`Screenshot: ${playerAsHostPath}`);
+
+      // ========================================================================
+      // TEST 3: Last player leaves, room is deleted
+      // ========================================================================
+      console.log('\n=== TEST 3: Last player leaves, room deleted ===');
+
+      // The remaining player (now host) leaves
+      const finalLeaveResult = await leaveRoomViaAPI(roomCode, playerId);
+      expect(finalLeaveResult.room_deleted).toBe(true);
+      expect(finalLeaveResult.room).toBeNull();
+      console.log('✅ Last player left, room deleted');
+
+      // Verify room no longer exists
+      roomResponse = await fetch(`${BACKEND_URL}/api/rooms/${roomCode}`);
+      expect(roomResponse.status).toBe(404);
+      console.log('✅ API confirms room no longer exists (404)');
+
+      console.log('\n✅ Leave room and host transfer test completed successfully');
+    } finally {
+      // Cleanup contexts
+      await hostContext.close();
+      await playerContext.close();
     }
   });
 });

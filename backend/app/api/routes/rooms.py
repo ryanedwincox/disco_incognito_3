@@ -90,6 +90,12 @@ class FinishRoundRequest(BaseModel):
     player_id: str = Field(..., description='Player ID (must be host)')
 
 
+class LeaveRoomRequest(BaseModel):
+    """Request model for leaving a room."""
+
+    player_id: str = Field(..., description='Player ID leaving the room')
+
+
 class CreateRoomResponse(BaseModel):
     """Response model for room creation."""
 
@@ -615,3 +621,83 @@ async def finish_round(
     await broadcast_phase_changed(room_code, 'lobby')
 
     return RoomStateResponse.from_room_state(room)
+
+
+class LeaveRoomResponse(BaseModel):
+    """Response model for leaving a room."""
+
+    room_deleted: bool = Field(..., description='True if room was deleted (last player left)')
+    room: RoomStateResponse | None = Field(None, description='Updated room state, None if deleted')
+
+
+@router.delete('/{room_code}/leave', summary='Leave a room', response_model=LeaveRoomResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
+async def leave_room(
+    request: Request,
+    room_code: str,
+    body: LeaveRoomRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> LeaveRoomResponse:
+    """
+    Leave a room.
+
+    Removes player from room's players list. If the leaving player is the host,
+    transfers host role to another player. If this is the last player, deletes the room.
+    Broadcasts player_left event to remaining players.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify player is in room
+    leaving_player = next((p for p in room.players if p.id == body.player_id), None)
+    if not leaving_player:
+        raise HTTPException(status_code=404, detail='Player not in room')
+
+    # Remove the player from the list
+    room.players = [p for p in room.players if p.id != body.player_id]
+
+    # Check if room is now empty
+    if not room.players:
+        # Delete the room
+        await storage.delete_room(room_code)
+        logger.info(f'Room {room_code} deleted (last player {body.player_id} left)')
+
+        # Disconnect the leaving player's WebSocket
+        manager = get_connection_manager()
+        await manager.disconnect(room_code, body.player_id)
+
+        return LeaveRoomResponse(room_deleted=True, room=None)
+
+    # Handle host transfer if the leaving player was the host
+    if leaving_player.is_host:
+        # Transfer host to the first remaining player
+        new_host = room.players[0]
+        new_host.is_host = True
+        room.host_id = new_host.id
+        logger.info(f'Host transferred from {body.player_id} to {new_host.id} in room {room_code}')
+
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info(f'Player {body.player_id} left room {room_code}')
+
+    # Disconnect the leaving player's WebSocket
+    manager = get_connection_manager()
+    await manager.disconnect(room_code, body.player_id)
+
+    # Broadcast player_left event to remaining players
+    await manager.broadcast_to_room(
+        room_code,
+        {
+            'type': 'player_left',
+            'user_id': body.player_id,
+            'new_host_id': room.host_id if leaving_player.is_host else None,
+        }
+    )
+
+    return LeaveRoomResponse(room_deleted=False, room=RoomStateResponse.from_room_state(room))
