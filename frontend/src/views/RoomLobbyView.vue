@@ -1,6 +1,7 @@
 <!-- Room lobby showing players and song pairs before game starts. Displays room code, player list with host indicator, and song pair section. Provides navigation to song picker and option to leave room. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
+    <div class="max-w-lg mx-auto">
     <header class="mb-8">
       <div class="flex items-start justify-between mb-6">
         <div>
@@ -8,9 +9,9 @@
           <p class="text-4xl font-bold tracking-[0.5em]">{{ roomCode }}</p>
         </div>
       </div>
-      <div class="flex flex-col space-y-3 md:flex-row md:space-y-0 md:space-x-3">
+      <div class="flex flex-col space-y-3">
         <button
-          class="w-full md:w-auto px-6 py-3 rounded-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 transition-colors"
+          class="w-full px-6 py-3 rounded-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 transition-colors"
           type="button"
           @click="leaveRoom"
         >
@@ -18,7 +19,7 @@
         </button>
         <button
           v-if="authStore.isSpotifyUser"
-          class="w-full md:w-auto px-6 py-3 rounded-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold transition-colors"
+          class="w-full px-6 py-3 rounded-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold transition-colors"
           type="button"
           @click="pickSongs"
         >
@@ -26,7 +27,7 @@
         </button>
         <button
           v-if="isHost"
-          class="w-full md:w-auto px-6 py-3 rounded-full bg-green-600 text-white font-semibold hover:bg-green-500 transition-colors"
+          class="w-full px-6 py-3 rounded-full bg-green-600 text-white font-semibold hover:bg-green-500 transition-colors"
           type="button"
           :disabled="isStarting"
           @click="startGame"
@@ -36,7 +37,7 @@
       </div>
     </header>
 
-    <section class="grid gap-6 md:grid-cols-2">
+    <section class="space-y-6">
       <div class="bg-zinc-900/70 rounded-3xl border border-zinc-500 p-6">
         <h3 class="text-lg font-semibold mb-4">Players</h3>
         <ul class="space-y-3">
@@ -70,6 +71,7 @@
         <p class="text-zinc-400">{{ songCountText }}</p>
       </div>
     </section>
+    </div>
   </div>
 </template>
 

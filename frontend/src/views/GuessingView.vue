@@ -7,7 +7,7 @@
     </header>
 
     <!-- Vote confirmation message -->
-    <div v-if="hasVoted" class="max-w-2xl mx-auto mb-6 bg-green-900/30 border border-green-500/50 rounded-2xl p-4 text-center">
+    <div v-if="hasVoted" class="max-w-lg mx-auto mb-6 bg-green-900/30 border border-green-500/50 rounded-2xl p-4 text-center">
       <p class="text-green-400">You voted for <span class="font-semibold">{{ votedForName }}</span></p>
       <p class="text-zinc-400 text-sm mt-1">Waiting for other players to vote...</p>
     </div>
@@ -18,12 +18,12 @@
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="max-w-2xl mx-auto bg-red-900/30 border border-red-500/50 rounded-2xl p-4 text-center">
+    <div v-else-if="error" class="max-w-lg mx-auto bg-red-900/30 border border-red-500/50 rounded-2xl p-4 text-center">
       <p class="text-red-400">{{ error }}</p>
     </div>
 
     <!-- Player list -->
-    <ul v-else class="max-w-2xl mx-auto grid gap-4 md:grid-cols-2">
+    <ul v-else class="max-w-lg mx-auto space-y-4">
       <li v-for="player in players" :key="player.id" class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 space-y-3">
         <h3 class="text-xl font-semibold">{{ player.name }}</h3>
         <button
