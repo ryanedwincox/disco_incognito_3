@@ -19,15 +19,15 @@ from .api.router import api_router
 from .core.rate_limit import limiter
 from .core.settings import settings
 from .dependencies.storage import get_storage_adapter
-from .services.websocket_manager import ConnectionManager
+from .services.websocket_manager import get_connection_manager
 from .storage.json_file import JSONFileStorage
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title='Disco Incognito API', version='0.1.0')
 
-# WebSocket connection manager
-connection_manager = ConnectionManager()
+# WebSocket connection manager (singleton)
+connection_manager = get_connection_manager()
 
 # Register rate limiter
 app.state.limiter = limiter

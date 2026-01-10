@@ -17,10 +17,24 @@ from ...core.settings import settings
 from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
 from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, RoundResultsResponse, Song, SongInfo
+from ...services.websocket_manager import get_connection_manager
 from ...storage.base import StorageAdapter
 
 router = APIRouter(prefix='/rooms', tags=['Rooms'])
 logger = logging.getLogger(__name__)
+
+
+async def broadcast_phase_changed(room_code: str, phase: str) -> None:
+    """Broadcast phase change to all connected clients in a room."""
+    manager = get_connection_manager()
+    await manager.broadcast_to_room(
+        room_code,
+        {
+            'type': 'phase_changed',
+            'phase': phase,
+            'room_code': room_code,
+        }
+    )
 
 
 class CreateRoomRequest(BaseModel):
@@ -341,6 +355,9 @@ async def start_game(
 
     logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {incognito_player.id}')
 
+    # Broadcast phase change to all connected clients
+    await broadcast_phase_changed(room_code, 'song_selection')
+
     return RoomStateResponse.from_room_state(room)
 
 
@@ -397,6 +414,10 @@ async def mark_player_ready(
 
     logger.info(f'Player {body.player_id} marked ready in room {room_code} ({len(ready_player_ids)}/{len(all_player_ids)} ready)')
 
+    # Broadcast phase change if all players are ready
+    if all_ready:
+        await broadcast_phase_changed(room_code, 'playing')
+
     return RoomStateResponse.from_room_state(room)
 
 
@@ -447,6 +468,9 @@ async def cast_vote(
     # Record the vote
     room.current_round.votes[body.player_id] = body.guessed_player_id
 
+    # Track if we need to broadcast guessing transition
+    was_playing = room.status == 'playing'
+
     # Transition to guessing if still playing
     if room.status == 'playing':
         room.status = 'guessing'
@@ -465,6 +489,12 @@ async def cast_vote(
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Player {body.player_id} voted for {body.guessed_player_id} in room {room_code} ({len(voted_player_ids)}/{len(all_player_ids)} voted)')
+
+    # Broadcast phase changes
+    if was_playing:
+        await broadcast_phase_changed(room_code, 'guessing')
+    if all_voted:
+        await broadcast_phase_changed(room_code, 'results')
 
     return RoomStateResponse.from_room_state(room)
 
@@ -569,5 +599,8 @@ async def finish_round(
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Round finished in room {room_code} by host {body.player_id}')
+
+    # Broadcast phase change to lobby
+    await broadcast_phase_changed(room_code, 'lobby')
 
     return RoomStateResponse.from_room_state(room)
