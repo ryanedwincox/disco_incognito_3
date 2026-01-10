@@ -161,7 +161,7 @@ async function createRoom(page: Page): Promise<string> {
   return '310';
 }
 
-// Helper: Navigate to song picker, add two songs (one at a time), go back to lobby
+// Helper: Navigate to song picker, select two songs as a pair, add pair, go back to lobby
 async function addSongs(page: Page, rolePrefix: string): Promise<{ name: string; path: string }[]> {
   const screenshots: { name: string; path: string }[] = [];
 
@@ -192,43 +192,36 @@ async function addSongs(page: Page, rolePrefix: string): Promise<{ name: string;
   const trackButtons = page.locator('.max-h-80 button');
   await trackButtons.nth(0).click();
 
-  // Wait for track to be selected (shown in Selected Song section)
-  await page.waitForSelector('text=Selected Song', { timeout: 5000 });
-
-  // Screenshot: Song picker with first song selected
-  const generatedPath = getArtifactsPath(TEST_NAME, `${rolePrefix}-05-song-picker-generated.png`);
-  await page.screenshot({ path: generatedPath, fullPage: true });
-  screenshots.push({ name: `${rolePrefix}-05-song-picker-generated.png`, path: generatedPath });
-  console.log(`Screenshot saved: ${generatedPath}`);
-
-  // Click 'Add Song' button
-  const addButton = page.getByRole('button', { name: 'Add Song' });
-  await expect(addButton).toBeVisible();
-  await expect(addButton).toBeEnabled();
-  await addButton.click();
-
-  // Wait for success message for first song
-  const successMessage = page.locator('.bg-green-900\\/30');
-  await expect(successMessage).toBeVisible({ timeout: 5000 });
-  await expect(successMessage).toContainText('Added');
-  console.log('First song added');
+  // Wait for first track to be selected (shown in Selected Songs section)
+  await page.waitForSelector('text=Selected Songs (1/2)', { timeout: 5000 });
+  console.log('First song selected');
 
   // Select second track from search results
   await trackButtons.nth(1).click();
 
   // Wait for second track to be selected
-  await page.waitForSelector('text=Selected Song', { timeout: 5000 });
+  await page.waitForSelector('text=Selected Songs (2/2)', { timeout: 5000 });
+  console.log('Second song selected');
 
-  // Click 'Add Song' button for second song
+  // Screenshot: Song picker with both songs selected
+  const generatedPath = getArtifactsPath(TEST_NAME, `${rolePrefix}-05-song-picker-generated.png`);
+  await page.screenshot({ path: generatedPath, fullPage: true });
+  screenshots.push({ name: `${rolePrefix}-05-song-picker-generated.png`, path: generatedPath });
+  console.log(`Screenshot saved: ${generatedPath}`);
+
+  // Click 'Add Song Pair' button
+  const addButton = page.getByRole('button', { name: 'Add Song Pair' });
+  await expect(addButton).toBeVisible();
   await expect(addButton).toBeEnabled();
   await addButton.click();
 
-  // Wait for success message for second song
+  // Wait for success message for song pair
+  const successMessage = page.locator('.bg-green-900\\/30');
   await expect(successMessage).toBeVisible({ timeout: 5000 });
   await expect(successMessage).toContainText('Added');
-  console.log('Second song added');
+  console.log('Song pair added');
 
-  // Screenshot: Song picker with success message after adding both songs
+  // Screenshot: Song picker with success message after adding pair
   const savedPath = getArtifactsPath(TEST_NAME, `${rolePrefix}-06-song-picker-saved.png`);
   await page.screenshot({ path: savedPath, fullPage: true });
   screenshots.push({ name: `${rolePrefix}-06-song-picker-saved.png`, path: savedPath });

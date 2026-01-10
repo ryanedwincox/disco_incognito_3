@@ -42,7 +42,7 @@
             <div v-if="isSearching" class="text-zinc-500 text-center py-4">
               Searching...
             </div>
-            <div v-else-if="searchResults.length > 0" class="space-y-2 max-h-80 overflow-y-auto">
+            <div v-else-if="searchResults.length > 0" class="space-y-2 max-h-80 overflow-y-auto -mx-1 px-1">
               <button
                 v-for="track in searchResults"
                 :key="track.id"
@@ -72,33 +72,57 @@
             </p>
           </div>
 
-          <!-- Selected Song & Actions -->
+          <!-- Selected Songs & Actions -->
           <div class="space-y-4">
             <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
-              <h3 class="text-lg font-semibold mb-3">Selected Song</h3>
-              <div v-if="selectedTrack" class="space-y-2">
-                <div class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
+              <h3 class="text-lg font-semibold mb-3">Selected Songs ({{ selectedTracks.length }}/2)</h3>
+              <div class="space-y-2">
+                <!-- Slot 1 -->
+                <div v-if="selectedTracks[0]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
                   <img
-                    :src="selectedTrack.album_art"
-                    :alt="selectedTrack.album"
+                    :src="selectedTracks[0].album_art"
+                    :alt="selectedTracks[0].album"
                     class="w-10 h-10 rounded-lg object-cover"
                   />
                   <div class="flex-1 min-w-0">
-                    <p class="font-medium truncate">{{ selectedTrack.name }}</p>
-                    <p class="text-sm text-zinc-400 truncate">{{ selectedTrack.artist }}</p>
+                    <p class="font-medium truncate">{{ selectedTracks[0].name }}</p>
+                    <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[0].artist }}</p>
                   </div>
                   <button
                     type="button"
                     class="text-zinc-400 hover:text-white p-1"
-                    @click="clearSelection"
+                    @click="clearSelection(0)"
                   >
                     ✕
                   </button>
                 </div>
+                <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
+                  Select first song
+                </div>
+
+                <!-- Slot 2 -->
+                <div v-if="selectedTracks[1]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
+                  <img
+                    :src="selectedTracks[1].album_art"
+                    :alt="selectedTracks[1].album"
+                    class="w-10 h-10 rounded-lg object-cover"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium truncate">{{ selectedTracks[1].name }}</p>
+                    <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[1].artist }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="text-zinc-400 hover:text-white p-1"
+                    @click="clearSelection(1)"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
+                  Select second song
+                </div>
               </div>
-              <p v-else class="text-zinc-500">
-                Select a song from search results
-              </p>
             </div>
 
             <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
@@ -107,10 +131,10 @@
                 <button
                   class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
-                  :disabled="!selectedTrack || isSaving"
-                  @click="addSong"
+                  :disabled="selectedTracks.length !== 2 || isSaving"
+                  @click="addSongPair"
                 >
-                  {{ isSaving ? 'Adding...' : 'Add Song' }}
+                  {{ isSaving ? 'Adding...' : 'Add Song Pair' }}
                 </button>
                 <button
                   class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
@@ -155,7 +179,7 @@ interface Track {
   uri: string
 }
 
-const selectedTrack = ref<Track | null>(null)
+const selectedTracks = ref<Track[]>([])
 const isSaving = ref(false)
 const successMessage = ref('')
 const searchQuery = ref('')
@@ -213,25 +237,31 @@ async function performSearch() {
 }
 
 function isSelected(track: Track): boolean {
-  return selectedTrack.value?.id === track.id
+  return selectedTracks.value.some(t => t.id === track.id)
 }
 
 function selectTrack(track: Track) {
-  if (selectedTrack.value?.id === track.id) {
-    // Clicking same track deselects it
-    selectedTrack.value = null
+  const index = selectedTracks.value.findIndex(t => t.id === track.id)
+  if (index !== -1) {
+    // Clicking selected track deselects it
+    selectedTracks.value.splice(index, 1)
+  } else if (selectedTracks.value.length < 2) {
+    // Add track if under max (2)
+    selectedTracks.value.push(track)
+  }
+  // If already at max 2, clicking unselected track does nothing
+}
+
+function clearSelection(index?: number) {
+  if (index !== undefined) {
+    selectedTracks.value.splice(index, 1)
   } else {
-    // Select new track (replaces any previous selection)
-    selectedTrack.value = track
+    selectedTracks.value = []
   }
 }
 
-function clearSelection() {
-  selectedTrack.value = null
-}
-
-async function addSong() {
-  if (!selectedTrack.value) {
+async function addSongPair() {
+  if (selectedTracks.value.length !== 2) {
     return
   }
 
@@ -247,42 +277,46 @@ async function addSong() {
   try {
     const roomCode = route.params.code
 
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode}/songs`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        player_id: userId,
-        track_uri: selectedTrack.value.uri,
-        title: selectedTrack.value.name,
-        artist: selectedTrack.value.artist,
-      }),
-    })
+    // Send two sequential POSTs for the song pair
+    for (const track of selectedTracks.value) {
+      const response = await fetch(`${API_URL}/api/rooms/${roomCode}/songs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          player_id: userId,
+          track_uri: track.uri,
+          title: track.name,
+          artist: track.artist,
+        }),
+      })
 
-    // Handle expired room (404)
-    if (await handleRoomResponse(response)) {
-      return
+      // Handle expired room (404)
+      if (await handleRoomResponse(response)) {
+        return
+      }
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || 'Failed to add song')
+      }
     }
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.detail || 'Failed to add song')
-    }
+    console.log('Added song pair to room:', roomCode)
+    const songNames = selectedTracks.value.map(t => t.name).join('" and "')
+    successMessage.value = `Added "${songNames}" to the room!`
 
-    console.log('Added song to room:', roomCode)
-    successMessage.value = `Added "${selectedTrack.value.name}" to the room!`
-
-    // Clear selection to allow adding more songs
-    selectedTrack.value = null
+    // Clear selection to allow adding more pairs
+    selectedTracks.value = []
 
     // Clear success message after a few seconds
     setTimeout(() => {
       successMessage.value = ''
     }, 3000)
   } catch (error: unknown) {
-    console.error('Failed to add song:', error)
-    successMessage.value = 'Failed to add song'
+    console.error('Failed to add song pair:', error)
+    successMessage.value = 'Failed to add song pair'
   } finally {
     isSaving.value = false
   }
