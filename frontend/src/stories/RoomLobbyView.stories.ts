@@ -72,3 +72,61 @@ export const WithDisconnectedPlayer: Story = {
     },
   ],
 };
+
+// Song count variants
+export const ZeroSongsInQueue: Story = {
+  name: 'Zero Songs In Queue',
+  decorators: [
+    (story) => {
+      const roomStore = useRoomStore();
+      roomStore.$patch({
+        code: 'ABC1',
+        players: [
+          { id: 'p1', name: 'DJ Host', isHost: true, isConnected: true },
+        ],
+        status: 'lobby',
+        songPairCount: 0,
+      });
+      return { components: { story }, template: '<story />' };
+    },
+  ],
+};
+
+export const OneSongInQueue: Story = {
+  name: 'One Song In Queue',
+  decorators: [
+    (story) => {
+      const roomStore = useRoomStore();
+      roomStore.$patch({
+        code: 'ABC2',
+        players: [
+          { id: 'p1', name: 'DJ Host', isHost: true, isConnected: true },
+          { id: 'p2', name: 'Guest Player', isHost: false, isConnected: true },
+        ],
+        status: 'lobby',
+        songPairCount: 1,
+      });
+      return { components: { story }, template: '<story />' };
+    },
+  ],
+};
+
+export const MultipleSongsInQueue: Story = {
+  name: 'Multiple Songs In Queue',
+  decorators: [
+    (story) => {
+      const roomStore = useRoomStore();
+      roomStore.$patch({
+        code: 'ABC3',
+        players: [
+          { id: 'p1', name: 'DJ Host', isHost: true, isConnected: true },
+          { id: 'p2', name: 'Guest Player', isHost: false, isConnected: true },
+          { id: 'p3', name: 'Another Guest', isHost: false, isConnected: true },
+        ],
+        status: 'lobby',
+        songPairCount: 5,
+      });
+      return { components: { story }, template: '<story />' };
+    },
+  ],
+};

@@ -1,17 +1,19 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from "vue-router";
-import LoginView from "@/views/LoginView.vue";
-import TestPlaybackView from "@/views/TestPlaybackView.vue";
-import ErrorTestView from "@/views/ErrorTestView.vue";
-import ServerDisconnectedDemoView from "@/views/ServerDisconnectedDemoView.vue";
-import ExceptionDemoView from "@/views/ExceptionDemoView.vue";
-import RoomSelectionView from "@/views/RoomSelectionView.vue";
-import RoomLobbyView from "@/views/RoomLobbyView.vue";
-import GamePlayingView from "@/views/GamePlayingView.vue";
-import SongPickerView from "@/views/SongPickerView.vue";
-import GameView from "@/views/GameView.vue";
-import GuessingView from "@/views/GuessingView.vue";
-import ResultsView from "@/views/ResultsView.vue";
-import SongAssignmentWrapper from "@/views/SongAssignmentWrapper.vue";
+
+// Lazy load views to avoid circular dependency issues in Storybook
+const LoginView = () => import("@/views/LoginView.vue");
+const TestPlaybackView = () => import("@/views/TestPlaybackView.vue");
+const ErrorTestView = () => import("@/views/ErrorTestView.vue");
+const ServerDisconnectedDemoView = () => import("@/views/ServerDisconnectedDemoView.vue");
+const ExceptionDemoView = () => import("@/views/ExceptionDemoView.vue");
+const RoomSelectionView = () => import("@/views/RoomSelectionView.vue");
+const RoomLobbyView = () => import("@/views/RoomLobbyView.vue");
+const GamePlayingView = () => import("@/views/GamePlayingView.vue");
+const SongPickerView = () => import("@/views/SongPickerView.vue");
+const GameView = () => import("@/views/GameView.vue");
+const GuessingView = () => import("@/views/GuessingView.vue");
+const ResultsView = () => import("@/views/ResultsView.vue");
+const SongAssignmentWrapper = () => import("@/views/SongAssignmentWrapper.vue");
 
 const routes: RouteRecordRaw[] = [
   {

@@ -67,7 +67,7 @@
 
       <div class="bg-zinc-900/70 rounded-3xl border border-zinc-500 p-6">
         <h3 class="text-lg font-semibold mb-4">Song Pairs</h3>
-        <p class="text-zinc-400">Song pairs remain hidden until the reveal phase. Add them from the song picker.</p>
+        <p class="text-zinc-400">{{ songCountText }}</p>
       </div>
     </section>
   </div>
@@ -90,6 +90,11 @@ const { handleRoomResponse, API_URL } = useRoomApi()
 const roomCode = computed(() => (route.params.code as string) || '123')
 const players = computed(() => roomStore.players)
 const currentUserId = computed(() => authStore.user?.id ?? null)
+const songCountText = computed(() => {
+  const count = roomStore.songPairCount
+  if (count === 1) return '1 song in queue'
+  return `${count} songs in queue`
+})
 const isHost = computed(() => {
   if (!currentUserId.value) return false
   const currentPlayer = players.value.find(p => p.id === currentUserId.value)
@@ -124,6 +129,11 @@ onMounted(async () => {
             isConnected: p.is_connected
           }))
         )
+
+        // Set song pair count from API response
+        if (Array.isArray(data.songs)) {
+          roomStore.setSongPairCount(data.songs.length)
+        }
 
         // Auto-join if current user is not already in the room
         const userId = authStore.user?.id
