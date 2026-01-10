@@ -7,6 +7,7 @@ import router from "../router";
 import { useGameStore } from "../stores/game";
 import { useRoomStore } from "../stores/room";
 import { useWebSocketStore } from "../stores/websocket";
+import { API_URL } from "../config/api";
 
 export interface WebSocketMessage {
   type: string;
@@ -43,10 +44,10 @@ export class WebSocketService {
     const storedToken = localStorage.getItem(RECONNECT_TOKEN_KEY);
     const reconnectParam = storedToken ? `&reconnect_token=${storedToken}` : "";
 
-    // Determine WebSocket URL based on current location
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/api/ws/rooms/${roomCode}/ws?user_id=${userId}${reconnectParam}`;
+    // Determine WebSocket URL based on API_URL (same host/port as HTTP API)
+    // Convert http(s):// to ws(s)://
+    const wsBaseUrl = API_URL.replace(/^http/, "ws");
+    const wsUrl = `${wsBaseUrl}/api/ws/rooms/${roomCode}/ws?user_id=${userId}${reconnectParam}`;
 
     console.log(
       `Connecting to WebSocket: ${wsUrl.replace(/reconnect_token=[^&]+/, "reconnect_token=***")}`
