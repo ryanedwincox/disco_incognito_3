@@ -11,11 +11,11 @@
     - results → ResultsView
 -->
 <template>
-  <component :is="currentView" />
+  <component v-if="isInitialized" :is="currentView" />
 </template>
 
 <script setup lang="ts">
-import { computed, watch, type Component } from 'vue'
+import { computed, ref, watch, type Component } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useRoomStore } from '../stores/room'
 import { websocketService } from '../services/websocket'
@@ -31,8 +31,14 @@ import ResultsView from '../views/ResultsView.vue'
 const authStore = useAuthStore()
 const roomStore = useRoomStore()
 
-// Load auth state from localStorage on app init (before computing which view to show)
-authStore.loadFromStorage()
+// Track initialization state - render nothing until auth validation completes
+const isInitialized = ref(false)
+
+// Load and validate auth state from localStorage on app init
+;(async () => {
+  await authStore.loadFromStorage()
+  isInitialized.value = true
+})()
 
 // Phase-to-view mapping
 const phaseToViewMap: Record<string, Component> = {
