@@ -21,7 +21,7 @@ interface AssignedSong {
 interface RoomState {
   code: string | null;
   players: RoomPlayer[];
-  status: "lobby" | "song_selection" | "playing" | "guessing" | "reveal";
+  status: "lobby" | "picking_songs" | "song_selection" | "playing" | "guessing" | "results";
   songPairCount: number;
   assignedSong: AssignedSong | null;
 }

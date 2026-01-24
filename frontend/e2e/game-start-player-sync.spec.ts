@@ -1,13 +1,11 @@
 /**
  * Bug reproduction test: Non-host players don't auto-navigate when host starts game.
  *
- * EXPECTED: When host clicks 'Start Game', ALL players should automatically navigate
- * to /rooms/{code}/assignment via WebSocket phase_changed event.
+ * EXPECTED: When host clicks 'Start Game', ALL players should automatically see
+ * the song assignment view via WebSocket phase_changed event and state-driven navigation.
  *
- * ACTUAL (BUG): Only host navigates (via HTTP response). Other players stay on lobby.
- *
- * This test SHOULD FAIL until the bug is fixed. It verifies WebSocket-triggered
- * navigation works for non-host players without manual goto().
+ * This test verifies WebSocket-triggered state changes work for non-host players
+ * via AppOrchestrator's state-driven view selection (no URL-based navigation).
  */
 import { test, expect, getArtifactsPath } from './fixtures';
 import type { Page, BrowserContext } from '@playwright/test';
@@ -30,13 +28,10 @@ async function loginWithSpotify(page: Page): Promise<void> {
   await expect(loginButton).toBeEnabled();
   await loginButton.click();
 
-  // Wait for success message
-  const successMessage = page.locator('.bg-green-900\\/30');
-  await expect(successMessage).toBeVisible({ timeout: 10000 });
-  await expect(successMessage).toContainText('Welcome,');
-
-  // Wait for redirect to /rooms
-  await page.waitForURL('**/rooms', { timeout: 10000 });
+  // Wait for RoomSelectionView (state-driven navigation - view switches fast after auth)
+  // The success message may appear briefly but view changes quickly
+  const createRoomButton = page.getByRole('button', { name: 'Create Room' });
+  await expect(createRoomButton).toBeVisible({ timeout: 10000 });
   await page.waitForLoadState('networkidle');
 }
 
@@ -57,18 +52,34 @@ async function loginAsGuest(page: Page, displayName: string): Promise<void> {
   await expect(joinButton).toBeEnabled();
   await joinButton.click();
 
-  // Wait for success message
-  const successMessage = page.locator('.bg-green-900\\/30');
-  await expect(successMessage).toBeVisible({ timeout: 10000 });
-  await expect(successMessage).toContainText('Welcome,');
-
-  // Wait for redirect to /rooms
-  await page.waitForURL('**/rooms', { timeout: 10000 });
+  // Wait for RoomSelectionView (state-driven navigation - view switches fast after auth)
+  const createRoomButton = page.getByRole('button', { name: 'Create Room' });
+  await expect(createRoomButton).toBeVisible({ timeout: 10000 });
   await page.waitForLoadState('networkidle');
 }
 
+// Helper: Wait for RoomLobbyView (verify by room code display and players section)
+async function waitForLobbyView(page: Page): Promise<string> {
+  // Wait for room code display (4xl font bold with tracking)
+  const roomCodeDisplay = page.locator('.text-4xl.font-bold');
+  await expect(roomCodeDisplay).toBeVisible({ timeout: 10000 });
+  const roomCode = await roomCodeDisplay.textContent() || '';
+
+  // Verify players section exists
+  const playersSection = page.locator('h3:has-text("Players")');
+  await expect(playersSection).toBeVisible({ timeout: 5000 });
+
+  return roomCode.trim();
+}
+
+// Helper: Wait for SongAssignmentView (verify by "Your Song" header)
+async function waitForSongAssignmentView(page: Page): Promise<void> {
+  const yourSongHeader = page.locator('h2:has-text("Your Song")');
+  await expect(yourSongHeader).toBeVisible({ timeout: 10000 });
+}
+
 test.describe('Game Start Player Sync Bug Reproduction', () => {
-  test('Non-host players should auto-navigate to /assignment when host starts game', async ({
+  test('Non-host players should auto-navigate to song assignment when host starts game', async ({
     browser,
     serverContext,
   }) => {
@@ -102,22 +113,17 @@ test.describe('Game Start Player Sync Bug Reproduction', () => {
     await expect(createRoomButton).toBeVisible({ timeout: 5000 });
     await createRoomButton.click();
 
-    // Host: Wait for navigation to lobby
-    await hostPage.waitForURL('**/rooms/*', { timeout: 10000 });
-    await hostPage.waitForLoadState('networkidle');
-
-    // Extract room code from URL
-    const hostUrl = hostPage.url();
-    const roomCodeMatch = hostUrl.match(/\/rooms\/(\d{3})/);
-    expect(roomCodeMatch).not.toBeNull();
-    const roomCode = roomCodeMatch![1];
+    // Host: Wait for RoomLobbyView and get room code
+    const roomCode = await waitForLobbyView(hostPage);
     console.log(`Room created with code: ${roomCode}`);
 
     // Host: Navigate to song picker and add songs
     const pickSongsButton = hostPage.getByRole('button', { name: 'Pick Songs' });
     await expect(pickSongsButton).toBeVisible({ timeout: 5000 });
     await pickSongsButton.click();
-    await hostPage.waitForURL(`**/rooms/${roomCode}/songs`, { timeout: 5000 });
+
+    // Wait for SongPickerView (this still uses URL routing)
+    await hostPage.waitForLoadState('networkidle');
 
     // Host: Search for songs using search input
     const searchInput = hostPage.locator('input[type="search"]');
@@ -131,11 +137,19 @@ test.describe('Game Start Player Sync Bug Reproduction', () => {
     const trackButtons = hostPage.locator('.max-h-80 button');
     await trackButtons.nth(0).click();
 
-    // Wait for track to be selected
-    await hostPage.waitForSelector('text=Selected Song', { timeout: 5000 });
+    // Wait for first track to be selected
+    await hostPage.waitForSelector('text=Selected Songs (1/2)', { timeout: 5000 });
+    console.log('First song selected');
 
-    // Click 'Add Song' button
-    const addButton = hostPage.getByRole('button', { name: 'Add Song' });
+    // Select second track from search results
+    await trackButtons.nth(1).click();
+
+    // Wait for second track to be selected
+    await hostPage.waitForSelector('text=Selected Songs (2/2)', { timeout: 5000 });
+    console.log('Second song selected');
+
+    // Click 'Add Song Pair' button
+    const addButton = hostPage.getByRole('button', { name: 'Add Song Pair' });
     await expect(addButton).toBeVisible();
     await expect(addButton).toBeEnabled();
     await addButton.click();
@@ -144,22 +158,14 @@ test.describe('Game Start Player Sync Bug Reproduction', () => {
     const successMessage = hostPage.locator('.bg-green-900\\/30');
     await expect(successMessage).toBeVisible({ timeout: 5000 });
     await expect(successMessage).toContainText('Added');
-    console.log('First song added');
-
-    // Select second track from search results
-    await trackButtons.nth(1).click();
-    await hostPage.waitForSelector('text=Selected Song', { timeout: 5000 });
-
-    // Click 'Add Song' button for second song
-    await expect(addButton).toBeEnabled();
-    await addButton.click();
-    await expect(successMessage).toBeVisible({ timeout: 5000 });
-    console.log('Second song added');
+    console.log('Song pair added');
 
     // Return to lobby
     const backButton = hostPage.getByRole('button', { name: 'Back to Lobby' });
     await backButton.click();
-    await hostPage.waitForURL(`**/rooms/${roomCode}`, { timeout: 5000 });
+
+    // Wait for RoomLobbyView to appear again
+    await waitForLobbyView(hostPage);
     console.log('Host returned to lobby');
 
     // ========================================================================
@@ -181,12 +187,11 @@ test.describe('Game Start Player Sync Bug Reproduction', () => {
     await expect(joinRoomButton).toBeEnabled({ timeout: 5000 });
     await joinRoomButton.click();
 
-    // Player: Wait for navigation to lobby
-    await playerPage.waitForURL(`**/rooms/${roomCode}`, { timeout: 10000 });
-    await playerPage.waitForLoadState('networkidle');
+    // Player: Wait for RoomLobbyView
+    await waitForLobbyView(playerPage);
     console.log('Player joined room and is in lobby');
 
-    // Verify WebSocket connected for player (check console logs or wait for player list)
+    // Verify WebSocket connected for player (check for player list)
     await playerPage.waitForSelector('ul.space-y-3 li', { timeout: 5000 });
     console.log('Player sees player list (WS connected)');
 
@@ -205,31 +210,29 @@ test.describe('Game Start Player Sync Bug Reproduction', () => {
     await startGameButton.click();
     console.log('Host clicked Start Game');
 
-    // Host: Verify navigation to /assignment (this should work via HTTP response)
-    await hostPage.waitForURL(`**/rooms/${roomCode}/assignment`, { timeout: 10000 });
-    console.log('Host navigated to /assignment (via HTTP response)');
+    // Host: Verify transition to SongAssignmentView (state-driven)
+    await waitForSongAssignmentView(hostPage);
+    console.log('Host sees song assignment view (via HTTP response + store update)');
 
     // ========================================================================
-    // BUG ASSERTION: Player should auto-navigate via WebSocket phase_changed
-    // This is the critical test - player should navigate WITHOUT manual goto()
+    // BUG ASSERTION: Player should auto-transition via WebSocket phase_changed
+    // This is the critical test - player should see assignment WITHOUT manual action
     // ========================================================================
     console.log('\n=== BUG ASSERTION: Player should auto-navigate ===');
 
-    // Wait for player to auto-navigate to /assignment via WebSocket
+    // Wait for player to auto-transition to SongAssignmentView via WebSocket
     // This should happen within a few seconds if WebSocket event is received and handled
-    // NOTE: We use waitForURL WITHOUT goto() - this tests the WS-triggered navigation
     try {
-      await playerPage.waitForURL(`**/rooms/${roomCode}/assignment`, { timeout: 10000 });
-      console.log('SUCCESS: Player auto-navigated to /assignment via WebSocket');
+      await waitForSongAssignmentView(playerPage);
+      console.log('SUCCESS: Player auto-navigated to song assignment via WebSocket');
     } catch (error) {
       // Take screenshot showing player is still on lobby
       const failScreenshotPath = getArtifactsPath(TEST_NAME, 'player-stuck-on-lobby.png');
       await playerPage.screenshot({ path: failScreenshotPath, fullPage: true });
       console.log(`BUG CONFIRMED: Player stuck on lobby. Screenshot: ${failScreenshotPath}`);
-      console.log(`Current player URL: ${playerPage.url()}`);
       throw new Error(
-        `BUG: Player did not auto-navigate to /assignment. ` +
-          `Expected URL to match **/rooms/${roomCode}/assignment but got ${playerPage.url()}`
+        `BUG: Player did not auto-navigate to song assignment view. ` +
+          `Expected to see "Your Song" header but player appears stuck on lobby.`
       );
     }
 

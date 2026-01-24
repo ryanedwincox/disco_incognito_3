@@ -1,9 +1,9 @@
 /**
- * WebSocket service for real-time room communication.
- * Manages WebSocket connections to rooms and handles incoming events.
+ * WebSocket service for real-time client communication.
+ * Manages WebSocket connections and handles incoming events.
+ * State-driven navigation via AppOrchestrator - no router.push() calls.
  */
 
-import router from "../router";
 import { useGameStore } from "../stores/game";
 import { useRoomStore } from "../stores/room";
 import { useWebSocketStore } from "../stores/websocket";
@@ -19,13 +19,21 @@ export interface WebSocketMessage {
   phase?: string;
   room_code?: string;
   playback_start_time?: string; // ISO timestamp when clients should start audio playback
+  // client_state fields
+  in_room?: boolean;
+  status?: string;
+  players?: Array<{
+    id: string;
+    display_name: string;
+    is_host: boolean;
+    is_connected: boolean;
+  }>;
 }
 
 const RECONNECT_TOKEN_KEY = "disco_reconnect_token";
 
 export class WebSocketService {
   private socket: WebSocket | null = null;
-  private roomCode: string | null = null;
   private userId: string | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
@@ -34,24 +42,18 @@ export class WebSocketService {
   private reconnectToken: string | null = null;
 
   /**
-   * Connect to a room's WebSocket endpoint.
+   * Connect to the app-level client WebSocket endpoint.
+   * Called on authentication success.
    */
-  connect(roomCode: string, userId: string): void {
-    this.roomCode = roomCode;
+  connectClient(userId: string): void {
     this.userId = userId;
-
-    // Try to load reconnect token from localStorage
-    const storedToken = localStorage.getItem(RECONNECT_TOKEN_KEY);
-    const reconnectParam = storedToken ? `&reconnect_token=${storedToken}` : "";
 
     // Determine WebSocket URL based on API_URL (same host/port as HTTP API)
     // Convert http(s):// to ws(s)://
     const wsBaseUrl = API_URL.replace(/^http/, "ws");
-    const wsUrl = `${wsBaseUrl}/api/ws/rooms/${roomCode}/ws?user_id=${userId}${reconnectParam}`;
+    const wsUrl = `${wsBaseUrl}/api/ws/client?user_id=${userId}`;
 
-    console.log(
-      `Connecting to WebSocket: ${wsUrl.replace(/reconnect_token=[^&]+/, "reconnect_token=***")}`
-    );
+    console.log(`Connecting to client WebSocket: ${wsUrl}`);
 
     const wsStore = useWebSocketStore();
     wsStore.setStatus("connecting");
@@ -60,8 +62,8 @@ export class WebSocketService {
       this.socket = new WebSocket(wsUrl);
 
       this.socket.onopen = () => {
-        console.log(`WebSocket connected to room ${roomCode}`);
-        this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+        console.log(`Client WebSocket connected for user ${userId}`);
+        this.reconnectAttempts = 0;
         wsStore.setStatus("connected");
       };
 
@@ -75,7 +77,7 @@ export class WebSocketService {
       };
 
       this.socket.onclose = () => {
-        console.log(`WebSocket disconnected from room ${roomCode}`);
+        console.log(`Client WebSocket disconnected`);
         this.socket = null;
         wsStore.setStatus("disconnected");
         this.attemptReconnect();
@@ -104,25 +106,24 @@ export class WebSocketService {
     // Clear reconnect token when deliberately disconnecting
     localStorage.removeItem(RECONNECT_TOKEN_KEY);
 
-    this.roomCode = null;
     this.userId = null;
     this.reconnectAttempts = 0;
     this.reconnectToken = null;
   }
 
   /**
-   * Manually trigger reconnection using stored reconnect token.
+   * Manually trigger reconnection.
    * Called by the retry button in ServerDisconnectedBanner.
    */
   reconnect(): void {
-    if (!this.roomCode || !this.userId) {
-      console.warn("Cannot reconnect: missing room code or user ID");
+    if (!this.userId) {
+      console.warn("Cannot reconnect: missing user ID");
       return;
     }
 
     console.log("Manual reconnection triggered");
     this.reconnectAttempts = 0; // Reset attempts for manual reconnect
-    this.connect(this.roomCode, this.userId);
+    this.connectClient(this.userId);
   }
 
   /**
@@ -136,8 +137,8 @@ export class WebSocketService {
       return;
     }
 
-    if (!this.roomCode || !this.userId) {
-      console.warn("Cannot reconnect: missing room code or user ID");
+    if (!this.userId) {
+      console.warn("Cannot reconnect: missing user ID");
       return;
     }
 
@@ -149,8 +150,8 @@ export class WebSocketService {
     );
 
     this.reconnectTimer = window.setTimeout(() => {
-      if (this.roomCode && this.userId) {
-        this.connect(this.roomCode, this.userId);
+      if (this.userId) {
+        this.connectClient(this.userId);
       }
     }, delay);
   }
@@ -176,6 +177,10 @@ export class WebSocketService {
 
         case "room_state":
           this.handleRoomState(message);
+          break;
+
+        case "client_state":
+          this.handleClientState(message);
           break;
 
         case "player_connected":
@@ -240,6 +245,65 @@ export class WebSocketService {
   }
 
   /**
+   * Handle client_state event from app-level WebSocket.
+   * Populates roomStore and gameStore, clears stale state when not in room.
+   */
+  private handleClientState(message: WebSocketMessage): void {
+    console.log("Received client_state:", message);
+    const roomStore = useRoomStore();
+    const gameStore = useGameStore();
+
+    if (message.in_room === false) {
+      // Clear stale room/game state when server says we're not in a room
+      roomStore.reset();
+      gameStore.setPlaying(false);
+      gameStore.setPlaybackStartTime(null);
+      return;
+    }
+
+    // Populate room state
+    if (message.room_code) {
+      roomStore.setRoom(message.room_code);
+    }
+
+    if (message.phase) {
+      roomStore.setStatus(message.phase as "lobby" | "picking_songs" | "song_selection" | "playing" | "guessing" | "results");
+    }
+
+    // Room data is nested under room_data
+    const roomData = message.room_data as Record<string, unknown> | undefined;
+    if (roomData) {
+      if (roomData.players && Array.isArray(roomData.players)) {
+        roomStore.setPlayers(
+          (roomData.players as Array<{id: string; display_name: string; is_host: boolean; is_connected: boolean}>).map((p) => ({
+            id: p.id,
+            name: p.display_name,
+            isHost: p.is_host,
+            isConnected: p.is_connected
+          }))
+        );
+      }
+
+      if (typeof roomData.song_pair_count === 'number') {
+        roomStore.setSongPairCount(roomData.song_pair_count);
+      }
+
+      if (roomData.assigned_song && typeof roomData.assigned_song === 'object') {
+        const song = roomData.assigned_song as {id: string; title: string; artist: string};
+        roomStore.setAssignedSong({
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+        });
+      }
+
+      if (typeof roomData.playback_start_time === 'string') {
+        gameStore.setPlaybackStartTime(roomData.playback_start_time);
+      }
+    }
+  }
+
+  /**
    * Handle player_connected event.
    */
   private handlePlayerConnected(
@@ -300,7 +364,8 @@ export class WebSocketService {
   }
 
   /**
-   * Handle phase_changed event and navigate to appropriate view.
+   * Handle phase_changed event - updates stores only.
+   * Navigation is handled by AppOrchestrator based on store state.
    */
   private handlePhaseChanged(message: WebSocketMessage): void {
     const { phase, room_code, playback_start_time } = message;
@@ -311,41 +376,30 @@ export class WebSocketService {
       return;
     }
 
-    // Update game store
+    const roomStore = useRoomStore();
     const gameStore = useGameStore();
 
-    // Map phase to route and update state
-    switch (phase) {
-      case "song_selection":
-        // Navigate to song assignment view
-        router.push({ name: "song-assignment", params: { code: room_code } });
-        break;
+    // Update room status - AppOrchestrator will handle view selection
+    roomStore.setStatus(phase as "lobby" | "song_selection" | "playing" | "guessing" | "results");
 
+    // Update game state based on phase
+    switch (phase) {
       case "playing":
-        // Store playback start time for synchronized audio
         if (playback_start_time) {
           gameStore.setPlaybackStartTime(playback_start_time);
         }
-        // Update game store and navigate to game playing view
         gameStore.setPlaying(true);
-        router.push({ name: "game", params: { code: room_code } });
-        break;
-
-      case "guessing":
-        // Navigate to guessing view
-        router.push({ name: "guessing", params: { code: room_code } });
-        break;
-
-      case "results":
-        // Navigate to results view
-        router.push({ name: "results", params: { code: room_code } });
         break;
 
       case "lobby":
-        // Reset game state and navigate back to lobby
         gameStore.setPlaying(false);
         gameStore.setPlaybackStartTime(null);
-        router.push({ name: "room-lobby", params: { code: room_code } });
+        break;
+
+      case "song_selection":
+      case "guessing":
+      case "results":
+        // No additional game state updates needed
         break;
 
       default:

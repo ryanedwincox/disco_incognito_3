@@ -62,6 +62,7 @@ export const useAuthStore = defineStore("auth", {
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("user");
       localStorage.removeItem("is_spotify_user");
+      localStorage.removeItem("disco_reconnect_token");
     },
 
     async testLogin(): Promise<{ success: boolean; error?: string }> {

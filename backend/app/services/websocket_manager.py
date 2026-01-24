@@ -23,12 +23,15 @@ class ConnectionManager:
 
     Tracks active connections per room and handles broadcasting of messages
     to all players in a room. Also broadcasts player connect/disconnect events.
+    Supports both room-specific and app-level client connections.
     """
 
     def __init__(self) -> None:
         """Initialize connection manager with empty connection tracking."""
         # Structure: {room_code: {user_id: WebSocket}}
         self.active_connections: dict[str, dict[str, WebSocket]] = {}
+        # App-level client connections: {user_id: (WebSocket, room_code | None)}
+        self.client_connections: dict[str, tuple[WebSocket, str | None]] = {}
 
     async def connect(self, room_code: str, user_id: str, websocket: WebSocket, reconnect_token: str | None = None) -> dict:
         """Connect a user to a room via WebSocket.
@@ -173,28 +176,132 @@ class ConnectionManager:
         logger.warning(f'Invalid reconnect token: {reconnect_token}')
         return None
 
+    async def connect_client(self, user_id: str, websocket: WebSocket, room_code: str | None = None) -> dict:
+        """Connect a client via app-level WebSocket (no room required).
+
+        Args:
+            user_id: The user's unique identifier
+            websocket: The WebSocket connection
+            room_code: Optional room code if user is currently in a room
+
+        Returns:
+            Dict with connection info including reconnect_token
+        """
+        self.client_connections[user_id] = (websocket, room_code)
+        logger.info(f'Client {user_id} connected via app-level WS (room={room_code})')
+
+        # Generate reconnect token and update session
+        storage = get_storage_adapter()
+        new_reconnect_token = str(uuid.uuid4())
+
+        state = await storage.load()
+        sessions = state.get('sessions', {})
+
+        access_token = None
+        for token, session_data in sessions.items():
+            if session_data.get('user_id') == user_id:
+                access_token = token
+                break
+
+        if access_token:
+            session_data = sessions[access_token]
+            session_data['reconnect_token'] = new_reconnect_token
+            session_data['disconnected_at'] = None
+            await storage.set_session(access_token, session_data)
+
+        return {'reconnect_token': new_reconnect_token}
+
+    async def disconnect_client(self, user_id: str) -> None:
+        """Disconnect an app-level client connection.
+
+        Args:
+            user_id: The user's unique identifier
+        """
+        if user_id in self.client_connections:
+            del self.client_connections[user_id]
+            logger.info(f'Client {user_id} disconnected from app-level WS')
+
+            # Update session with disconnect timestamp
+            storage = get_storage_adapter()
+            state = await storage.load()
+            sessions = state.get('sessions', {})
+
+            access_token = None
+            for token, session_data in sessions.items():
+                if session_data.get('user_id') == user_id:
+                    access_token = token
+                    break
+
+            if access_token:
+                session_data = sessions[access_token]
+                session_data['disconnected_at'] = datetime.now(timezone.utc).isoformat()
+                await storage.set_session(access_token, session_data)
+
+    async def update_client_room(self, user_id: str, room_code: str | None) -> None:
+        """Update the room association for a client connection and session.
+
+        Args:
+            user_id: The user's unique identifier
+            room_code: New room code (or None if leaving room)
+        """
+        # Update in-memory connection
+        if user_id in self.client_connections:
+            websocket, _ = self.client_connections[user_id]
+            self.client_connections[user_id] = (websocket, room_code)
+
+        # Update session for reconnection support
+        storage = get_storage_adapter()
+        state = await storage.load()
+        sessions = state.get('sessions', {})
+
+        access_token = None
+        for token, session_data in sessions.items():
+            if session_data.get('user_id') == user_id:
+                access_token = token
+                break
+
+        if access_token:
+            session_data = sessions[access_token]
+            session_data['room_code'] = room_code
+            await storage.set_session(access_token, session_data)
+
+        logger.debug(f'Updated client {user_id} room to {room_code}')
+
     async def broadcast_to_room(self, room_code: str, message: dict) -> None:
         """Broadcast a message to all connected users in a room.
+
+        Sends to both legacy room connections and app-level client connections.
 
         Args:
             room_code: The room code to broadcast to
             message: The message dictionary to send (will be serialized to JSON)
         """
-        if room_code not in self.active_connections:
-            logger.warning(f'Attempted to broadcast to non-existent room {room_code}')
-            return
+        # Legacy room connections
+        if room_code in self.active_connections:
+            connections = list(self.active_connections[room_code].items())
+            for user_id, websocket in connections:
+                try:
+                    await websocket.send_json(message)
+                except Exception as e:
+                    logger.error(f'Error broadcasting to user {user_id} in room {room_code}: {e}')
+                    if room_code in self.active_connections and user_id in self.active_connections[room_code]:
+                        del self.active_connections[room_code][user_id]
 
-        # Get list of connections to avoid modification during iteration
-        connections = list(self.active_connections[room_code].items())
-
-        for user_id, websocket in connections:
+        # App-level client connections for this room
+        client_connections = [
+            (uid, ws) for uid, (ws, rc) in self.client_connections.items()
+            if rc == room_code
+        ]
+        for user_id, websocket in client_connections:
             try:
                 await websocket.send_json(message)
             except Exception as e:
-                logger.error(f'Error broadcasting to user {user_id} in room {room_code}: {e}')
-                # Connection is dead, remove it
-                if room_code in self.active_connections and user_id in self.active_connections[room_code]:
-                    del self.active_connections[room_code][user_id]
+                logger.error(f'Error broadcasting to client {user_id} for room {room_code}: {e}')
+                if user_id in self.client_connections:
+                    del self.client_connections[user_id]
+
+        if room_code not in self.active_connections and not client_connections:
+            logger.warning(f'Attempted to broadcast to room {room_code} with no connections')
 
 
 # Singleton instance for access from routes

@@ -122,9 +122,9 @@ onMounted(() => {
     successMessage.value = `Welcome, ${userName}!`
     console.log(`✅ Spotify login successful: ${userName}`)
 
-    // Clean up URL and redirect to rooms
+    // Clean up URL - AppOrchestrator will handle view switch based on auth state
     setTimeout(() => {
-      router.replace('/rooms')
+      router.replace('/')
     }, 500)
   } else if (query['error']) {
     // Handle OAuth error
@@ -142,11 +142,9 @@ async function handleSpotifyLogin() {
     await authStore.spotifyLogin()
 
     // If we get here, test mode login succeeded (live mode would have redirected)
+    // AppOrchestrator will handle view switch based on auth state
     if (authStore.isAuthenticated) {
       successMessage.value = `Welcome, ${authStore.userName}!`
-      setTimeout(() => {
-        router.push('/rooms')
-      }, 500)
     }
   } catch (error: unknown) {
     console.error('Login error:', error)
@@ -168,10 +166,7 @@ async function handleManualLogin() {
 
     if (result.success) {
       successMessage.value = `Welcome, ${authStore.userName}!`
-      // Redirect to room selection after short delay
-      setTimeout(() => {
-        router.push('/rooms')
-      }, 1000)
+      // AppOrchestrator will handle view switch based on auth state
     } else {
       errorMessage.value = result.error || 'Failed to join as guest'
     }

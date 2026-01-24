@@ -57,9 +57,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
 import { usePlayerStore } from '@/stores/player';
 import { useAuthStore } from '@/stores/auth';
+import { useRoomStore } from '@/stores/room';
 import { useRoomApi } from '@/composables/useRoomApi';
 
 const { handleRoomResponse, API_URL } = useRoomApi();
@@ -92,10 +92,9 @@ interface VoteResult {
   isCorrect: boolean;
 }
 
-const route = useRoute();
-const router = useRouter();
 const playerStore = usePlayerStore();
 const authStore = useAuthStore();
+const roomStore = useRoomStore();
 
 const loading = ref(true);
 const error = ref<string | null>(null);
@@ -105,7 +104,7 @@ const incognitoPlayerId = ref<string | null>(null);
 const votes = ref<Record<string, string>>({});
 const correctGuessers = ref<string[]>([]);
 
-const roomCode = computed(() => route.params.code as string);
+const roomCode = computed(() => roomStore.code || '');
 
 const isHost = computed(() => {
   const currentUserId = authStore.user?.id ?? playerStore.id;
@@ -199,8 +198,8 @@ async function finishRound() {
       return;
     }
 
-    // Navigate back to lobby for next round
-    router.push(`/rooms/${roomCode.value}`);
+    // Go back to lobby for next round - AppOrchestrator will switch view
+    roomStore.setStatus('lobby');
   } catch (err) {
     console.error('Failed to finish round:', err);
     error.value = 'Failed to finish round. Please try again.';

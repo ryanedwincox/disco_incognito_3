@@ -15,8 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useMusicStore, type TrackInfo } from '../stores/music'
@@ -24,14 +23,12 @@ import { useRoomApi } from '../composables/useRoomApi'
 import SongAssignmentView from './SongAssignmentView.vue'
 import MusicPlayerBar from '../components/MusicPlayerBar.vue'
 
-const route = useRoute()
-const router = useRouter()
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
 const musicStore = useMusicStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
 
-const roomCode = computed(() => route.params.code as string)
+const roomCode = computed(() => roomStore.code || '')
 const currentUserId = computed(() => authStore.user?.id ?? null)
 const isReady = ref(false)
 const readyPlayers = ref<string[]>([])
@@ -56,9 +53,6 @@ onMounted(async () => {
   // Load auth state from localStorage (in case of page refresh)
   authStore.loadFromStorage()
 
-  // Set room code in store
-  roomStore.setRoom(roomCode.value)
-
   // Fetch music player state (devices and playback) for MusicPlayerBar
   if (authStore.isAuthenticated) {
     await musicStore.getDevices()
@@ -66,7 +60,7 @@ onMounted(async () => {
   }
 
   // If assignedSong is not set (page refresh), fetch room data to get it
-  if (!roomStore.assignedSong && currentUserId.value) {
+  if (!roomStore.assignedSong && currentUserId.value && roomCode.value) {
     try {
       const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}`)
 
@@ -103,10 +97,7 @@ onMounted(async () => {
           }
         }
 
-        // If already playing, navigate to playback view
-        if (data.status === 'playing') {
-          router.push(`/rooms/${roomCode.value}/play`)
-        }
+        // Status update will trigger AppOrchestrator to switch view if needed
       }
     } catch (error) {
       console.log('Could not fetch room data:', error)
@@ -139,14 +130,9 @@ async function handleReady() {
         readyPlayers.value = data.current_round.ready_players
       }
 
-      // Update room status
+      // Update room status - AppOrchestrator will switch view if 'playing'
       if (data.status) {
         roomStore.setStatus(data.status)
-      }
-
-      // If all players ready, navigate to playback view
-      if (data.status === 'playing') {
-        router.push(`/rooms/${roomCode.value}/play`)
       }
     }
   } catch (error) {
@@ -154,10 +140,5 @@ async function handleReady() {
   }
 }
 
-// Watch for status changes from external updates (e.g., WebSocket)
-watch(() => roomStore.status, (newStatus) => {
-  if (newStatus === 'playing') {
-    router.push(`/rooms/${roomCode.value}/play`)
-  }
-})
+// Note: Status changes from WebSocket will trigger AppOrchestrator to switch views automatically
 </script>
