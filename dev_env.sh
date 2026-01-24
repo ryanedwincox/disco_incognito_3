@@ -2,6 +2,75 @@
 # Development environment setup - idempotent and safe to source repeatedly
 # Usage: source dev_env.sh
 
+# Port ranges for worktree isolation
+MAIN_BACKEND_START=8000
+MAIN_FRONTEND_START=3000
+FEATURE_BACKEND_START=9000
+FEATURE_FRONTEND_START=9100
+PORT_SCAN_RANGE=100
+
+is_port_in_use() {
+    local port=$1
+    # Check Docker containers
+    if docker ps --format '{{.Ports}}' 2>/dev/null | grep -q ":${port}->"; then
+        return 0
+    fi
+    # Check other processes
+    if command -v lsof >/dev/null 2>&1; then
+        lsof -i:"$port" >/dev/null 2>&1 && return 0
+    elif command -v ss >/dev/null 2>&1; then
+        ss -tuln | grep -q ":${port} " && return 0
+    fi
+    return 1
+}
+
+find_available_port() {
+    local start_port=$1
+    local port=$start_port
+    local max_port=$((start_port + PORT_SCAN_RANGE))
+    while [ $port -lt $max_port ]; do
+        if ! is_port_in_use "$port"; then
+            echo "$port"
+            return 0
+        fi
+        port=$((port + 1))
+    done
+    echo "$start_port"  # Fallback to start port
+}
+
+# Create .env files if they don't exist (required by docker-compose)
+# Use different port ranges for main vs feature branches to avoid worktree conflicts
+if [ ! -f "backend/.env" ] || [ ! -f "frontend/.env" ]; then
+    # Determine if we're on main branch
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    if [[ "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
+        DEV_BACKEND_PORT=$(find_available_port $MAIN_BACKEND_START)
+        DEV_FRONTEND_PORT=$(find_available_port $MAIN_FRONTEND_START)
+    else
+        # Feature branch/worktree: use 9000+ range
+        DEV_BACKEND_PORT=$(find_available_port $FEATURE_BACKEND_START)
+        DEV_FRONTEND_PORT=$(find_available_port $FEATURE_FRONTEND_START)
+    fi
+
+    if [ ! -f "backend/.env" ]; then
+        cat > backend/.env << EOF
+# Backend environment variables
+PORT=$DEV_BACKEND_PORT
+SPOTIFY_MODE=test
+EOF
+        echo "Created backend/.env (port $DEV_BACKEND_PORT)"
+    fi
+
+    if [ ! -f "frontend/.env" ]; then
+        cat > frontend/.env << EOF
+# Frontend environment variables
+VITE_API_URL=http://localhost:$DEV_BACKEND_PORT
+VITE_PORT=$DEV_FRONTEND_PORT
+EOF
+        echo "Created frontend/.env (port $DEV_FRONTEND_PORT)"
+    fi
+fi
+
 # Detect if script is being sourced or executed
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     echo "Error: This script must be sourced, not executed directly."
