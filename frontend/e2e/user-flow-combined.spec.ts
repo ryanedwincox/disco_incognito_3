@@ -4,8 +4,12 @@
 import { test, expect, getArtifactsPath, getBaselinePath, getBaselineScreenshots, compareScreenshots } from './fixtures';
 import type { Browser, Page, BrowserContext } from '@playwright/test';
 
-const BACKEND_URL = 'http://localhost:8000';
-const FRONTEND_URL = 'http://localhost:3000';
+// Port configuration: Use environment variables or feature branch defaults (9000/9100)
+// Main branch uses 8000/3000, feature branches use 9000/9100 to avoid conflicts
+const BACKEND_PORT = process.env.PORT || '9000';
+const FRONTEND_PORT = process.env.VITE_PORT || '9100';
+const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
+const FRONTEND_URL = `http://localhost:${FRONTEND_PORT}`;
 const TEST_NAME = 'user-flow-combined';
 
 // ============================================================================

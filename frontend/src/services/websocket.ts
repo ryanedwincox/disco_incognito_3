@@ -48,10 +48,6 @@ export class WebSocketService {
   connectClient(userId: string): void {
     this.userId = userId;
 
-    // Try to load reconnect token from sessionStorage
-    const storedToken = sessionStorage.getItem(RECONNECT_TOKEN_KEY);
-    const reconnectParam = storedToken ? `&reconnect_token=${storedToken}` : "";
-
     // Determine WebSocket URL based on API_URL (same host/port as HTTP API)
     // Convert http(s):// to ws(s)://
     const wsBaseUrl = API_URL.replace(/^http/, "ws");

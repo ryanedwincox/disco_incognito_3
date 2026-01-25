@@ -41,9 +41,10 @@ function getMainRepoDir(): string {
 // Note: getMainRepoDir() available if needed for worktree .venv resolution
 void getMainRepoDir; // Suppress unused warning - kept for future use
 
-// Ports
-const BACKEND_PORT = 8000;
-const FRONTEND_PORT = 3000;
+// Port configuration: Use environment variables or feature branch defaults (9000/9100)
+// Main branch uses 8000/3000, feature branches use 9000/9100 to avoid conflicts
+const BACKEND_PORT = parseInt(process.env.PORT || '9000', 10);
+const FRONTEND_PORT = parseInt(process.env.VITE_PORT || '9100', 10);
 
 // Wait for port to be available
 async function waitForPort(port: number, timeout = 30000): Promise<boolean> {

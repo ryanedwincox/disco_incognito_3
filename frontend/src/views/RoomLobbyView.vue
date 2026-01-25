@@ -80,7 +80,6 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useRoomApi } from '../composables/useRoomApi'
-import { websocketService } from '../services/websocket'
 
 const roomStore = useRoomStore()
 const authStore = useAuthStore()

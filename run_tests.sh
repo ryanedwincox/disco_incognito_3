@@ -85,7 +85,8 @@ fi
 if $RUN_ALL || $RUN_BACKEND; then
     echo ">>> Backend Tests"
     cd backend
-    python -m pytest -v
+    # Use temp file for storage to avoid permission issues with Docker-created data dir
+    SESSION_STORAGE_FILE=/tmp/disco_test_$$.json python -m pytest -v
     cd ..
     echo ""
 fi
