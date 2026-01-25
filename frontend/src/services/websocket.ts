@@ -48,6 +48,10 @@ export class WebSocketService {
   connectClient(userId: string): void {
     this.userId = userId;
 
+    // Try to load reconnect token from sessionStorage
+    const storedToken = sessionStorage.getItem(RECONNECT_TOKEN_KEY);
+    const reconnectParam = storedToken ? `&reconnect_token=${storedToken}` : "";
+
     // Determine WebSocket URL based on API_URL (same host/port as HTTP API)
     // Convert http(s):// to ws(s)://
     const wsBaseUrl = API_URL.replace(/^http/, "ws");
@@ -104,7 +108,7 @@ export class WebSocketService {
     }
 
     // Clear reconnect token when deliberately disconnecting
-    localStorage.removeItem(RECONNECT_TOKEN_KEY);
+    sessionStorage.removeItem(RECONNECT_TOKEN_KEY);
 
     this.userId = null;
     this.reconnectAttempts = 0;
@@ -213,7 +217,7 @@ export class WebSocketService {
   private handleConnected(message: WebSocketMessage): void {
     if (message.reconnect_token) {
       this.reconnectToken = message.reconnect_token;
-      localStorage.setItem(RECONNECT_TOKEN_KEY, message.reconnect_token);
+      sessionStorage.setItem(RECONNECT_TOKEN_KEY, message.reconnect_token);
       console.log("Reconnect token stored");
     }
   }
@@ -224,7 +228,7 @@ export class WebSocketService {
   private handleReconnectFailed(message: WebSocketMessage): void {
     console.error("Reconnection failed:", message.reason);
     // Clear invalid token
-    localStorage.removeItem(RECONNECT_TOKEN_KEY);
+    sessionStorage.removeItem(RECONNECT_TOKEN_KEY);
     this.reconnectToken = null;
   }
 

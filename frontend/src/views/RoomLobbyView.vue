@@ -102,7 +102,7 @@ const isHost = computed(() => {
 const isStarting = ref(false)
 
 onMounted(async () => {
-  // Load auth state from localStorage (in case of page refresh)
+  // Load auth state from sessionStorage (in case of page refresh)
   authStore.loadFromStorage()
 
   if (!roomCode.value) {

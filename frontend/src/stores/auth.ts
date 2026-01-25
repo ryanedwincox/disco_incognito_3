@@ -1,6 +1,6 @@
 /**
  * Authentication store managing Spotify OAuth tokens and user session.
- * Handles token storage in localStorage, test mode login, live Spotify OAuth flow,
+ * Handles token storage in sessionStorage, test mode login, live Spotify OAuth flow,
  * and session persistence. Provides user info and authentication status getters.
  */
 import { defineStore } from "pinia";
@@ -42,14 +42,14 @@ export const useAuthStore = defineStore("auth", {
       this.accessToken = accessToken;
       this.refreshToken = refreshToken;
 
-      // Store tokens in localStorage for persistence
-      localStorage.setItem("access_token", accessToken);
-      localStorage.setItem("refresh_token", refreshToken);
+      // Store tokens in sessionStorage for per-tab isolation
+      sessionStorage.setItem("access_token", accessToken);
+      sessionStorage.setItem("refresh_token", refreshToken);
     },
 
     setUser(user: UserInfo) {
       this.user = user;
-      localStorage.setItem("user", JSON.stringify(user));
+      sessionStorage.setItem("user", JSON.stringify(user));
     },
 
     clearTokens() {
@@ -58,11 +58,10 @@ export const useAuthStore = defineStore("auth", {
       this.user = null;
       this.isSpotifyUser = true;
 
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("is_spotify_user");
-      localStorage.removeItem("disco_reconnect_token");
+      sessionStorage.removeItem("access_token");
+      sessionStorage.removeItem("refresh_token");
+      sessionStorage.removeItem("user");
+      sessionStorage.removeItem("is_spotify_user");
     },
 
     async testLogin(): Promise<{ success: boolean; error?: string }> {
@@ -111,7 +110,7 @@ export const useAuthStore = defineStore("auth", {
 
         // Mark as non-Spotify user
         this.isSpotifyUser = false;
-        localStorage.setItem("is_spotify_user", "false");
+        sessionStorage.setItem("is_spotify_user", "false");
 
         console.log(`✅ Guest user created: ${data.display_name}`);
         return { success: true };
@@ -139,9 +138,9 @@ export const useAuthStore = defineStore("auth", {
             displayName: data.display_name,
             email: data.email
           });
-          // Mark as Spotify user and persist to localStorage
+          // Mark as Spotify user and persist to sessionStorage
           this.isSpotifyUser = true;
-          localStorage.setItem("is_spotify_user", "true");
+          sessionStorage.setItem("is_spotify_user", "true");
           console.log(`✅ Test mode login successful: ${data.display_name}`);
           return;
         }
@@ -160,10 +159,10 @@ export const useAuthStore = defineStore("auth", {
     },
 
     async loadFromStorage(): Promise<void> {
-      const accessToken = localStorage.getItem("access_token");
-      const refreshToken = localStorage.getItem("refresh_token");
-      const userJson = localStorage.getItem("user");
-      const isSpotifyUser = localStorage.getItem("is_spotify_user");
+      const accessToken = sessionStorage.getItem("access_token");
+      const refreshToken = sessionStorage.getItem("refresh_token");
+      const userJson = sessionStorage.getItem("user");
+      const isSpotifyUser = sessionStorage.getItem("is_spotify_user");
 
       if (accessToken && refreshToken) {
         this.accessToken = accessToken;
