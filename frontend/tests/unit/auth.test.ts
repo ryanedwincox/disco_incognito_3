@@ -14,8 +14,8 @@ import { useAuthStore } from "../../src/stores/auth";
 vi.mock("axios");
 const mockedAxios = vi.mocked(axios, true);
 
-// Mock localStorage
-const localStorageMock = (() => {
+// Mock sessionStorage (auth store uses sessionStorage for per-tab isolation)
+const sessionStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
     getItem: vi.fn((key: string) => store[key] ?? null),
@@ -36,12 +36,12 @@ const localStorageMock = (() => {
   };
 })();
 
-Object.defineProperty(global, "localStorage", { value: localStorageMock });
+Object.defineProperty(global, "sessionStorage", { value: sessionStorageMock });
 
 describe("Auth Store - Token Validation", () => {
   beforeEach(() => {
     setActivePinia(createPinia());
-    localStorageMock.clear();
+    sessionStorageMock.clear();
     vi.clearAllMocks();
   });
 
@@ -52,9 +52,9 @@ describe("Auth Store - Token Validation", () => {
   describe("loadFromStorage", () => {
     it("clears tokens when validateTokens returns 401", async () => {
       // Setup: Tokens in localStorage
-      localStorageMock.setItem("access_token", "test_token_123");
-      localStorageMock.setItem("refresh_token", "test_refresh_123");
-      localStorageMock.setItem(
+      sessionStorageMock.setItem("access_token", "test_token_123");
+      sessionStorageMock.setItem("refresh_token", "test_refresh_123");
+      sessionStorageMock.setItem(
         "user",
         JSON.stringify({ id: "user1", displayName: "Test User", email: "test@example.com" })
       );
@@ -71,16 +71,16 @@ describe("Auth Store - Token Validation", () => {
       expect(authStore.accessToken).toBeNull();
       expect(authStore.refreshToken).toBeNull();
       expect(authStore.user).toBeNull();
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith("access_token");
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith("refresh_token");
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith("user");
+      expect(sessionStorageMock.removeItem).toHaveBeenCalledWith("access_token");
+      expect(sessionStorageMock.removeItem).toHaveBeenCalledWith("refresh_token");
+      expect(sessionStorageMock.removeItem).toHaveBeenCalledWith("user");
     });
 
     it("preserves tokens on network error (offline mode)", async () => {
       // Setup: Tokens in localStorage
-      localStorageMock.setItem("access_token", "test_token_456");
-      localStorageMock.setItem("refresh_token", "test_refresh_456");
-      localStorageMock.setItem(
+      sessionStorageMock.setItem("access_token", "test_token_456");
+      sessionStorageMock.setItem("refresh_token", "test_refresh_456");
+      sessionStorageMock.setItem(
         "user",
         JSON.stringify({ id: "user2", displayName: "Offline User", email: "offline@example.com" })
       );
@@ -100,14 +100,14 @@ describe("Auth Store - Token Validation", () => {
         email: "offline@example.com"
       });
       // removeItem should NOT have been called for tokens
-      expect(localStorageMock.removeItem).not.toHaveBeenCalledWith("access_token");
+      expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith("access_token");
     });
 
     it("preserves tokens on 500 server error", async () => {
       // Setup: Tokens in localStorage
-      localStorageMock.setItem("access_token", "test_token_789");
-      localStorageMock.setItem("refresh_token", "test_refresh_789");
-      localStorageMock.setItem(
+      sessionStorageMock.setItem("access_token", "test_token_789");
+      sessionStorageMock.setItem("refresh_token", "test_refresh_789");
+      sessionStorageMock.setItem(
         "user",
         JSON.stringify({ id: "user3", displayName: "Server Error User", email: "error@example.com" })
       );
@@ -123,7 +123,7 @@ describe("Auth Store - Token Validation", () => {
       // Tokens should be preserved (not a 401)
       expect(authStore.accessToken).toBe("test_token_789");
       expect(authStore.refreshToken).toBe("test_refresh_789");
-      expect(localStorageMock.removeItem).not.toHaveBeenCalledWith("access_token");
+      expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith("access_token");
     });
 
     it("does not call validateTokens when no token in storage", async () => {
@@ -138,9 +138,9 @@ describe("Auth Store - Token Validation", () => {
 
     it("keeps tokens when validateTokens returns 200", async () => {
       // Setup: Tokens in localStorage
-      localStorageMock.setItem("access_token", "valid_token");
-      localStorageMock.setItem("refresh_token", "valid_refresh");
-      localStorageMock.setItem(
+      sessionStorageMock.setItem("access_token", "valid_token");
+      sessionStorageMock.setItem("refresh_token", "valid_refresh");
+      sessionStorageMock.setItem(
         "user",
         JSON.stringify({ id: "valid_user", displayName: "Valid User", email: "valid@example.com" })
       );
@@ -162,14 +162,14 @@ describe("Auth Store - Token Validation", () => {
         displayName: "Valid User",
         email: "valid@example.com"
       });
-      expect(localStorageMock.removeItem).not.toHaveBeenCalledWith("access_token");
+      expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith("access_token");
     });
   });
 
   describe("validateTokens", () => {
     it("calls /api/auth/verify with Bearer token", async () => {
-      localStorageMock.setItem("access_token", "my_token");
-      localStorageMock.setItem("refresh_token", "my_refresh");
+      sessionStorageMock.setItem("access_token", "my_token");
+      sessionStorageMock.setItem("refresh_token", "my_refresh");
 
       mockedAxios.get.mockResolvedValueOnce({ status: 200, data: {} });
 
