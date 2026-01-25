@@ -46,6 +46,11 @@ export class WebSocketService {
    * Called on authentication success.
    */
   connectClient(userId: string): void {
+    // Guard: skip if already connected or connecting to avoid duplicate connections
+    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
     this.userId = userId;
 
     // Determine WebSocket URL based on API_URL (same host/port as HTTP API)
