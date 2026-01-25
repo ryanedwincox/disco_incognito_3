@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    user: "${UID}:${GID}"
     environment:
       - SPOTIFY_MODE=live
       - SESSION_STORAGE=json_file
