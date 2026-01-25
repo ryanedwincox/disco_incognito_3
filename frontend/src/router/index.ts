@@ -6,14 +6,6 @@ const TestPlaybackView = () => import("@/views/TestPlaybackView.vue");
 const ErrorTestView = () => import("@/views/ErrorTestView.vue");
 const ServerDisconnectedDemoView = () => import("@/views/ServerDisconnectedDemoView.vue");
 const ExceptionDemoView = () => import("@/views/ExceptionDemoView.vue");
-const RoomSelectionView = () => import("@/views/RoomSelectionView.vue");
-const RoomLobbyView = () => import("@/views/RoomLobbyView.vue");
-const GamePlayingView = () => import("@/views/GamePlayingView.vue");
-const SongPickerView = () => import("@/views/SongPickerView.vue");
-const GameView = () => import("@/views/GameView.vue");
-const GuessingView = () => import("@/views/GuessingView.vue");
-const ResultsView = () => import("@/views/ResultsView.vue");
-const SongAssignmentWrapper = () => import("@/views/SongAssignmentWrapper.vue");
 
 const routes: RouteRecordRaw[] = [
   {
@@ -40,46 +32,6 @@ const routes: RouteRecordRaw[] = [
     path: "/test/exception",
     name: "demo-exception",
     component: ExceptionDemoView
-  },
-  {
-    path: "/rooms",
-    name: "room-selection",
-    component: RoomSelectionView
-  },
-  {
-    path: "/rooms/:code",
-    name: "room-lobby",
-    component: RoomLobbyView
-  },
-  {
-    path: "/rooms/:code/playing",
-    name: "game-playing",
-    component: GamePlayingView
-  },
-  {
-    path: "/rooms/:code/songs",
-    name: "song-picker",
-    component: SongPickerView
-  },
-  {
-    path: "/rooms/:code/play",
-    name: "game",
-    component: GameView
-  },
-  {
-    path: "/rooms/:code/guess",
-    name: "guessing",
-    component: GuessingView
-  },
-  {
-    path: "/rooms/:code/assignment",
-    name: "song-assignment",
-    component: SongAssignmentWrapper
-  },
-  {
-    path: "/rooms/:code/results",
-    name: "results",
-    component: ResultsView
   }
 ];
 

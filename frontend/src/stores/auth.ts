@@ -62,6 +62,7 @@ export const useAuthStore = defineStore("auth", {
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("user");
       localStorage.removeItem("is_spotify_user");
+      localStorage.removeItem("disco_reconnect_token");
     },
 
     async testLogin(): Promise<{ success: boolean; error?: string }> {
@@ -158,7 +159,7 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
-    loadFromStorage() {
+    async loadFromStorage(): Promise<void> {
       const accessToken = localStorage.getItem("access_token");
       const refreshToken = localStorage.getItem("refresh_token");
       const userJson = localStorage.getItem("user");
@@ -179,6 +180,34 @@ export const useAuthStore = defineStore("auth", {
 
       // Restore isSpotifyUser flag (defaults to true if not set)
       this.isSpotifyUser = isSpotifyUser !== "false";
+
+      // Validate tokens if present - after await, isAuthenticated is reliable
+      if (this.accessToken) {
+        await this.validateTokens();
+      }
+    },
+
+    async validateTokens(): Promise<void> {
+      if (!this.accessToken) {
+        return;
+      }
+
+      try {
+        await axios.get(`${API_URL}/api/auth/verify`, {
+          headers: { Authorization: `Bearer ${this.accessToken}` }
+        });
+        // 200 response: tokens valid, no action needed
+      } catch (error: unknown) {
+        const axiosError = error as { response?: { status?: number } };
+
+        if (axiosError.response?.status === 401) {
+          // Invalid token: clear silently, user will be redirected to login
+          this.clearTokens();
+        } else {
+          // Network error or other failure: allow offline use
+          console.warn("Token validation failed (offline?), keeping tokens:", error);
+        }
+      }
     }
   }
 });

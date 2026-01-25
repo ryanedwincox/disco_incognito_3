@@ -43,12 +43,14 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useRoomStore } from '@/stores/room'
 import { useNotificationStore } from '@/stores/notifications'
 import { API_URL } from '@/config/api'
 import axios from 'axios'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const roomStore = useRoomStore()
 const notificationStore = useNotificationStore()
 const roomCode = ref('')
 
@@ -62,7 +64,7 @@ async function createRoom() {
 
   try {
     // POST to create room on backend
-    await axios.post(
+    const response = await axios.post(
       `${API_URL}/api/rooms`,
       { room_code: code },
       {
@@ -72,8 +74,21 @@ async function createRoom() {
       }
     )
 
-    // Navigate to room lobby on success
-    router.push(`/rooms/${code}`)
+    // Set room code in store - AppOrchestrator will switch to RoomLobbyView
+    roomStore.setRoom(code)
+    roomStore.setStatus('lobby')
+
+    // Set players from response if available
+    if (response.data?.players) {
+      roomStore.setPlayers(
+        response.data.players.map((p: { id: string; display_name: string; is_host: boolean; is_connected: boolean }) => ({
+          id: p.id,
+          name: p.display_name,
+          isHost: p.is_host,
+          isConnected: p.is_connected
+        }))
+      )
+    }
   } catch (error: unknown) {
     console.error('Failed to create room:', error)
     const axiosError = error as { response?: { data?: { detail?: string } }; message?: string }
@@ -82,12 +97,55 @@ async function createRoom() {
   }
 }
 
-function joinRoom() {
-  if (roomCode.value.length === 3) {
-    console.log('Joining room:', roomCode.value)
-    router.push(`/rooms/${roomCode.value}`)
-  } else {
+async function joinRoom() {
+  if (roomCode.value.length !== 3) {
     console.log('Please enter a 3-digit room code')
+    return
+  }
+
+  const code = roomCode.value
+  console.log('Joining room:', code)
+
+  try {
+    // Check if room exists first
+    const checkResponse = await axios.get(`${API_URL}/api/rooms/${code}`)
+    const roomData = checkResponse.data
+
+    // Join room via API
+    const userId = authStore.user?.id
+    const displayName = authStore.user?.displayName || 'Guest'
+
+    if (userId) {
+      await axios.post(`${API_URL}/api/rooms/${code}/join`, {
+        player_id: userId,
+        display_name: displayName
+      })
+    }
+
+    // Set room code in store - AppOrchestrator will switch to RoomLobbyView
+    roomStore.setRoom(code)
+    roomStore.setStatus(roomData.status || 'lobby')
+
+    // Set players from response if available
+    if (roomData.players) {
+      roomStore.setPlayers(
+        roomData.players.map((p: { id: string; display_name: string; is_host: boolean; is_connected: boolean }) => ({
+          id: p.id,
+          name: p.display_name,
+          isHost: p.is_host,
+          isConnected: p.is_connected
+        }))
+      )
+    }
+  } catch (error: unknown) {
+    console.error('Failed to join room:', error)
+    const axiosError = error as { response?: { status?: number; data?: { detail?: string } }; message?: string }
+    if (axiosError.response?.status === 404) {
+      notificationStore.error('Room Not Found', 'The room code is invalid or has expired')
+    } else {
+      const errorMessage = axiosError.response?.data?.detail || axiosError.message || 'Failed to join room'
+      notificationStore.error('Join Room Failed', errorMessage)
+    }
   }
 }
 

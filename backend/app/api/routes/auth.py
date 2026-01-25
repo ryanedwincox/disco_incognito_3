@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from ...core.rate_limit import RATE_LIMITS, limiter
 from ...core.settings import settings
+from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
 from ...services.spotify import SpotifyAuthService
 from ...storage.base import StorageAdapter
@@ -292,3 +293,29 @@ async def logout(request: Request) -> dict[str, str]:
     """
     logger.info('Logout endpoint called')
     return {'message': 'Logged out successfully'}
+
+
+@router.get('/verify', summary='Verify access token')
+@limiter.limit(RATE_LIMITS['auth'])
+async def verify(
+    request: Request,
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> dict[str, str]:
+    """
+    Verify the provided access token and return user information.
+
+    Args:
+        request: FastAPI request object (required for rate limiting)
+        user: Authenticated user extracted from Authorization header
+
+    Returns:
+        Dict containing user_id and display_name if token is valid
+
+    Raises:
+        HTTPException 401: If token is missing, invalid, or expired
+    """
+    logger.info(f'Token verified for user: {user.user_id}')
+    return {
+        'user_id': user.user_id,
+        'display_name': user.display_name,
+    }

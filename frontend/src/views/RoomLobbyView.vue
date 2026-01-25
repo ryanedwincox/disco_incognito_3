@@ -76,20 +76,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useRoomApi } from '../composables/useRoomApi'
 import { websocketService } from '../services/websocket'
 
-const router = useRouter()
-const route = useRoute()
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
 
-const roomCode = computed(() => (route.params.code as string) || '123')
+const roomCode = computed(() => roomStore.code || '')
 const players = computed(() => roomStore.players)
 const currentUserId = computed(() => authStore.user?.id ?? null)
 const songCountText = computed(() => {
@@ -108,8 +105,10 @@ onMounted(async () => {
   // Load auth state from localStorage (in case of page refresh)
   authStore.loadFromStorage()
 
-  // Set room code in store
-  roomStore.setRoom(roomCode.value)
+  if (!roomCode.value) {
+    console.log('No room code set')
+    return
+  }
 
   // Fetch room data from API if available
   try {
@@ -150,17 +149,6 @@ onMounted(async () => {
   } catch (error) {
     console.log('Could not fetch room data:', error)
   }
-
-  // Connect to WebSocket for real-time updates
-  const userId = authStore.user?.id
-  if (userId) {
-    websocketService.connect(roomCode.value, userId)
-  }
-})
-
-onUnmounted(() => {
-  // Disconnect from WebSocket when leaving the room
-  websocketService.disconnect()
 })
 
 async function joinRoomAsPlayer(playerId: string, displayName: string) {
@@ -198,15 +186,34 @@ async function joinRoomAsPlayer(playerId: string, displayName: string) {
   }
 }
 
-function leaveRoom() {
+async function leaveRoom() {
   console.log('Leaving room:', roomCode.value)
+  const userId = authStore.user?.id
+
+  // Call API to leave room
+  if (userId && roomCode.value) {
+    try {
+      await fetch(`${API_URL}/api/rooms/${roomCode.value}/leave`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player_id: userId }),
+      })
+    } catch (error) {
+      console.log('Could not leave room via API:', error)
+    }
+  }
+
+  // Clear reconnect token explicitly
+  localStorage.removeItem('disco_reconnect_token')
+
+  // Reset room state - AppOrchestrator will switch to RoomSelectionView
   roomStore.reset()
-  router.push('/rooms')
 }
 
 function pickSongs() {
   console.log('Navigating to song picker for room:', roomCode.value)
-  router.push(`/rooms/${roomCode.value}/songs`)
+  // Set status to picking_songs - AppOrchestrator will switch to SongPickerView
+  roomStore.setStatus('picking_songs')
 }
 
 async function startGame() {
@@ -250,8 +257,7 @@ async function startGame() {
       }
 
       console.log('Game started, status:', data.status)
-      // Navigate to the song assignment view
-      router.push(`/rooms/${roomCode.value}/assignment`)
+      // AppOrchestrator will switch view based on roomStore.status
     } else {
       const error = await response.json()
       console.error('Failed to start game:', error.detail)

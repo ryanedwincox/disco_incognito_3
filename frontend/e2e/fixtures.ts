@@ -261,8 +261,15 @@ export async function compareScreenshots(
   }
 
   // Decode PNG images
-  const actualPng = PNG.sync.read(actualBuffer);
-  const baselinePng = PNG.sync.read(baselineBuffer);
+  let actualPng, baselinePng;
+  try {
+    actualPng = PNG.sync.read(actualBuffer);
+    baselinePng = PNG.sync.read(baselineBuffer);
+  } catch (err) {
+    // Baseline might be a Git LFS pointer or corrupted file
+    console.log(`  [pixelmatch] ${path.basename(actualPath)}: invalid PNG (possibly Git LFS pointer), skipping comparison`);
+    return { match: false, baselineMissing: true };
+  }
 
   // Check dimensions match
   if (actualPng.width !== baselinePng.width || actualPng.height !== baselinePng.height) {

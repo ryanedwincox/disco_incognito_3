@@ -147,6 +147,10 @@ async def create_room(
         # Store the room
         await storage.upsert_room(body.room_code, room.model_dump(mode='json'))
 
+        # Update WebSocket room association for phase broadcasts
+        connection_manager = get_connection_manager()
+        await connection_manager.update_client_room(current_user.user_id, body.room_code)
+
         logger.info(f'Room {body.room_code} created by user {current_user.user_id}')
 
         return CreateRoomResponse(
@@ -224,6 +228,10 @@ async def join_room(
     # Update last_active_at and save
     room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    # Update WebSocket room association for phase broadcasts
+    connection_manager = get_connection_manager()
+    await connection_manager.update_client_room(body.player_id, room_code)
 
     logger.info(f'Player {body.player_id} joined room {room_code}')
 

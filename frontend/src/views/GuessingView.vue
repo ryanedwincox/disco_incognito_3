@@ -41,9 +41,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
 import { usePlayerStore } from '@/stores/player';
 import { useAuthStore } from '@/stores/auth';
+import { useRoomStore } from '@/stores/room';
 import { useRoomApi } from '@/composables/useRoomApi';
 
 const { handleRoomResponse, API_URL } = useRoomApi();
@@ -70,10 +70,9 @@ interface RoomResponse {
   };
 }
 
-const route = useRoute();
-const router = useRouter();
 const playerStore = usePlayerStore();
 const authStore = useAuthStore();
+const roomStore = useRoomStore();
 
 const players = ref<GuessingPlayer[]>([]);
 const loading = ref(true);
@@ -88,7 +87,7 @@ const votedForName = computed(() => {
   return player?.name ?? 'Unknown';
 });
 
-const roomCode = computed(() => route.params.code as string);
+const roomCode = computed(() => roomStore.code || '');
 
 async function fetchRoom() {
   try {
@@ -122,9 +121,9 @@ async function fetchRoom() {
       votedFor.value = room.current_round.votes[currentPlayerId];
     }
 
-    // If status is 'results', navigate to results page
+    // If status is 'results', update store - AppOrchestrator will switch view
     if (room.status === 'results') {
-      router.push(`/rooms/${roomCode.value}/results`);
+      roomStore.setStatus('results');
     }
   } catch (err) {
     console.error('Failed to fetch room:', err);
@@ -174,9 +173,9 @@ async function vote(guessedPlayerId: string) {
     const data: RoomResponse = await response.json();
     votedFor.value = guessedPlayerId;
 
-    // If status is 'results', navigate to results page
+    // If status is 'results', update store - AppOrchestrator will switch view
     if (data.status === 'results') {
-      router.push(`/rooms/${roomCode.value}/results`);
+      roomStore.setStatus('results');
     }
   } catch (err) {
     console.error('Failed to vote:', err);

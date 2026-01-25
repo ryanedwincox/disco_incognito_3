@@ -158,13 +158,12 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useRoomStore } from '../stores/room'
 import { useRoomApi } from '../composables/useRoomApi'
 
-const router = useRouter()
-const route = useRoute()
 const authStore = useAuthStore()
+const roomStore = useRoomStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
 
 const isTestMode = computed(() => import.meta.env.VITE_TEST_MODE === 'true')
@@ -275,7 +274,7 @@ async function addSongPair() {
   successMessage.value = ''
 
   try {
-    const roomCode = route.params.code
+    const roomCode = roomStore.code
 
     // Send two sequential POSTs for the song pair
     for (const track of selectedTracks.value) {
@@ -323,7 +322,7 @@ async function addSongPair() {
 }
 
 function goBack() {
-  const roomCode = route.params.code
-  router.push(`/rooms/${roomCode}`)
+  // Go back to lobby - AppOrchestrator will switch to RoomLobbyView
+  roomStore.setStatus('lobby')
 }
 </script>
