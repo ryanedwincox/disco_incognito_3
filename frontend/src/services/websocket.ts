@@ -196,8 +196,24 @@ export class WebSocketService {
           this.handlePlayerConnected(message, roomStore);
           break;
 
+        case "player_joined":
+          this.handlePlayerJoined(message, roomStore);
+          break;
+
         case "player_disconnected":
           this.handlePlayerDisconnected(message, roomStore);
+          break;
+
+        case "player_left":
+          this.handlePlayerLeft(message, roomStore);
+          break;
+
+        case "song_added":
+          this.handleSongAdded(message, roomStore);
+          break;
+
+        case "player_ready":
+          this.handlePlayerReady(message, roomStore);
           break;
 
         case "room_update":
@@ -339,6 +355,45 @@ export class WebSocketService {
   }
 
   /**
+   * Handle player_joined event - when a new player joins the room.
+   */
+  private handlePlayerJoined(
+    message: WebSocketMessage,
+    roomStore: ReturnType<typeof useRoomStore>
+  ): void {
+    const { player, is_new } = message;
+
+    if (!player) {
+      console.warn("player_joined event missing player data");
+      return;
+    }
+
+    const existingPlayer = roomStore.players.find((p) => p.id === player.id);
+
+    if (existingPlayer) {
+      // Update existing player's connection status
+      const players = roomStore.players.map((p) => {
+        if (p.id === player.id) {
+          return { ...p, isConnected: true };
+        }
+        return p;
+      });
+      roomStore.setPlayers(players);
+      console.log(`Player ${player.id} reconnected`);
+    } else if (is_new) {
+      // Add new player to the list
+      const newPlayer = {
+        id: player.id,
+        displayName: player.display_name,
+        isHost: player.is_host,
+        isConnected: player.is_connected,
+      };
+      roomStore.setPlayers([...roomStore.players, newPlayer]);
+      console.log(`New player ${player.id} (${player.display_name}) joined`);
+    }
+  }
+
+  /**
    * Handle player_disconnected event.
    */
   private handlePlayerDisconnected(
@@ -362,6 +417,72 @@ export class WebSocketService {
 
     roomStore.setPlayers(players);
     console.log(`Player ${user_id} disconnected`);
+  }
+
+  /**
+   * Handle player_left event - when a player leaves the room.
+   */
+  private handlePlayerLeft(
+    message: WebSocketMessage,
+    roomStore: ReturnType<typeof useRoomStore>
+  ): void {
+    const { user_id, new_host_id } = message;
+
+    if (!user_id) {
+      console.warn("player_left event missing user_id");
+      return;
+    }
+
+    // Remove the player from the list
+    let players = roomStore.players.filter((player) => player.id !== user_id);
+
+    // Update host if host changed
+    if (new_host_id) {
+      players = players.map((player) => ({
+        ...player,
+        isHost: player.id === new_host_id,
+      }));
+    }
+
+    roomStore.setPlayers(players);
+    console.log(`Player ${user_id} left the room`);
+  }
+
+  /**
+   * Handle song_added event - when a new song is added to the room.
+   */
+  private handleSongAdded(
+    message: WebSocketMessage,
+    roomStore: ReturnType<typeof useRoomStore>
+  ): void {
+    const { song } = message;
+
+    if (!song) {
+      console.warn("song_added event missing song data");
+      return;
+    }
+
+    // Increment the song pair count
+    roomStore.setSongPairCount(roomStore.songPairCount + 1);
+    console.log(`Song added: ${song.title} by ${song.artist}`);
+  }
+
+  /**
+   * Handle player_ready event - when a player marks themselves as ready.
+   */
+  private handlePlayerReady(
+    message: WebSocketMessage,
+    roomStore: ReturnType<typeof useRoomStore>
+  ): void {
+    const { player_id, ready_count, total_count } = message;
+
+    if (!player_id) {
+      console.warn("player_ready event missing player_id");
+      return;
+    }
+
+    // Currently just logging - UI can use this for ready progress in future
+    console.log(`Player ${player_id} is ready (${ready_count}/${total_count})`);
   }
 
   /**

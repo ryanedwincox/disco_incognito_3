@@ -212,9 +212,12 @@ async def join_room(
 
     # Check if player already in room
     existing_player = next((p for p in room.players if p.id == body.player_id), None)
+    is_new_player = existing_player is None
+
     if existing_player:
         # Update connection status if rejoining
         existing_player.is_connected = True
+        new_player = existing_player
     else:
         # Add new player
         new_player = Player(
@@ -232,6 +235,21 @@ async def join_room(
     # Update WebSocket room association for phase broadcasts
     connection_manager = get_connection_manager()
     await connection_manager.update_client_room(body.player_id, room_code)
+
+    # Broadcast player_joined event to all players in the room
+    await connection_manager.broadcast_to_room(
+        room_code,
+        {
+            'type': 'player_joined',
+            'player': {
+                'id': new_player.id,
+                'display_name': new_player.display_name,
+                'is_host': new_player.is_host,
+                'is_connected': new_player.is_connected,
+            },
+            'is_new': is_new_player,
+        }
+    )
 
     logger.info(f'Player {body.player_id} joined room {room_code}')
 
@@ -279,6 +297,22 @@ async def add_song(
     # Update last_active_at and save
     room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    # Broadcast song_added event to all players in the room
+    connection_manager = get_connection_manager()
+    await connection_manager.broadcast_to_room(
+        room_code,
+        {
+            'type': 'song_added',
+            'song': {
+                'id': song.id,
+                'track_uri': song.track_uri,
+                'title': song.title,
+                'artist': song.artist,
+                'added_by': song.added_by,
+            },
+        }
+    )
 
     logger.info(f'Song {song_id} added to room {room_code} by player {body.player_id}')
 
@@ -438,6 +472,18 @@ async def mark_player_ready(
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Player {body.player_id} marked ready in room {room_code} ({len(ready_player_ids)}/{len(all_player_ids)} ready)')
+
+    # Broadcast player_ready event (before phase change)
+    manager = get_connection_manager()
+    await manager.broadcast_to_room(
+        room_code,
+        {
+            'type': 'player_ready',
+            'player_id': body.player_id,
+            'ready_count': len(ready_player_ids),
+            'total_count': len(all_player_ids),
+        }
+    )
 
     # Broadcast phase change if all players are ready
     if all_ready:
