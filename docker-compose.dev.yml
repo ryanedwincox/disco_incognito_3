@@ -38,4 +38,4 @@ services:
       - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
       - VITE_PORT=${VITE_PORT:-3000}
       - VITE_UI_MODE=minimal
-      - VITE_TEST_MODE=false
+      - VITE_TEST_MODE=true

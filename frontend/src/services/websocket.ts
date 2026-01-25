@@ -169,6 +169,10 @@ export class WebSocketService {
       const message: WebSocketMessage = JSON.parse(event.data);
       console.log("WebSocket message received:", message);
 
+      // Update debug panel with latest message
+      const wsStore = useWebSocketStore();
+      wsStore.setLastMessage(message as Record<string, unknown>);
+
       const roomStore = useRoomStore();
 
       switch (message.type) {
