@@ -10,7 +10,10 @@
 import { test, expect, getArtifactsPath } from './fixtures';
 import type { Page, BrowserContext } from '@playwright/test';
 
-const FRONTEND_URL = 'http://localhost:3000';
+// Port configuration: Use environment variables or feature branch defaults (9000/9100)
+// Main branch uses 8000/3000, feature branches use 9000/9100 to avoid conflicts
+const FRONTEND_PORT = process.env.VITE_PORT || '9100';
+const FRONTEND_URL = `http://localhost:${FRONTEND_PORT}`;
 const TEST_NAME = 'game-start-player-sync';
 
 // Helper: Load and verify landing page

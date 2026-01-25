@@ -54,7 +54,7 @@ const roomStore = useRoomStore()
 const notificationStore = useNotificationStore()
 const roomCode = ref('')
 
-// Load auth state from localStorage on component mount
+// Load auth state from sessionStorage on component mount
 authStore.loadFromStorage()
 
 async function createRoom() {

@@ -50,7 +50,7 @@ const playerSong = computed<TrackInfo | null>(() => {
 
 
 onMounted(async () => {
-  // Load auth state from localStorage (in case of page refresh)
+  // Load auth state from sessionStorage (in case of page refresh)
   authStore.loadFromStorage()
 
   // Fetch music player state (devices and playback) for MusicPlayerBar

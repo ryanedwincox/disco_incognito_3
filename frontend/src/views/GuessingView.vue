@@ -94,7 +94,7 @@ async function fetchRoom() {
     loading.value = true;
     error.value = null;
 
-    // Load auth state from localStorage (in case of page refresh)
+    // Load auth state from sessionStorage (in case of page refresh)
     authStore.loadFromStorage();
 
     const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}`);
