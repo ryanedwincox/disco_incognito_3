@@ -6,6 +6,7 @@ services:
       context: .
       dockerfile: dev.Dockerfile
       target: dev-backend
+    user: "${DOCKER_UID}:${DOCKER_GID}"
     network_mode: host
     env_file:
       - ./backend/.env
@@ -28,6 +29,7 @@ services:
       context: .
       dockerfile: dev.Dockerfile
       target: dev-frontend
+    user: "${DOCKER_UID}:${DOCKER_GID}"
     network_mode: host
     env_file:
       - ./frontend/.env
