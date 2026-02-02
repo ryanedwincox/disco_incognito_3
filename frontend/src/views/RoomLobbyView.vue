@@ -72,6 +72,7 @@
       </div>
     </section>
     <button
+      v-if="authStore.isSpotifyUser"
       class="w-full text-sm text-zinc-500 hover:text-zinc-300 transition-colors mt-4"
       type="button"
       @click="logout"
@@ -220,8 +221,7 @@ async function leaveRoom() {
   roomStore.reset()
 }
 
-async function logout() {
-  await leaveRoom()
+function logout() {
   authStore.clearTokens()
 }
 
