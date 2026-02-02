@@ -118,6 +118,7 @@ async def _build_room_state_for_user(room_code: str, user_id: str) -> dict[str, 
             result['assigned_song'] = assigned_song.model_dump()
         if room.current_round.playback_start_time:
             result['playback_start_time'] = room.current_round.playback_start_time.isoformat()
+        result['ready_players'] = room.current_round.ready_players
 
     return result
 

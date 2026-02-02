@@ -24,6 +24,7 @@ interface RoomState {
   status: "lobby" | "picking_songs" | "song_selection" | "playing" | "guessing" | "results";
   songPairCount: number;
   assignedSong: AssignedSong | null;
+  readyPlayers: string[];
 }
 
 export const useRoomStore = defineStore("room", {
@@ -32,7 +33,8 @@ export const useRoomStore = defineStore("room", {
     players: [],
     status: "lobby",
     songPairCount: 0,
-    assignedSong: null
+    assignedSong: null,
+    readyPlayers: []
   }),
   actions: {
     setRoom(code: string) {
@@ -51,12 +53,16 @@ export const useRoomStore = defineStore("room", {
     setAssignedSong(song: AssignedSong | null) {
       this.assignedSong = song;
     },
+    setReadyPlayers(players: string[]) {
+      this.readyPlayers = players;
+    },
     reset() {
       this.code = null;
       this.players = [];
       this.status = "lobby";
       this.songPairCount = 0;
       this.assignedSong = null;
+      this.readyPlayers = [];
       sessionStorage.removeItem('disco_room_code');
     }
   }

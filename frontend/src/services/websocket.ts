@@ -29,6 +29,7 @@ export interface WebSocketMessage {
   host_id?: string;
   song_pair_count?: number;
   assigned_song?: { id: string; title: string; artist: string };
+  ready_players?: string[];
   // player_joined fields
   // player_left fields
   new_host_id?: string | null;
@@ -230,6 +231,12 @@ export class WebSocketService {
           this.handlePlayerLeft(message, roomStore);
           break;
 
+        case "player_ready":
+          if (message.ready_players) {
+            roomStore.setReadyPlayers(message.ready_players);
+          }
+          break;
+
         case "phase_changed":
           this.handlePhaseChanged(message);
           break;
@@ -311,6 +318,10 @@ export class WebSocketService {
 
     if (typeof message.playback_start_time === "string") {
       gameStore.setPlaybackStartTime(message.playback_start_time);
+    }
+
+    if (Array.isArray(message.ready_players)) {
+      roomStore.setReadyPlayers(message.ready_players);
     }
   }
 
@@ -468,6 +479,7 @@ export class WebSocketService {
       case "lobby":
         gameStore.setPlaying(false);
         gameStore.setPlaybackStartTime(null);
+        roomStore.setReadyPlayers([]);
         break;
 
       case "song_selection":
