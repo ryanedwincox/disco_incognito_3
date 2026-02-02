@@ -120,12 +120,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import MusicPlayerBar from '../components/MusicPlayerBar.vue'
 import { useMusicStore, type TrackInfo } from '../stores/music'
 import { useAuthStore } from '../stores/auth'
-import { useRoomStore } from '../stores/room'
 
-const roomStore = useRoomStore()
+const router = useRouter()
 const musicStore = useMusicStore()
 const authStore = useAuthStore()
 
@@ -220,7 +220,6 @@ function formatDuration(ms: number): string {
 }
 
 function goBack() {
-  // Reset room state - AppOrchestrator will switch to RoomSelectionView
-  roomStore.reset()
+  router.push('/')
 }
 </script>
