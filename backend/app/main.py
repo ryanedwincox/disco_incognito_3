@@ -6,6 +6,7 @@ endpoints. Handles application startup including storage file initialization.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -14,13 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
-import logging
-
 from .api.router import api_router
 from .core.rate_limit import limiter
 from .core.settings import settings
 from .dependencies.storage import get_storage_adapter
-from .models.room import RoomState, RoomStateResponse
+from .models.room import RoomState
 from .services.websocket_manager import get_connection_manager
 from .storage.json_file import JSONFileStorage
 
@@ -82,116 +81,86 @@ async def cleanup_expired_rooms() -> None:
             logger.info(f'Cleaned up {deleted_count} expired room(s) on startup')
 
 
-async def _find_user_session(user_id: str) -> dict[str, Any] | None:
-    """Find session by user_id by scanning all sessions.
+async def _build_room_state_for_user(room_code: str, user_id: str) -> dict[str, Any]:
+    """Build a per-user tailored room_state message.
 
-    Returns session data with 'access_token' key added, or None if not found.
+    Returns dict with: type, phase, players[], host_id, song_pair_count, assigned_song (for this user).
     """
     storage = get_storage_adapter()
-    state = await storage.load()
-    sessions = state.get('sessions', {})
-
-    for token, session_data in sessions.items():
-        if session_data.get('user_id') == user_id:
-            return {**session_data, 'access_token': token}
-    return None
-
-
-async def _build_client_state(user_id: str) -> dict[str, Any]:
-    """Build client_state message for a user.
-
-    Determines if user is in a room and includes full room data if so.
-    Returns dict with: type, in_room, room_code?, phase?, room_data?
-    """
-    session = await _find_user_session(user_id)
-    storage = get_storage_adapter()
-
-    # Base response for user not in room
-    result: dict[str, Any] = {
-        'type': 'client_state',
-        'in_room': False,
-    }
-
-    if not session:
-        return result
-
-    room_code = session.get('room_code')
-    if not room_code:
-        return result
-
-    # Fetch room and verify user is still a player
     room_data = await storage.get_room(room_code)
+
     if not room_data:
-        return result
+        return {
+            'type': 'room_state',
+            'phase': 'lobby',
+            'players': [],
+            'host_id': None,
+            'song_pair_count': 0,
+        }
 
     room = RoomState(**room_data)
-    player = next((p for p in room.players if p.id == user_id), None)
-    if not player:
-        return result
 
-    # User is in room - build full response
-    room_response = RoomStateResponse.from_room_state(room)
-
-    # Get assigned song for this player if in active round
-    assigned_song = None
-    playback_start_time = None
-    if room.current_round:
-        assigned_song = room.current_round.player_assignments.get(user_id)
-        if room.current_round.playback_start_time:
-            playback_start_time = room.current_round.playback_start_time.isoformat()
-
-    result['in_room'] = True
-    result['room_code'] = room_code
     # Normalize phase: backend may use 'reveal' internally, but client expects 'results'
-    result['phase'] = 'results' if room.status == 'reveal' else room.status
-    result['room_data'] = {
-        'players': [p.model_dump() for p in room_response.players],
-        'song_pair_count': len(room_response.songs),
-        'host_id': room_response.host_id,
+    phase = 'results' if room.status == 'reveal' else room.status
+
+    result: dict[str, Any] = {
+        'type': 'room_state',
+        'phase': phase,
+        'players': [p.model_dump() for p in room.players],
+        'host_id': room.host_id,
+        'song_pair_count': len(room.songs),
     }
 
-    if assigned_song:
-        result['room_data']['assigned_song'] = assigned_song.model_dump()
-
-    if playback_start_time:
-        result['room_data']['playback_start_time'] = playback_start_time
+    # Include assigned song for THIS user only (if in active round)
+    if room.current_round:
+        assigned_song = room.current_round.player_assignments.get(user_id)
+        if assigned_song:
+            result['assigned_song'] = assigned_song.model_dump()
+        if room.current_round.playback_start_time:
+            result['playback_start_time'] = room.current_round.playback_start_time.isoformat()
 
     return result
 
 
-@app.websocket('/api/ws/client')
-async def client_websocket_endpoint(
+@app.websocket('/api/ws/room/{room_code}')
+async def room_websocket_endpoint(
     websocket: WebSocket,
+    room_code: str,
     user_id: str,
-    reconnect_token: str | None = None
+    reconnect_token: str | None = None,
 ) -> None:
-    """App-level WebSocket endpoint for client state and phase broadcasts.
+    """Room-scoped WebSocket endpoint.
 
-    Connects without requiring room_code. On connect:
-    1. Validates reconnect_token if provided
-    2. Queries DB to find user's current room (if any)
-    3. Sends client_state message with full room data
+    On connect:
+    1. Validates reconnect_token if provided (5-min window)
+    2. Accepts WebSocket, registers with connection manager
+    3. Sends 'connected' with reconnect_token, then 'room_state' with per-user data
+    4. Broadcasts player_connected to room (unless reconnecting)
 
     Message types sent:
-    - client_state: Initial state on connect
-    - phase_changed: Room phase transitions (lobby, song_selection, playing, guessing, results)
+    - connected: Initial handshake with reconnect_token
+    - reconnect_failed: Token invalid/expired
+    - room_state: Full room state tailored per-user
+    - phase_changed: Room phase transitions
     - player_connected/player_disconnected: Connection events
-    - player_left: Player left room
+    - player_left/player_joined: Room membership changes
 
     Query params:
         user_id: User's unique identifier
-        reconnect_token: Optional token for session resumption
+        reconnect_token: Optional token for session resumption within 5-min window
     """
+    is_reconnect = False
+
     # Validate reconnect token if provided
     if reconnect_token:
-        logger.info(f'Client WS reconnection attempt with token for user {user_id}')
+        logger.info(f'Room WS reconnection attempt for user {user_id} in room {room_code}')
         validation = await connection_manager.validate_reconnect_token(reconnect_token)
 
         if not validation:
             await websocket.accept()
             await websocket.send_json({
                 'type': 'reconnect_failed',
-                'reason': 'Invalid or expired reconnection token'
+                'reason': 'Invalid or expired reconnection token',
             })
             await websocket.close()
             return
@@ -200,38 +169,62 @@ async def client_websocket_endpoint(
             await websocket.accept()
             await websocket.send_json({
                 'type': 'reconnect_failed',
-                'reason': 'Reconnection token does not match user'
+                'reason': 'Reconnection token does not match user',
             })
             await websocket.close()
             return
 
-        logger.info(f'Client WS reconnection successful for user {user_id}')
+        if validation.get('room_code') != room_code:
+            await websocket.accept()
+            await websocket.send_json({
+                'type': 'reconnect_failed',
+                'reason': 'Reconnection token does not match room',
+            })
+            await websocket.close()
+            return
 
+        is_reconnect = True
+        logger.info(f'Room WS reconnection validated for user {user_id} in room {room_code}')
+
+    # Accept and register
     await websocket.accept()
+    connection_info = await connection_manager.connect(room_code, user_id, websocket)
 
-    # Build and send initial client state
-    client_state = await _build_client_state(user_id)
-    room_code = client_state.get('room_code')
-
-    # Register connection with manager (for receiving broadcasts)
-    connection_info = await connection_manager.connect_client(user_id, websocket, room_code)
-
-    # Send connection success with reconnect token and client state
+    # Send connected message with reconnect token
     await websocket.send_json({
         'type': 'connected',
-        'reconnect_token': connection_info['reconnect_token']
+        'reconnect_token': connection_info['reconnect_token'],
     })
-    await websocket.send_json(client_state)
+
+    # Send per-user room state
+    room_state = await _build_room_state_for_user(room_code, user_id)
+    await websocket.send_json(room_state)
+
+    # Broadcast player_connected (skip if reconnecting - they were already in room)
+    if not is_reconnect:
+        await connection_manager.broadcast_to_room(
+            room_code,
+            {
+                'type': 'player_connected',
+                'user_id': user_id,
+            },
+        )
 
     try:
         while True:
             data = await websocket.receive_text()
-            logger.debug(f'Client WS received from user {user_id}: {data}')
+            logger.debug(f'Room WS received from user {user_id} in room {room_code}: {data}')
     except WebSocketDisconnect:
-        logger.info(f'Client WS disconnected for user {user_id}')
+        logger.info(f'Room WS disconnected for user {user_id} in room {room_code}')
     except Exception as e:
-        logger.error(f'Client WS error for user {user_id}: {e}')
+        logger.exception(f'Room WS error for user {user_id} in room {room_code}: {e}')
     finally:
-        await connection_manager.disconnect_client(user_id)
-
-
+        await connection_manager.disconnect(room_code, user_id)
+        # Broadcast player_disconnected to remaining players
+        await connection_manager.broadcast_to_room(
+            room_code,
+            {
+                'type': 'player_disconnected',
+                'user_id': user_id,
+            },
+        )

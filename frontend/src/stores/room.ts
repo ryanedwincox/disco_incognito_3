@@ -37,6 +37,7 @@ export const useRoomStore = defineStore("room", {
   actions: {
     setRoom(code: string) {
       this.code = code;
+      sessionStorage.setItem('disco_room_code', code);
     },
     setPlayers(players: RoomPlayer[]) {
       this.players = players;
@@ -56,6 +57,7 @@ export const useRoomStore = defineStore("room", {
       this.status = "lobby";
       this.songPairCount = 0;
       this.assignedSong = null;
+      sessionStorage.removeItem('disco_room_code');
     }
   }
 });

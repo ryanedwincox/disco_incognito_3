@@ -1,6 +1,6 @@
 /**
- * WebSocket service for real-time client communication.
- * Manages WebSocket connections and handles incoming events.
+ * WebSocket service for room-scoped real-time communication.
+ * Manages a single WebSocket connection per room.
  * State-driven navigation via AppOrchestrator - no router.push() calls.
  */
 
@@ -18,16 +18,20 @@ export interface WebSocketMessage {
   reason?: string;
   phase?: string;
   room_code?: string;
-  playback_start_time?: string; // ISO timestamp when clients should start audio playback
-  // client_state fields
-  in_room?: boolean;
-  status?: string;
+  playback_start_time?: string;
+  // room_state fields
   players?: Array<{
     id: string;
     display_name: string;
     is_host: boolean;
     is_connected: boolean;
   }>;
+  host_id?: string;
+  song_pair_count?: number;
+  assigned_song?: { id: string; title: string; artist: string };
+  // player_joined fields
+  // player_left fields
+  new_host_id?: string | null;
 }
 
 const RECONNECT_TOKEN_KEY = "disco_reconnect_token";
@@ -35,30 +39,40 @@ const RECONNECT_TOKEN_KEY = "disco_reconnect_token";
 export class WebSocketService {
   private socket: WebSocket | null = null;
   private userId: string | null = null;
+  private roomCode: string | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000; // Start with 1 second
+  private reconnectDelay = 1000;
   private reconnectTimer: number | null = null;
   private reconnectToken: string | null = null;
 
   /**
-   * Connect to the app-level client WebSocket endpoint.
-   * Called on authentication success.
+   * Connect to a room-scoped WebSocket endpoint.
+   * Called when entering a room (create/join) or on reconnect.
    */
-  connectClient(userId: string): void {
+  connectToRoom(userId: string, roomCode: string): void {
     // Guard: skip if already connected or connecting to avoid duplicate connections
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+    if (
+      this.socket &&
+      (this.socket.readyState === WebSocket.OPEN ||
+        this.socket.readyState === WebSocket.CONNECTING)
+    ) {
       return;
     }
 
     this.userId = userId;
+    this.roomCode = roomCode;
 
-    // Determine WebSocket URL based on API_URL (same host/port as HTTP API)
-    // Convert http(s):// to ws(s)://
+    // Build WS URL: /api/ws/room/{roomCode}?user_id={userId}&reconnect_token={token}
     const wsBaseUrl = API_URL.replace(/^http/, "ws");
-    const wsUrl = `${wsBaseUrl}/api/ws/client?user_id=${userId}`;
+    const savedToken = sessionStorage.getItem(RECONNECT_TOKEN_KEY);
+    const tokenParam =
+      savedToken || this.reconnectToken
+        ? `&reconnect_token=${savedToken || this.reconnectToken}`
+        : "";
+    const wsUrl = `${wsBaseUrl}/api/ws/room/${roomCode}?user_id=${userId}${tokenParam}`;
 
-    console.log(`Connecting to client WebSocket: ${wsUrl}`);
+    console.log(`Connecting to room WebSocket: ${wsUrl}`);
 
     const wsStore = useWebSocketStore();
     wsStore.setStatus("connecting");
@@ -67,7 +81,9 @@ export class WebSocketService {
       this.socket = new WebSocket(wsUrl);
 
       this.socket.onopen = () => {
-        console.log(`Client WebSocket connected for user ${userId}`);
+        console.log(
+          `Room WebSocket connected for user ${userId} in room ${roomCode}`
+        );
         this.reconnectAttempts = 0;
         wsStore.setStatus("connected");
       };
@@ -82,7 +98,7 @@ export class WebSocketService {
       };
 
       this.socket.onclose = () => {
-        console.log(`Client WebSocket disconnected`);
+        console.log(`Room WebSocket disconnected`);
         this.socket = null;
         wsStore.setStatus("disconnected");
         this.attemptReconnect();
@@ -112,6 +128,7 @@ export class WebSocketService {
     sessionStorage.removeItem(RECONNECT_TOKEN_KEY);
 
     this.userId = null;
+    this.roomCode = null;
     this.reconnectAttempts = 0;
     this.reconnectToken = null;
   }
@@ -121,18 +138,18 @@ export class WebSocketService {
    * Called by the retry button in ServerDisconnectedBanner.
    */
   reconnect(): void {
-    if (!this.userId) {
-      console.warn("Cannot reconnect: missing user ID");
+    if (!this.userId || !this.roomCode) {
+      console.warn("Cannot reconnect: missing user ID or room code");
       return;
     }
 
     console.log("Manual reconnection triggered");
-    this.reconnectAttempts = 0; // Reset attempts for manual reconnect
-    this.connectClient(this.userId);
+    this.reconnectAttempts = 0;
+    this.connectToRoom(this.userId, this.roomCode);
   }
 
   /**
-   * Attempt to reconnect to the WebSocket.
+   * Attempt to reconnect with exponential backoff: 1s->2s->4s->8s->16s, max 5 attempts.
    */
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
@@ -142,21 +159,22 @@ export class WebSocketService {
       return;
     }
 
-    if (!this.userId) {
-      console.warn("Cannot reconnect: missing user ID");
+    if (!this.userId || !this.roomCode) {
+      console.warn("Cannot reconnect: missing user ID or room code");
       return;
     }
 
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
+    const delay =
+      this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
     console.log(
       `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms...`
     );
 
     this.reconnectTimer = window.setTimeout(() => {
-      if (this.userId) {
-        this.connectClient(this.userId);
+      if (this.userId && this.roomCode) {
+        this.connectToRoom(this.userId, this.roomCode);
       }
     }, delay);
   }
@@ -169,7 +187,6 @@ export class WebSocketService {
       const message: WebSocketMessage = JSON.parse(event.data);
       console.log("WebSocket message received:", message);
 
-      // Update debug panel with latest message
       const wsStore = useWebSocketStore();
       wsStore.setLastMessage(message as Record<string, unknown>);
 
@@ -188,10 +205,6 @@ export class WebSocketService {
           this.handleRoomState(message);
           break;
 
-        case "client_state":
-          this.handleClientState(message);
-          break;
-
         case "player_connected":
           this.handlePlayerConnected(message, roomStore);
           break;
@@ -200,12 +213,20 @@ export class WebSocketService {
           this.handlePlayerDisconnected(message, roomStore);
           break;
 
-        case "room_update":
-          this.handleRoomUpdate(message);
+        case "player_joined":
+          this.handlePlayerJoined(message, roomStore);
+          break;
+
+        case "player_left":
+          this.handlePlayerLeft(message, roomStore);
           break;
 
         case "phase_changed":
           this.handlePhaseChanged(message);
+          break;
+
+        case "song_added":
+          this.handleSongAdded(message);
           break;
 
         default:
@@ -232,101 +253,71 @@ export class WebSocketService {
    */
   private handleReconnectFailed(message: WebSocketMessage): void {
     console.error("Reconnection failed:", message.reason);
-    // Clear invalid token
     sessionStorage.removeItem(RECONNECT_TOKEN_KEY);
     this.reconnectToken = null;
   }
 
   /**
-   * Handle room_state event (sent on reconnection).
+   * Handle room_state event - populates roomStore with per-user tailored state.
    */
   private handleRoomState(message: WebSocketMessage): void {
-    console.log("Received full room state on reconnection:", message.data);
-    const roomStore = useRoomStore();
-    // Update room state from server
-    if (message.data && typeof message.data === "object") {
-      const roomData = message.data as Record<string, unknown>;
-      if (roomData.players && Array.isArray(roomData.players)) {
-        roomStore.setPlayers(roomData.players);
-      }
-      // Handle other room state updates as needed
-    }
-  }
-
-  /**
-   * Handle client_state event from app-level WebSocket.
-   * Populates roomStore and gameStore, clears stale state when not in room.
-   */
-  private handleClientState(message: WebSocketMessage): void {
-    console.log("Received client_state:", message);
+    console.log("Received room_state:", message);
     const roomStore = useRoomStore();
     const gameStore = useGameStore();
 
-    if (message.in_room === false) {
-      // Clear stale room/game state when server says we're not in a room
-      roomStore.reset();
-      gameStore.setPlaying(false);
-      gameStore.setPlaybackStartTime(null);
-      return;
-    }
-
-    // Populate room state
-    if (message.room_code) {
-      roomStore.setRoom(message.room_code);
-    }
-
     if (message.phase) {
-      roomStore.setStatus(message.phase as "lobby" | "picking_songs" | "song_selection" | "playing" | "guessing" | "results");
+      roomStore.setStatus(
+        message.phase as
+          | "lobby"
+          | "picking_songs"
+          | "song_selection"
+          | "playing"
+          | "guessing"
+          | "results"
+      );
     }
 
-    // Room data is nested under room_data
-    const roomData = message.room_data as Record<string, unknown> | undefined;
-    if (roomData) {
-      if (roomData.players && Array.isArray(roomData.players)) {
-        roomStore.setPlayers(
-          (roomData.players as Array<{id: string; display_name: string; is_host: boolean; is_connected: boolean}>).map((p) => ({
-            id: p.id,
-            name: p.display_name,
-            isHost: p.is_host,
-            isConnected: p.is_connected
-          }))
-        );
-      }
+    if (message.players && Array.isArray(message.players)) {
+      roomStore.setPlayers(
+        message.players.map((p) => ({
+          id: p.id,
+          name: p.display_name,
+          isHost: p.is_host,
+          isConnected: p.is_connected,
+        }))
+      );
+    }
 
-      if (typeof roomData.song_pair_count === 'number') {
-        roomStore.setSongPairCount(roomData.song_pair_count);
-      }
+    if (typeof message.song_pair_count === "number") {
+      roomStore.setSongPairCount(message.song_pair_count);
+    }
 
-      if (roomData.assigned_song && typeof roomData.assigned_song === 'object') {
-        const song = roomData.assigned_song as {id: string; title: string; artist: string};
-        roomStore.setAssignedSong({
-          id: song.id,
-          title: song.title,
-          artist: song.artist,
-        });
-      }
+    if (message.assigned_song) {
+      roomStore.setAssignedSong({
+        id: message.assigned_song.id,
+        title: message.assigned_song.title,
+        artist: message.assigned_song.artist,
+      });
+    }
 
-      if (typeof roomData.playback_start_time === 'string') {
-        gameStore.setPlaybackStartTime(roomData.playback_start_time);
-      }
+    if (typeof message.playback_start_time === "string") {
+      gameStore.setPlaybackStartTime(message.playback_start_time);
     }
   }
 
   /**
-   * Handle player_connected event.
+   * Handle player_connected event - update connection status.
    */
   private handlePlayerConnected(
     message: WebSocketMessage,
     roomStore: ReturnType<typeof useRoomStore>
   ): void {
     const { user_id } = message;
-
     if (!user_id) {
       console.warn("player_connected event missing user_id");
       return;
     }
 
-    // Update player connection status
     const players = roomStore.players.map((player) => {
       if (player.id === user_id) {
         return { ...player, isConnected: true };
@@ -339,20 +330,18 @@ export class WebSocketService {
   }
 
   /**
-   * Handle player_disconnected event.
+   * Handle player_disconnected event - update connection status.
    */
   private handlePlayerDisconnected(
     message: WebSocketMessage,
     roomStore: ReturnType<typeof useRoomStore>
   ): void {
     const { user_id } = message;
-
     if (!user_id) {
       console.warn("player_disconnected event missing user_id");
       return;
     }
 
-    // Update player connection status
     const players = roomStore.players.map((player) => {
       if (player.id === user_id) {
         return { ...player, isConnected: false };
@@ -365,11 +354,62 @@ export class WebSocketService {
   }
 
   /**
-   * Handle room_update event (for future use).
+   * Handle player_joined event - add new player to store.
    */
-  private handleRoomUpdate(message: WebSocketMessage): void {
-    // Future: handle room state updates
-    console.log("Room update received:", message);
+  private handlePlayerJoined(
+    message: WebSocketMessage,
+    roomStore: ReturnType<typeof useRoomStore>
+  ): void {
+    const { user_id, display_name } = message;
+    if (!user_id || !display_name) {
+      console.warn("player_joined event missing user_id or display_name");
+      return;
+    }
+
+    // Don't add if already in list
+    const existing = roomStore.players.find((p) => p.id === user_id);
+    if (existing) {
+      console.log(`Player ${user_id} already in list, skipping add`);
+      return;
+    }
+
+    roomStore.setPlayers([
+      ...roomStore.players,
+      {
+        id: user_id,
+        name: display_name,
+        isHost: false,
+        isConnected: true,
+      },
+    ]);
+    console.log(`Player ${user_id} (${display_name}) joined room`);
+  }
+
+  /**
+   * Handle player_left event - remove player from store.
+   */
+  private handlePlayerLeft(
+    message: WebSocketMessage,
+    roomStore: ReturnType<typeof useRoomStore>
+  ): void {
+    const { user_id, new_host_id } = message;
+    if (!user_id) {
+      console.warn("player_left event missing user_id");
+      return;
+    }
+
+    let players = roomStore.players.filter((p) => p.id !== user_id);
+
+    // Update host if transferred
+    if (new_host_id) {
+      players = players.map((p) => ({
+        ...p,
+        isHost: p.id === new_host_id,
+      }));
+    }
+
+    roomStore.setPlayers(players);
+    console.log(`Player ${user_id} left room`);
   }
 
   /**
@@ -377,8 +417,10 @@ export class WebSocketService {
    * Navigation is handled by AppOrchestrator based on store state.
    */
   private handlePhaseChanged(message: WebSocketMessage): void {
-    const { phase, room_code, playback_start_time } = message;
-    console.log(`Phase changed to: ${phase} in room ${room_code}`, { playback_start_time });
+    const { phase, room_code, playback_start_time, assigned_song } = message;
+    console.log(`Phase changed to: ${phase} in room ${room_code}`, {
+      playback_start_time,
+    });
 
     if (!phase || !room_code) {
       console.warn("phase_changed event missing phase or room_code");
@@ -388,10 +430,24 @@ export class WebSocketService {
     const roomStore = useRoomStore();
     const gameStore = useGameStore();
 
-    // Update room status - AppOrchestrator will handle view selection
-    roomStore.setStatus(phase as "lobby" | "song_selection" | "playing" | "guessing" | "results");
+    roomStore.setStatus(
+      phase as
+        | "lobby"
+        | "song_selection"
+        | "playing"
+        | "guessing"
+        | "results"
+    );
 
-    // Update game state based on phase
+    // Set assigned_song if present in phase_changed (per-player delivery)
+    if (assigned_song) {
+      roomStore.setAssignedSong({
+        id: assigned_song.id,
+        title: assigned_song.title,
+        artist: assigned_song.artist,
+      });
+    }
+
     switch (phase) {
       case "playing":
         if (playback_start_time) {
@@ -408,11 +464,21 @@ export class WebSocketService {
       case "song_selection":
       case "guessing":
       case "results":
-        // No additional game state updates needed
         break;
 
       default:
         console.warn(`Unknown phase: ${phase}`);
+    }
+  }
+
+  /**
+   * Handle song_added event - update song pair count.
+   */
+  private handleSongAdded(message: WebSocketMessage): void {
+    if (typeof message.song_pair_count === "number") {
+      const roomStore = useRoomStore();
+      roomStore.setSongPairCount(message.song_pair_count);
+      console.log(`Song pair count updated: ${message.song_pair_count}`);
     }
   }
 

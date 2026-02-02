@@ -77,6 +77,12 @@ class PlayerReadyRequest(BaseModel):
     player_id: str = Field(..., description='Player ID')
 
 
+class EndListeningRequest(BaseModel):
+    """Request model for ending the listening phase (host only)."""
+
+    player_id: str = Field(..., description='Player ID (must be host)')
+
+
 class VoteRequest(BaseModel):
     """Request model for casting a vote on who is the Dancer Incognito."""
 
@@ -146,10 +152,6 @@ async def create_room(
 
         # Store the room
         await storage.upsert_room(body.room_code, room.model_dump(mode='json'))
-
-        # Update WebSocket room association for phase broadcasts
-        connection_manager = get_connection_manager()
-        await connection_manager.update_client_room(current_user.user_id, body.room_code)
 
         logger.info(f'Room {body.room_code} created by user {current_user.user_id}')
 
@@ -229,11 +231,18 @@ async def join_room(
     room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    # Update WebSocket room association for phase broadcasts
-    connection_manager = get_connection_manager()
-    await connection_manager.update_client_room(body.player_id, room_code)
-
     logger.info(f'Player {body.player_id} joined room {room_code}')
+
+    # Broadcast player_joined to existing room members
+    manager = get_connection_manager()
+    await manager.broadcast_to_room(
+        room_code,
+        {
+            'type': 'player_joined',
+            'user_id': body.player_id,
+            'display_name': body.display_name,
+        },
+    )
 
     return RoomStateResponse.from_room_state(room)
 
@@ -281,6 +290,16 @@ async def add_song(
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
     logger.info(f'Song {song_id} added to room {room_code} by player {body.player_id}')
+
+    # Broadcast song_added to all players in room
+    manager = get_connection_manager()
+    await manager.broadcast_to_room(
+        room_code,
+        {
+            'type': 'song_added',
+            'song_pair_count': len(room.songs),
+        },
+    )
 
     return RoomStateResponse.from_room_state(room)
 
@@ -377,6 +396,22 @@ async def start_game(
 
     # Broadcast phase change to all connected clients
     await broadcast_phase_changed(room_code, 'song_selection')
+
+    # Send per-player assigned_song via send_to_user
+    manager = get_connection_manager()
+    for player in room.players:
+        assigned = player_assignments.get(player.id)
+        if assigned:
+            await manager.send_to_user(
+                room_code,
+                player.id,
+                {
+                    'type': 'phase_changed',
+                    'phase': 'song_selection',
+                    'room_code': room_code,
+                    'assigned_song': assigned.model_dump(),
+                },
+            )
 
     return RoomStateResponse.from_room_state(room)
 
@@ -520,6 +555,50 @@ async def cast_vote(
         await broadcast_phase_changed(room_code, 'guessing')
     if all_voted:
         await broadcast_phase_changed(room_code, 'results')
+
+    return RoomStateResponse.from_room_state(room)
+
+
+@router.post('/{room_code}/end-listening', summary='End listening phase (host only)', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
+async def end_listening(
+    request: Request,
+    room_code: str,
+    body: EndListeningRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoomStateResponse:
+    """
+    End the listening phase and transition to guessing (host only).
+
+    Transitions room status from 'playing' to 'guessing'.
+    Returns updated room state.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify room is in playing state
+    if room.status != 'playing':
+        raise HTTPException(status_code=400, detail=f'Cannot end listening from {room.status} state')
+
+    # Verify requester is host
+    if room.host_id != body.player_id:
+        raise HTTPException(status_code=403, detail='Only the host can end the listening phase')
+
+    # Transition to guessing
+    room.status = 'guessing'
+
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info(f'Listening ended in room {room_code} by host {body.player_id}, transitioning to guessing')
+
+    # Broadcast phase change
+    await broadcast_phase_changed(room_code, 'guessing')
 
     return RoomStateResponse.from_room_state(room)
 

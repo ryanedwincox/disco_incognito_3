@@ -2,6 +2,10 @@
 # Development environment setup - idempotent and safe to source repeatedly
 # Usage: source dev_env.sh
 
+# Export UID/GID for docker-compose user mapping
+export DOCKER_UID=$(id -u)
+export DOCKER_GID=$(id -g)
+
 # Port ranges for worktree isolation
 MAIN_BACKEND_START=8000
 MAIN_FRONTEND_START=3000

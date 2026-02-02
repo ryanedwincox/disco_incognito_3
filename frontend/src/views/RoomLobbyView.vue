@@ -80,6 +80,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useRoomApi } from '../composables/useRoomApi'
+import { websocketService } from '../services/websocket'
 
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
@@ -189,6 +190,9 @@ async function leaveRoom() {
   console.log('Leaving room:', roomCode.value)
   const userId = authStore.user?.id
 
+  // Disconnect WS before HTTP leave call
+  websocketService.disconnect()
+
   // Call API to leave room
   if (userId && roomCode.value) {
     try {
@@ -202,8 +206,8 @@ async function leaveRoom() {
     }
   }
 
-  // Clear reconnect token explicitly
-  localStorage.removeItem('disco_reconnect_token')
+  // Clear reconnect token explicitly (sessionStorage, not localStorage)
+  sessionStorage.removeItem('disco_reconnect_token')
 
   // Reset room state - AppOrchestrator will switch to RoomSelectionView
   roomStore.reset()

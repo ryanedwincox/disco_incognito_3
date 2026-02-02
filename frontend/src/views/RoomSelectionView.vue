@@ -46,6 +46,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
 import { useNotificationStore } from '@/stores/notifications'
 import { API_URL } from '@/config/api'
+import { websocketService } from '@/services/websocket'
 import axios from 'axios'
 
 const router = useRouter()
@@ -64,7 +65,7 @@ async function createRoom() {
 
   try {
     // POST to create room on backend
-    const response = await axios.post(
+    await axios.post(
       `${API_URL}/api/rooms`,
       { room_code: code },
       {
@@ -78,16 +79,10 @@ async function createRoom() {
     roomStore.setRoom(code)
     roomStore.setStatus('lobby')
 
-    // Set players from response if available
-    if (response.data?.players) {
-      roomStore.setPlayers(
-        response.data.players.map((p: { id: string; display_name: string; is_host: boolean; is_connected: boolean }) => ({
-          id: p.id,
-          name: p.display_name,
-          isHost: p.is_host,
-          isConnected: p.is_connected
-        }))
-      )
+    // Connect WS to room - room_state message will populate full store
+    const userId = authStore.user?.id
+    if (userId) {
+      websocketService.connectToRoom(userId, code)
     }
   } catch (error: unknown) {
     console.error('Failed to create room:', error)
@@ -126,16 +121,10 @@ async function joinRoom() {
     roomStore.setRoom(code)
     roomStore.setStatus(roomData.status || 'lobby')
 
-    // Set players from response if available
-    if (roomData.players) {
-      roomStore.setPlayers(
-        roomData.players.map((p: { id: string; display_name: string; is_host: boolean; is_connected: boolean }) => ({
-          id: p.id,
-          name: p.display_name,
-          isHost: p.is_host,
-          isConnected: p.is_connected
-        }))
-      )
+    // Connect WS to room - room_state message will populate full store
+    const wsUserId = authStore.user?.id
+    if (wsUserId) {
+      websocketService.connectToRoom(wsUserId, code)
     }
   } catch (error: unknown) {
     console.error('Failed to join room:', error)
