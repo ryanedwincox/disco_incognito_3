@@ -62,7 +62,7 @@
               >
                 <div class="flex items-center gap-3">
                   <img
-                    :src="track.album_art"
+                    :src="track.albumArt"
                     :alt="track.album"
                     class="w-12 h-12 rounded-lg object-cover"
                   />
@@ -107,7 +107,7 @@
               <!-- Slot 1 -->
               <div v-if="selectedTracks[0]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
                 <img
-                  :src="selectedTracks[0].album_art"
+                  :src="selectedTracks[0].albumArt"
                   :alt="selectedTracks[0].album"
                   class="w-10 h-10 rounded-lg object-cover"
                 />
@@ -130,7 +130,7 @@
               <!-- Slot 2 -->
               <div v-if="selectedTracks[1]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
                 <img
-                  :src="selectedTracks[1].album_art"
+                  :src="selectedTracks[1].albumArt"
                   :alt="selectedTracks[1].album"
                   class="w-10 h-10 rounded-lg object-cover"
                 />
@@ -187,6 +187,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useRoomStore } from '../stores/room'
 import { useMusicStore } from '../stores/music'
+import type { TrackInfo } from '../stores/music'
 import { useRoomApi } from '../composables/useRoomApi'
 
 const authStore = useAuthStore()
@@ -194,24 +195,13 @@ const roomStore = useRoomStore()
 const musicStore = useMusicStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
 
-const isTestMode = computed(() => import.meta.env.VITE_TEST_MODE === 'true')
 const isSpotifyUser = computed(() => authStore.isSpotifyUser)
 
-interface Track {
-  id: string
-  name: string
-  artist: string
-  album: string
-  album_art: string
-  uri: string
-  preview_url: string | null
-}
-
-const selectedTracks = ref<Track[]>([])
+const selectedTracks = ref<TrackInfo[]>([])
 const isSaving = ref(false)
 const successMessage = ref('')
 const searchQuery = ref('')
-const searchResults = ref<Track[]>([])
+const searchResults = ref<TrackInfo[]>([])
 const isSearching = ref(false)
 const isSearchOpen = ref(true)
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
@@ -247,14 +237,6 @@ onBeforeUnmount(() => {
   stopPreview()
 })
 
-// Get access token - use mock token in test mode
-function getAccessToken(): string {
-  if (isTestMode.value) {
-    return 'test-access-token'
-  }
-  return authStore.accessToken || ''
-}
-
 // Debounced search handler
 function handleSearchInput() {
   isSearchOpen.value = true
@@ -276,20 +258,7 @@ async function performSearch() {
   await stopPreview()
   isSearching.value = true
   try {
-    const token = getAccessToken()
-
-    const response = await fetch(`${API_URL}/api/spotify/search?q=${encodeURIComponent(query)}&limit=20`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-
-    if (!response.ok) {
-      throw new Error('Search failed')
-    }
-
-    const data = await response.json()
-    searchResults.value = data.tracks || []
+    searchResults.value = await musicStore.searchTracks(query)
   } catch (error) {
     console.error('Search error:', error)
     searchResults.value = []
@@ -299,7 +268,7 @@ async function performSearch() {
 }
 
 // Audio preview controls
-async function togglePreview(track: Track) {
+async function togglePreview(track: TrackInfo) {
   if (currentPreviewTrackId.value === track.id && isPreviewPlaying.value) {
     // Pause current preview
     await musicStore.pausePlayback(musicStore.activeDeviceId ?? undefined)
@@ -329,11 +298,11 @@ async function stopPreview() {
   isPreviewPlaying.value = false
 }
 
-function isSelected(track: Track): boolean {
+function isSelected(track: TrackInfo): boolean {
   return selectedTracks.value.some(t => t.id === track.id)
 }
 
-function selectTrack(track: Track) {
+function selectTrack(track: TrackInfo) {
   const index = selectedTracks.value.findIndex(t => t.id === track.id)
   if (index !== -1) {
     // Clicking selected track deselects it
