@@ -71,6 +71,13 @@
         <p class="text-zinc-400">{{ songCountText }}</p>
       </div>
     </section>
+    <button
+      class="w-full text-sm text-zinc-500 hover:text-zinc-300 transition-colors mt-4"
+      type="button"
+      @click="logout"
+    >
+      Log out of Spotify
+    </button>
     </div>
   </div>
 </template>
@@ -211,6 +218,11 @@ async function leaveRoom() {
 
   // Reset room state - AppOrchestrator will switch to RoomSelectionView
   roomStore.reset()
+}
+
+async function logout() {
+  await leaveRoom()
+  authStore.clearTokens()
 }
 
 function pickSongs() {
