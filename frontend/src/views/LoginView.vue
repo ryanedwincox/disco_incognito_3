@@ -85,11 +85,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
-const router = useRouter()
 const route = useRoute()
 
 const isLoading = ref(false)
@@ -98,36 +97,10 @@ const successMessage = ref('')
 const showNameInput = ref(false)
 const displayName = ref('')
 
-// Handle OAuth callback on mount
+// Handle OAuth error params on mount (success is handled by AppOrchestrator)
 onMounted(() => {
   const query = route.query
-
-  // Check if this is an OAuth callback with tokens
-  if (query['auth_success'] === 'true' && query['access_token']) {
-    const accessToken = query['access_token'] as string
-    const refreshToken = query['refresh_token'] as string
-    const userId = query['user_id'] as string
-    const userName = query['display_name'] as string
-
-    // Store tokens
-    authStore.setTokens(accessToken, refreshToken)
-
-    // Store user info
-    authStore.setUser({
-      id: userId,
-      displayName: userName,
-      email: '' // Email not provided in callback
-    })
-
-    successMessage.value = `Welcome, ${userName}!`
-    console.log(`✅ Spotify login successful: ${userName}`)
-
-    // Clean up URL - AppOrchestrator will handle view switch based on auth state
-    setTimeout(() => {
-      router.replace('/')
-    }, 500)
-  } else if (query['error']) {
-    // Handle OAuth error
+  if (query['error']) {
     errorMessage.value = query['error'] as string
   }
 })

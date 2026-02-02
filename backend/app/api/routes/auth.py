@@ -97,6 +97,7 @@ async def callback(
     state: str | None = Query(None, description='State parameter from OAuth flow'),
     error: str | None = Query(None, description='Error parameter from OAuth flow'),
     service: SpotifyAuthService = Depends(get_spotify_service),
+    storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> RedirectResponse:
     """
     Handle OAuth callback from Spotify.
@@ -108,20 +109,23 @@ async def callback(
     Per OAuth spec, this endpoint returns a redirect, not JSON.
     """
     try:
+        # AnyHttpUrl adds trailing slash; strip it to avoid double-slash in redirects
+        frontend = str(settings.frontend_url).rstrip('/')
+
         # Handle OAuth errors
         if error:
             logger.error(f'OAuth error in callback: {error}')
-            error_url = f'{settings.frontend_url}/?error={urllib.parse.quote(error)}'
+            error_url = f'{frontend}/?error={urllib.parse.quote(error)}'
             return RedirectResponse(url=error_url, status_code=302)
 
         if not code:
             logger.error('No authorization code provided in callback')
-            error_url = f'{settings.frontend_url}/?error=no_code'
+            error_url = f'{frontend}/?error=no_code'
             return RedirectResponse(url=error_url, status_code=302)
 
         if not state:
             logger.error('No state parameter provided in callback')
-            error_url = f'{settings.frontend_url}/?error=no_state'
+            error_url = f'{frontend}/?error=no_state'
             return RedirectResponse(url=error_url, status_code=302)
 
         # Exchange code for tokens
@@ -129,7 +133,7 @@ async def callback(
 
         if not token_info:
             logger.error('Failed to obtain access token')
-            error_url = f'{settings.frontend_url}/?error=token_exchange_failed'
+            error_url = f'{frontend}/?error=token_exchange_failed'
             return RedirectResponse(url=error_url, status_code=302)
 
         # Get user info using the access token
@@ -137,10 +141,17 @@ async def callback(
 
         logger.info(f'OAuth callback successful for user: {user_info.get("id", "unknown")}')
 
+        # Store session so /api/auth/verify can validate this token
+        await storage.set_session(token_info['access_token'], {
+            'user_id': user_info.get('id', ''),
+            'display_name': user_info.get('display_name', ''),
+            'email': user_info.get('email', ''),
+        })
+
         # Create success URL with token and user information
         # Frontend will extract this from URL parameters
         success_url = (
-            f'{settings.frontend_url}/?auth_success=true'
+            f'{frontend}/?auth_success=true'
             f'&access_token={urllib.parse.quote(token_info["access_token"])}'
             f'&refresh_token={urllib.parse.quote(token_info.get("refresh_token", ""))}'
             f'&expires_in={token_info.get("expires_in", 3600)}'
@@ -154,7 +165,7 @@ async def callback(
         raise
     except Exception as e:
         logger.error(f'Error in callback endpoint: {e}', exc_info=True)
-        error_url = f'{settings.frontend_url}/?error=callback_failed'
+        error_url = f'{frontend}/?error=callback_failed'
         return RedirectResponse(url=error_url, status_code=302)
 
 

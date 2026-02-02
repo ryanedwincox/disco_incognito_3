@@ -1,6 +1,33 @@
 {
-  "rooms": {},
+  "rooms": {
+    "452": {
+      "code": "452",
+      "created_at": "2026-02-02T03:39:57.961456",
+      "current_round": null,
+      "dancer_incognito_player_id": null,
+      "host_id": "ryanedwincox",
+      "last_active_at": "2026-02-02T03:39:57.961459",
+      "players": [
+        {
+          "display_name": "ryanedwincox",
+          "id": "ryanedwincox",
+          "is_connected": true,
+          "is_host": true
+        }
+      ],
+      "songs": [],
+      "status": "lobby"
+    }
+  },
   "sessions": {
+    "BQDvcdnh_e10b0G-NRoXRJcTS-c43i-1j6IbceXV4f2ZbuAxlJSfraAmb2dnBTcRQxQsMYqcxsAKf54VhXWNjA9_xRIQLpFgeTs1UtS1TB4jQlOCLRYnkqN1UtUd0WkUIdoONSaLP_IsVmnomvBFcVY7SBvZDZIew8pKM17ofTDWaFJP8aDmekCSMkTGstcrHZWn9hgsAaFgytXjjknSoIHSqtKSIYgylgqABbqiHngLisvqenfoXbN4fg": {
+      "disconnected_at": null,
+      "display_name": "ryanedwincox",
+      "email": "ryanedwincox@gmail.com",
+      "reconnect_token": "c255dc64-b0bf-4250-aa92-fd1d0141c10b",
+      "room_code": "452",
+      "user_id": "ryanedwincox"
+    },
     "manual_token_vw4s5qUO77qv8XHXi63dF7FDU_ihtQr9STkYsHMTd2o": {
       "display_name": "Test Player",
       "email": "",
@@ -62,8 +89,11 @@
       "user_id": "test-user-a7cb007b"
     },
     "test_token_F21wlfXwlUGTYNY14VpoMETIhXGmwLiAe5GF1mMBUN8": {
+      "disconnected_at": null,
       "display_name": "Groovy Dancer",
       "email": "test-user-00000000@disco.test",
+      "reconnect_token": "eec01d4e-a8c5-4232-9856-155eb305b3a4",
+      "room_code": "966",
       "user_id": "test-user-00000000"
     },
     "test_token_JoL1iQYBMdZ7R8HxxY_af3jzvzWNaSfMi-USKJpMyvM": {
