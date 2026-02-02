@@ -222,6 +222,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Saturday Night Fever',
                 'duration_ms': 285000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273f98d90cb3a9e82e797024e32',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-1',
             },
             {
                 'id': 'test-track-2',
@@ -231,6 +232,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'The Best of Earth, Wind & Fire Vol. 1',
                 'duration_ms': 215000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273b7b169a4fef5a9247f0e4021',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-2',
             },
             {
                 'id': 'test-track-3',
@@ -240,6 +242,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Love Tracks',
                 'duration_ms': 198000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273d7b169a4fef5a9247f0e4022',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-3',
             },
             {
                 'id': 'test-track-4',
@@ -249,6 +252,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': "C'est Chic",
                 'duration_ms': 311000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273e7b169a4fef5a9247f0e4023',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-4',
             },
             {
                 'id': 'test-track-5',
@@ -258,6 +262,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Arrival',
                 'duration_ms': 231000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273f7b169a4fef5a9247f0e4024',
+                'preview_url': None,
             },
             {
                 'id': 'test-track-6',
@@ -267,6 +272,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'I Am',
                 'duration_ms': 288000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273g7b169a4fef5a9247f0e4025',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-6',
             },
             {
                 'id': 'test-track-7',
@@ -276,6 +282,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Off the Wall',
                 'duration_ms': 366000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273h7b169a4fef5a9247f0e4026',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-7',
             },
             {
                 'id': 'test-track-8',
@@ -285,6 +292,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Songs of Love',
                 'duration_ms': 234000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273i7b169a4fef5a9247f0e4027',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-8',
             },
             {
                 'id': 'test-track-9',
@@ -294,6 +302,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Thank God It\'s Friday',
                 'duration_ms': 267000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273j7b169a4fef5a9247f0e4028',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-9',
             },
             {
                 'id': 'test-track-10',
@@ -303,6 +312,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Celebrate!',
                 'duration_ms': 264000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273k7b169a4fef5a9247f0e4029',
+                'preview_url': None,
             },
             {
                 'id': 'test-track-11',
@@ -312,6 +322,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Cruisin\'',
                 'duration_ms': 292000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273l7b169a4fef5a9247f0e4030',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-11',
             },
             {
                 'id': 'test-track-12',
@@ -321,6 +332,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Disco Inferno',
                 'duration_ms': 330000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273m7b169a4fef5a9247f0e4031',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-12',
             },
             {
                 'id': 'test-track-13',
@@ -330,6 +342,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Bad Girls',
                 'duration_ms': 237000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273n7b169a4fef5a9247f0e4032',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-13',
             },
             {
                 'id': 'test-track-14',
@@ -339,6 +352,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Street Songs',
                 'duration_ms': 212000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273o7b169a4fef5a9247f0e4033',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-14',
             },
             {
                 'id': 'test-track-15',
@@ -348,6 +362,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'KC and the Sunshine Band',
                 'duration_ms': 192000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273p7b169a4fef5a9247f0e4034',
+                'preview_url': None,
             },
             {
                 'id': 'test-track-16',
@@ -357,6 +372,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Car Wash',
                 'duration_ms': 242000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273q7b169a4fef5a9247f0e4035',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-16',
             },
             {
                 'id': 'test-track-17',
@@ -366,6 +382,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Wild Cherry',
                 'duration_ms': 305000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273r7b169a4fef5a9247f0e4036',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-17',
             },
             {
                 'id': 'test-track-18',
@@ -375,6 +392,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'KC and the Sunshine Band',
                 'duration_ms': 187000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273s7b169a4fef5a9247f0e4037',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-18',
             },
             {
                 'id': 'test-track-19',
@@ -384,6 +402,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Commodores',
                 'duration_ms': 206000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273t7b169a4fef5a9247f0e4038',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-19',
             },
             {
                 'id': 'test-track-20',
@@ -393,6 +412,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Diana',
                 'duration_ms': 322000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273u7b169a4fef5a9247f0e4039',
+                'preview_url': None,
             },
             {
                 'id': 'test-track-21',
@@ -402,6 +422,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Mothership Connection',
                 'duration_ms': 337000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273v7b169a4fef5a9247f0e4040',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-21',
             },
             {
                 'id': 'test-track-22',
@@ -411,6 +432,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Get Up Offa That Thing',
                 'duration_ms': 257000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273w7b169a4fef5a9247f0e4041',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-22',
             },
             {
                 'id': 'test-track-23',
@@ -420,6 +442,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Mouth to Mouth',
                 'duration_ms': 287000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273x7b169a4fef5a9247f0e4042',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-23',
             },
             {
                 'id': 'test-track-24',
@@ -429,6 +452,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Parallel Lines',
                 'duration_ms': 254000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273y7b169a4fef5a9247f0e4043',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-24',
             },
             {
                 'id': 'test-track-25',
@@ -438,6 +462,7 @@ class TestMusicAdapter(MusicStreamingAdapter):
                 'album': 'Risqué',
                 'duration_ms': 482000,
                 'album_art': 'https://i.scdn.co/image/ab67616d0000b273z7b169a4fef5a9247f0e4044',
+                'preview_url': 'https://p.scdn.co/mp3-preview/test-track-25',
             },
         ]
 

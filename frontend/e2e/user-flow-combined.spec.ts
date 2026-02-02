@@ -109,15 +109,15 @@ async function addSongs(page: Page): Promise<void> {
   await searchInput.fill('chic');
 
   // Wait for search results
-  const trackButtons = page.locator('.max-h-80 button');
-  await expect(trackButtons.first()).toBeVisible({ timeout: 10000 });
+  const trackResults = page.locator('[data-testid="track-result"]');
+  await expect(trackResults.first()).toBeVisible({ timeout: 10000 });
 
   // Select first track
-  await trackButtons.nth(0).click();
+  await trackResults.nth(0).click();
   await expect(page.locator('text=Selected Songs (1/2)')).toBeVisible({ timeout: 5000 });
 
   // Select second track
-  await trackButtons.nth(1).click();
+  await trackResults.nth(1).click();
   await expect(page.locator('text=Selected Songs (2/2)')).toBeVisible({ timeout: 5000 });
 
   // Add song pair
