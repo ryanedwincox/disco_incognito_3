@@ -99,6 +99,14 @@ export const useMusicStore = defineStore("music", {
       this.isRetrying = false;
     },
 
+    warnNoDevices() {
+      const notificationStore = useNotificationStore();
+      notificationStore.warning(
+        "No Spotify Devices",
+        "No Spotify devices found. Open Spotify on a device to enable playback."
+      );
+    },
+
     setSelectedTrack(track: TrackInfo | null) {
       console.log('setSelectedTrack called:', track);
       this.selectedTrack = track;
@@ -165,6 +173,18 @@ export const useMusicStore = defineStore("music", {
       this.error = null;
       this.playbackError = null;
       console.log('playTrack called:', { trackUri, deviceId });
+
+      // Pre-flight device check: ensure we have a device before attempting playback
+      if (!deviceId) {
+        if (!this.activeDeviceId) {
+          await this.getDevices();
+        }
+        if (!this.activeDeviceId) {
+          this.warnNoDevices();
+          return false;
+        }
+        deviceId = this.activeDeviceId;
+      }
 
       // Retry with exponential backoff
       const maxAttempts = 3;
@@ -305,6 +325,15 @@ export const useMusicStore = defineStore("music", {
         const activeDevice = devices.find(d => d.isActive);
         if (activeDevice) {
           this.activeDeviceId = activeDevice.id;
+        } else if (devices.length > 0) {
+          const transferred = await this.transferPlayback(devices[0].id, false);
+          if (transferred) {
+            this.activeDeviceId = devices[0].id;
+          } else {
+            this.warnNoDevices();
+          }
+        } else {
+          this.warnNoDevices();
         }
 
         return devices;
