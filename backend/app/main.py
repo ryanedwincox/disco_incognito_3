@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
 from .api.router import api_router
@@ -55,6 +56,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 
 @app.on_event('startup')
