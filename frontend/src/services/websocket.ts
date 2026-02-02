@@ -120,12 +120,21 @@ export class WebSocketService {
     }
 
     if (this.socket) {
+      // Null out handlers before close() to prevent the async onclose from
+      // setting status to "disconnected" and triggering reconnect attempts
+      this.socket.onclose = null;
+      this.socket.onerror = null;
       this.socket.close();
       this.socket = null;
     }
 
     // Clear reconnect token when deliberately disconnecting
     sessionStorage.removeItem(RECONNECT_TOKEN_KEY);
+
+    // Reset WS store so hasEverConnected is false — prevents the
+    // ServerDisconnectedBanner from flashing during intentional disconnect
+    const wsStore = useWebSocketStore();
+    wsStore.reset();
 
     this.userId = null;
     this.roomCode = null;
