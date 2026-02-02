@@ -15,20 +15,66 @@
       </div>
     </main>
 
+    <div v-if="isHost" class="px-6 pb-6 flex justify-center">
+      <button
+        class="px-6 py-3 rounded-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold transition-colors"
+        type="button"
+        @click="endListening"
+      >
+        End Listening
+      </button>
+    </div>
+
     <MusicPlayerBar />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import MusicPlayerBar from '@/components/MusicPlayerBar.vue'
 import { useGameStore } from '@/stores/game'
 import { useMusicStore } from '@/stores/music'
 import { useRoomStore } from '@/stores/room'
+import { useAuthStore } from '@/stores/auth'
+import { useRoomApi } from '@/composables/useRoomApi'
 
 const gameStore = useGameStore()
 const musicStore = useMusicStore()
 const roomStore = useRoomStore()
+const authStore = useAuthStore()
+const { API_URL } = useRoomApi()
+
+const isHost = computed(() => {
+  const currentUserId = authStore.user?.id
+  if (!currentUserId) return false
+  const currentPlayer = roomStore.players.find(p => p.id === currentUserId)
+  return currentPlayer?.isHost ?? false
+})
+
+async function endListening() {
+  const playerId = authStore.user?.id
+  const roomCode = roomStore.code
+  if (!playerId || !roomCode) return
+
+  try {
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode}/end-listening`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ player_id: playerId }),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      roomStore.setStatus(data.status)
+      console.log('Listening ended, status:', data.status)
+    } else {
+      const error = await response.json()
+      console.error('Failed to end listening:', error.detail)
+    }
+  } catch (error) {
+    console.error('Error ending listening:', error)
+  }
+}
 
 const waitingForSync = ref(false)
 let playbackTimer: number | null = null

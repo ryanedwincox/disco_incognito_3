@@ -19,8 +19,8 @@ export default defineConfig({
     screenshot: 'on',
   },
 
-  // Global timeout for each test (includes server startup)
-  timeout: 60000,
+  // Global timeout for each test (includes server startup + multi-context game flow)
+  timeout: 90000,
 
   projects: [
     {

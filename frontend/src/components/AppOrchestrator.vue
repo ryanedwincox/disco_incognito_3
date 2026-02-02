@@ -38,6 +38,14 @@ const isInitialized = ref(false)
 ;(async () => {
   await authStore.loadFromStorage()
   isInitialized.value = true
+
+  // On init: if sessionStorage has roomCode AND reconnect_token, reconnect WS
+  const savedRoomCode = sessionStorage.getItem('disco_room_code')
+  const savedReconnectToken = sessionStorage.getItem('disco_reconnect_token')
+  if (savedRoomCode && savedReconnectToken && authStore.isAuthenticated && authStore.user?.id) {
+    roomStore.setRoom(savedRoomCode)
+    websocketService.connectToRoom(authStore.user.id, savedRoomCode)
+  }
 })()
 
 // Phase-to-view mapping
@@ -74,19 +82,14 @@ const currentView = computed<Component>(() => {
   return phaseToViewMap[appPhase.value] || RoomLobbyView
 })
 
-// Connect to app-level WebSocket on auth success
+// Disconnect WS and reset room on logout
 watch(
   () => authStore.isAuthenticated,
   (isAuthenticated, wasAuthenticated) => {
-    if (isAuthenticated && !wasAuthenticated && authStore.user?.id) {
-      // Connect to client WebSocket on authentication
-      websocketService.connectClient(authStore.user.id)
-    } else if (!isAuthenticated && wasAuthenticated) {
-      // Disconnect on logout
+    if (!isAuthenticated && wasAuthenticated) {
       websocketService.disconnect()
       roomStore.reset()
     }
-  },
-  { immediate: true }
+  }
 )
 </script>

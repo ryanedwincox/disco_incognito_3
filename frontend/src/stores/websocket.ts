@@ -13,7 +13,7 @@ interface WebSocketState {
 
 export const useWebSocketStore = defineStore("websocket", {
   state: (): WebSocketState => ({
-    status: "connected",
+    status: "disconnected",
     lastMessage: null,
     hasEverConnected: false
   }),
@@ -29,7 +29,7 @@ export const useWebSocketStore = defineStore("websocket", {
       this.lastMessage = message;
     },
     reset() {
-      this.status = "connected";
+      this.status = "disconnected";
       this.lastMessage = null;
       this.hasEverConnected = false;
     }
