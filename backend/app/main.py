@@ -56,7 +56,11 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+
+# Serve frontend static files in production (built into static/ by Docker)
+static_dir = Path(__file__).parent.parent / "static"
+if static_dir.is_dir():
+    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
 
 
 @app.on_event('startup')
