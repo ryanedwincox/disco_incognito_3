@@ -11,7 +11,7 @@
         <p class="text-sm uppercase text-zinc-400">
           {{ waitingForSync ? 'Syncing...' : 'Time Remaining' }}
         </p>
-        <p class="text-6xl font-bold text-disco-pink">01:30</p>
+        <p class="text-6xl font-bold text-disco-pink">{{ formattedCountdown }}</p>
       </div>
     </main>
 
@@ -51,6 +51,13 @@ const isHost = computed(() => {
   return currentPlayer?.isHost ?? false
 })
 
+const formattedCountdown = computed(() => {
+  const total = gameStore.countdown
+  const mins = Math.floor(total / 60)
+  const secs = total % 60
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+})
+
 async function endListening() {
   const playerId = authStore.user?.id
   const roomCode = roomStore.code
@@ -78,6 +85,37 @@ async function endListening() {
 
 const waitingForSync = ref(false)
 let playbackTimer: number | null = null
+let countdownInterval: number | null = null
+
+function initializeTrackFromAssignment() {
+  const assigned = roomStore.assignedSong
+  if (!assigned) return
+  musicStore.setSelectedTrack({
+    id: assigned.id,
+    name: assigned.title,
+    artist: assigned.artist,
+    album: '',
+    duration: 0,
+    uri: assigned.id, // assigned.id IS "spotify:track:xyz"
+  })
+}
+
+function startCountdown() {
+  if (countdownInterval !== null) return
+  countdownInterval = window.setInterval(() => {
+    if (gameStore.countdown > 0) {
+      gameStore.setCountdown(gameStore.countdown - 1)
+    } else {
+      if (countdownInterval !== null) {
+        clearInterval(countdownInterval)
+        countdownInterval = null
+      }
+      if (isHost.value) {
+        endListening()
+      }
+    }
+  }, 1000)
+}
 
 /**
  * Schedule audio playback for the synchronized start time.
@@ -87,6 +125,7 @@ function schedulePlayback() {
   const startTimeStr = gameStore.playbackStartTime
   if (!startTimeStr) {
     console.log('No playback_start_time set, skipping sync')
+    triggerPlayback()
     return
   }
 
@@ -101,11 +140,9 @@ function schedulePlayback() {
   })
 
   if (delayMs <= 0) {
-    // Start time already passed, start immediately
     console.log(`Start time passed ${-delayMs}ms ago, starting playback immediately`)
     triggerPlayback()
   } else {
-    // Wait until the scheduled time
     waitingForSync.value = true
     console.log(`Waiting ${delayMs}ms until synchronized playback start`)
     playbackTimer = window.setTimeout(() => {
@@ -116,7 +153,7 @@ function schedulePlayback() {
 }
 
 /**
- * Trigger audio playback using the music store.
+ * Trigger audio playback using the assigned song URI directly.
  */
 function triggerPlayback() {
   const actualStartTime = Date.now()
@@ -131,16 +168,20 @@ function triggerPlayback() {
     drift_ms: driftMs
   })
 
-  // Get the assigned song for the current player and play it
   const assignedSong = roomStore.assignedSong
-  if (assignedSong && musicStore.currentTrack) {
-    musicStore.playTrack(musicStore.currentTrack.uri, musicStore.activeDeviceId || undefined)
+  if (assignedSong) {
+    musicStore.playTrack(assignedSong.id, musicStore.activeDeviceId || undefined)
+    startCountdown()
   } else {
-    console.log('No track available for playback')
+    console.log('No assigned song available for playback')
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  initializeTrackFromAssignment()
+  if (!musicStore.activeDeviceId) {
+    await musicStore.getDevices()
+  }
   schedulePlayback()
 })
 
@@ -148,6 +189,10 @@ onUnmounted(() => {
   if (playbackTimer !== null) {
     clearTimeout(playbackTimer)
     playbackTimer = null
+  }
+  if (countdownInterval !== null) {
+    clearInterval(countdownInterval)
+    countdownInterval = null
   }
 })
 </script>
