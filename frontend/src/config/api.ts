@@ -21,11 +21,10 @@ function getApiUrl(): string {
     return envUrl;
   }
 
-  // For browser environments, derive API URL from current hostname
+  // For browser environments, use same origin (works for production where
+  // frontend and backend share the same origin behind HTTPS)
   if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    // Use same hostname as frontend, just different port
-    return `http://${hostname}:${DEFAULT_BACKEND_PORT}`;
+    return window.location.origin;
   }
 
   // Fallback for SSR or non-browser environments

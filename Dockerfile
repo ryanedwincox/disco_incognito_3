@@ -25,7 +25,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 RUN mkdir -p /app/data
-COPY data/disco_incognito.json /app/data/disco_incognito.json
 
 COPY --from=frontend-builder /app/frontend/dist ./static
 
