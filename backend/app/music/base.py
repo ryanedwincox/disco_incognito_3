@@ -149,6 +149,7 @@ class MusicStreamingAdapter(ABC):
                 - album: Album name
                 - duration_ms: Track duration in milliseconds
                 - album_art: Album artwork URL
+                - preview_url: 30-second preview MP3 URL (or None if unavailable)
         """
         pass
 

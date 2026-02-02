@@ -1,4 +1,4 @@
-<!-- Song selection interface for adding tracks to the game pool. Provides Spotify search (mock in test mode, real in live mode). Handles song saving and allows adding multiple songs. -->
+<!-- Song selection interface for adding tracks to the game pool. Provides Spotify search with popover results and song preview playback via the Spotify play_track API. Handles song pair saving. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
     <header class="text-center mb-8 space-y-2">
@@ -27,29 +27,38 @@
 
       <!-- Song picker for Spotify users -->
       <template v-else>
-        <input
-          v-model="searchQuery"
-          class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg"
-          placeholder="Search for songs..."
-          type="search"
-          @input="handleSearchInput"
-        />
+        <!-- Search container with popover -->
+        <div class="relative" ref="searchContainerRef">
+          <input
+            v-model="searchQuery"
+            class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg"
+            placeholder="Search for songs..."
+            type="search"
+            @input="handleSearchInput"
+            @focus="isSearchOpen = true"
+          />
 
-        <div class="space-y-4">
-          <!-- Search Results -->
-          <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
+          <!-- Popover search results -->
+          <div
+            v-if="showSearchResults"
+            class="absolute top-full left-0 right-0 mt-2 z-50 bg-zinc-900 rounded-3xl border border-zinc-500 p-5 shadow-2xl"
+          >
             <h3 class="text-lg font-semibold mb-3">Search Results</h3>
             <div v-if="isSearching" class="text-zinc-500 text-center py-4">
               Searching...
             </div>
             <div v-else-if="searchResults.length > 0" class="space-y-2 max-h-80 overflow-y-auto -mx-1 px-1">
-              <button
+              <div
                 v-for="track in searchResults"
                 :key="track.id"
-                class="w-full text-left bg-zinc-800 hover:bg-zinc-700 rounded-xl p-3 transition-colors"
+                data-testid="track-result"
+                role="button"
+                tabindex="0"
+                class="w-full text-left bg-zinc-800 hover:bg-zinc-700 rounded-xl p-3 transition-colors cursor-pointer"
                 :class="{ 'ring-2 ring-disco-pink': isSelected(track) }"
-                type="button"
                 @click="selectTrack(track)"
+                @keydown.enter="selectTrack(track)"
+                @keydown.space.prevent="selectTrack(track)"
               >
                 <div class="flex items-center gap-3">
                   <img
@@ -61,89 +70,106 @@
                     <p class="font-medium truncate">{{ track.name }}</p>
                     <p class="text-sm text-zinc-400 truncate">{{ track.artist }}</p>
                   </div>
+                  <!-- Preview play/pause button -->
+                  <button
+                    type="button"
+                    class="w-8 h-8 flex-shrink-0 rounded-full bg-zinc-600 hover:bg-zinc-500 flex items-center justify-center transition-colors"
+                    :title="currentPreviewTrackId === track.id && isPreviewPlaying ? 'Pause preview' : 'Play preview'"
+                    @click.stop="togglePreview(track)"
+                  >
+                    <!-- Pause icon -->
+                    <svg v-if="currentPreviewTrackId === track.id && isPreviewPlaying" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="6" y="4" width="4" height="16" rx="1" />
+                      <rect x="14" y="4" width="4" height="16" rx="1" />
+                    </svg>
+                    <!-- Play icon -->
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </button>
                   <div v-if="isSelected(track)" class="text-disco-pink font-bold text-lg">
                     ✓
                   </div>
                 </div>
-              </button>
+              </div>
             </div>
             <p v-else class="text-zinc-500">
-              {{ searchQuery ? 'No results found' : 'Type to search for songs' }}
+              No results found
             </p>
           </div>
+        </div>
 
-          <!-- Selected Songs & Actions -->
-          <div class="space-y-4">
-            <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
-              <h3 class="text-lg font-semibold mb-3">Selected Songs ({{ selectedTracks.length }}/2)</h3>
-              <div class="space-y-2">
-                <!-- Slot 1 -->
-                <div v-if="selectedTracks[0]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
-                  <img
-                    :src="selectedTracks[0].album_art"
-                    :alt="selectedTracks[0].album"
-                    class="w-10 h-10 rounded-lg object-cover"
-                  />
-                  <div class="flex-1 min-w-0">
-                    <p class="font-medium truncate">{{ selectedTracks[0].name }}</p>
-                    <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[0].artist }}</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-zinc-400 hover:text-white p-1"
-                    @click="clearSelection(0)"
-                  >
-                    ✕
-                  </button>
+        <!-- Selected Songs & Actions (outside the relative container) -->
+        <div class="space-y-4">
+          <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
+            <h3 class="text-lg font-semibold mb-3">Selected Songs ({{ selectedTracks.length }}/2)</h3>
+            <div class="space-y-2">
+              <!-- Slot 1 -->
+              <div v-if="selectedTracks[0]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
+                <img
+                  :src="selectedTracks[0].album_art"
+                  :alt="selectedTracks[0].album"
+                  class="w-10 h-10 rounded-lg object-cover"
+                />
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium truncate">{{ selectedTracks[0].name }}</p>
+                  <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[0].artist }}</p>
                 </div>
-                <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
-                  Select first song
-                </div>
+                <button
+                  type="button"
+                  class="text-zinc-400 hover:text-white p-1"
+                  @click="clearSelection(0)"
+                >
+                  ✕
+                </button>
+              </div>
+              <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
+                Select first song
+              </div>
 
-                <!-- Slot 2 -->
-                <div v-if="selectedTracks[1]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
-                  <img
-                    :src="selectedTracks[1].album_art"
-                    :alt="selectedTracks[1].album"
-                    class="w-10 h-10 rounded-lg object-cover"
-                  />
-                  <div class="flex-1 min-w-0">
-                    <p class="font-medium truncate">{{ selectedTracks[1].name }}</p>
-                    <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[1].artist }}</p>
-                  </div>
-                  <button
-                    type="button"
-                    class="text-zinc-400 hover:text-white p-1"
-                    @click="clearSelection(1)"
-                  >
-                    ✕
-                  </button>
+              <!-- Slot 2 -->
+              <div v-if="selectedTracks[1]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
+                <img
+                  :src="selectedTracks[1].album_art"
+                  :alt="selectedTracks[1].album"
+                  class="w-10 h-10 rounded-lg object-cover"
+                />
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium truncate">{{ selectedTracks[1].name }}</p>
+                  <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[1].artist }}</p>
                 </div>
-                <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
-                  Select second song
-                </div>
+                <button
+                  type="button"
+                  class="text-zinc-400 hover:text-white p-1"
+                  @click="clearSelection(1)"
+                >
+                  ✕
+                </button>
+              </div>
+              <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
+                Select second song
               </div>
             </div>
+          </div>
 
-            <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
-              <h3 class="text-lg font-semibold mb-3">Actions</h3>
-              <div class="space-y-3">
-                <button
-                  class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  type="button"
-                  :disabled="selectedTracks.length !== 2 || isSaving"
-                  @click="addSongPair"
-                >
-                  {{ isSaving ? 'Adding...' : 'Add Song Pair' }}
-                </button>
-                <button
-                  class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
-                  type="button"
-                  @click="goBack"
-                >
-                  Back to Lobby
-                </button>
-              </div>
+          <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
+            <h3 class="text-lg font-semibold mb-3">Actions</h3>
+            <div class="space-y-3">
+              <button
+                class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+                :disabled="selectedTracks.length !== 2 || isSaving"
+                @click="addSongPair"
+              >
+                {{ isSaving ? 'Adding...' : 'Add Song Pair' }}
+              </button>
+              <button
+                class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
+                type="button"
+                @click="goBack"
+              >
+                Back to Lobby
+              </button>
             </div>
           </div>
         </div>
@@ -157,13 +183,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useRoomStore } from '../stores/room'
+import { useMusicStore } from '../stores/music'
 import { useRoomApi } from '../composables/useRoomApi'
 
 const authStore = useAuthStore()
 const roomStore = useRoomStore()
+const musicStore = useMusicStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
 
 const isTestMode = computed(() => import.meta.env.VITE_TEST_MODE === 'true')
@@ -176,6 +204,7 @@ interface Track {
   album: string
   album_art: string
   uri: string
+  preview_url: string | null
 }
 
 const selectedTracks = ref<Track[]>([])
@@ -184,7 +213,39 @@ const successMessage = ref('')
 const searchQuery = ref('')
 const searchResults = ref<Track[]>([])
 const isSearching = ref(false)
+const isSearchOpen = ref(true)
 let searchTimeout: ReturnType<typeof setTimeout> | null = null
+
+// Search popover refs
+const searchContainerRef = ref<HTMLElement | null>(null)
+const showSearchResults = computed(() =>
+  isSearchOpen.value && searchQuery.value.trim().length > 0
+)
+
+// Audio preview state
+const currentPreviewTrackId = ref<string | null>(null)
+const isPreviewPlaying = ref(false)
+
+// Click-outside handler
+function handleClickOutside(event: MouseEvent) {
+  if (
+    searchContainerRef.value &&
+    !searchContainerRef.value.contains(event.target as Node)
+  ) {
+    isSearchOpen.value = false
+    stopPreview()
+  }
+}
+
+onMounted(async () => {
+  document.addEventListener('click', handleClickOutside)
+  await musicStore.getDevices()
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+  stopPreview()
+})
 
 // Get access token - use mock token in test mode
 function getAccessToken(): string {
@@ -196,6 +257,7 @@ function getAccessToken(): string {
 
 // Debounced search handler
 function handleSearchInput() {
+  isSearchOpen.value = true
   if (searchTimeout) {
     clearTimeout(searchTimeout)
   }
@@ -211,6 +273,7 @@ async function performSearch() {
     return
   }
 
+  await stopPreview()
   isSearching.value = true
   try {
     const token = getAccessToken()
@@ -233,6 +296,37 @@ async function performSearch() {
   } finally {
     isSearching.value = false
   }
+}
+
+// Audio preview controls
+async function togglePreview(track: Track) {
+  if (currentPreviewTrackId.value === track.id && isPreviewPlaying.value) {
+    // Pause current preview
+    await musicStore.pausePlayback(musicStore.activeDeviceId ?? undefined)
+    isPreviewPlaying.value = false
+    return
+  }
+
+  // Stop any existing preview
+  await stopPreview()
+
+  // Start new preview via Spotify API
+  currentPreviewTrackId.value = track.id
+  const success = await musicStore.playTrack(track.uri, musicStore.activeDeviceId ?? undefined)
+  if (success) {
+    isPreviewPlaying.value = true
+  } else {
+    currentPreviewTrackId.value = null
+    isPreviewPlaying.value = false
+  }
+}
+
+async function stopPreview() {
+  if (isPreviewPlaying.value) {
+    await musicStore.pausePlayback(musicStore.activeDeviceId ?? undefined)
+  }
+  currentPreviewTrackId.value = null
+  isPreviewPlaying.value = false
 }
 
 function isSelected(track: Track): boolean {
@@ -321,7 +415,8 @@ async function addSongPair() {
   }
 }
 
-function goBack() {
+async function goBack() {
+  await stopPreview()
   // Go back to lobby - AppOrchestrator will switch to RoomLobbyView
   roomStore.setStatus('lobby')
 }

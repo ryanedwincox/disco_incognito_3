@@ -238,6 +238,7 @@ class SpotifyAdapter(MusicStreamingAdapter):
                         'album': track['album']['name'],
                         'duration_ms': track['duration_ms'],
                         'album_art': track['album']['images'][0]['url'] if track['album']['images'] else None,
+                        'preview_url': track.get('preview_url'),
                     }
                 )
 

@@ -18,8 +18,9 @@
  *   l. Song adding by spotify user
  *   m. Guest login flow
  */
-import { test, expect } from './fixtures';
+import { test, expect, getArtifactsPath, getBaselinePath } from './fixtures';
 import type { Browser, Page, BrowserContext } from '@playwright/test';
+import * as fs from 'fs';
 
 const FRONTEND_PORT = process.env.VITE_PORT || '9100';
 const FRONTEND_URL = `http://localhost:${FRONTEND_PORT}`;
@@ -109,15 +110,15 @@ async function addSongs(page: Page): Promise<void> {
   await searchInput.fill('chic');
 
   // Wait for search results
-  const trackButtons = page.locator('.max-h-80 button');
-  await expect(trackButtons.first()).toBeVisible({ timeout: 10000 });
+  const trackResults = page.locator('[data-testid="track-result"]');
+  await expect(trackResults.first()).toBeVisible({ timeout: 10000 });
 
   // Select first track
-  await trackButtons.nth(0).click();
+  await trackResults.nth(0).click();
   await expect(page.locator('text=Selected Songs (1/2)')).toBeVisible({ timeout: 5000 });
 
   // Select second track
-  await trackButtons.nth(1).click();
+  await trackResults.nth(1).click();
   await expect(page.locator('text=Selected Songs (2/2)')).toBeVisible({ timeout: 5000 });
 
   // Add song pair
@@ -637,6 +638,65 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       await hostContext.close();
       await playerContext.close();
       await guestContext.close();
+    }
+  });
+
+  test('test playback page renders and navigates back', async ({
+    browser,
+    serverContext,
+  }: {
+    browser: Browser;
+    serverContext: { backendProcess: unknown; frontendProcess: unknown };
+  }) => {
+    void serverContext;
+
+    const context: BrowserContext = await browser.newContext();
+    const page: Page = await context.newPage();
+
+    try {
+      // Login with Spotify (test mode)
+      await loadLandingPage(page);
+      await loginWithSpotify(page);
+
+      // Click "Test Playback" button (visible only for Spotify users)
+      const testPlaybackButton = page.getByRole('button', { name: 'Test Playback' });
+      await expect(testPlaybackButton).toBeVisible({ timeout: 5000 });
+      await testPlaybackButton.click();
+
+      // Assert TestPlaybackView renders
+      const header = page.locator('h2:has-text("Playback Test")');
+      await expect(header).toBeVisible({ timeout: 10000 });
+      const searchInput = page.locator('input[type="search"]');
+      await expect(searchInput).toBeVisible();
+      console.log('✅ TestPlaybackView rendered with header and search input');
+
+      // Take screenshot and save as baseline
+      const TEST_NAME = 'user-flow-combined';
+      const screenshotFilename = 'test-playback-01-page.png';
+      const artifactPath = getArtifactsPath(TEST_NAME, screenshotFilename);
+      await page.screenshot({ path: artifactPath, fullPage: true });
+
+      // Copy to baselines directory
+      const baselinePath = getBaselinePath(TEST_NAME, screenshotFilename);
+      const baselineDir = baselinePath.substring(0, baselinePath.lastIndexOf('/'));
+      if (!fs.existsSync(baselineDir)) {
+        fs.mkdirSync(baselineDir, { recursive: true });
+      }
+      fs.copyFileSync(artifactPath, baselinePath);
+      console.log(`✅ Screenshot saved: ${screenshotFilename}`);
+
+      // Click "Back to Room Selection"
+      const backButton = page.getByRole('button', { name: 'Back to Room Selection' });
+      await expect(backButton).toBeVisible();
+      await backButton.click();
+
+      // Assert return to RoomSelectionView
+      const createRoomButton = page.getByRole('button', { name: 'Create Room' });
+      await expect(createRoomButton).toBeVisible({ timeout: 10000 });
+      console.log('✅ Returned to RoomSelectionView after clicking Back');
+
+    } finally {
+      await context.close();
     }
   });
 });
