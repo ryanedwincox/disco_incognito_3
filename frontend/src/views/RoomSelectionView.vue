@@ -18,6 +18,7 @@
           maxlength="3"
           class="w-full rounded-full bg-zinc-800 px-4 py-3 tracking-[0.6em] text-center uppercase"
           placeholder="123"
+          @keyup.enter="joinRoom"
         />
         <button
           class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 py-3 rounded-full transition-colors"
