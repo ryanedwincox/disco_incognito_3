@@ -132,13 +132,16 @@ class SpotifyAdapter(MusicStreamingAdapter):
         retry=retry_if_exception_type((spotipy.SpotifyException, ConnectionError)),
         reraise=True
     )
+    async def _play_track_impl(self, access_token: str, track_uri: str, device_id: str | None = None) -> dict[str, Any]:
+        sp = self._create_client(access_token)
+        sp.start_playback(device_id=device_id, uris=[track_uri])
+        logger.info(f'Started playback of track {track_uri}')
+        return {'status': 'playing', 'track_uri': track_uri, 'device_id': device_id}
+
     async def play_track(self, access_token: str, track_uri: str, device_id: str | None = None) -> dict[str, Any]:
         """Start playback of a specific track with automatic retry on transient failures."""
         try:
-            sp = self._create_client(access_token)
-            sp.start_playback(device_id=device_id, uris=[track_uri])
-            logger.info(f'Started playback of track {track_uri}')
-            return {'status': 'playing', 'track_uri': track_uri, 'device_id': device_id}
+            return await self._play_track_impl(access_token, track_uri, device_id)
         except spotipy.SpotifyException as e:
             logger.error(f'Spotify API error playing track: {e}')
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Spotify API error: {str(e)}')
@@ -152,13 +155,16 @@ class SpotifyAdapter(MusicStreamingAdapter):
         retry=retry_if_exception_type((spotipy.SpotifyException, ConnectionError)),
         reraise=True
     )
+    async def _pause_playback_impl(self, access_token: str, device_id: str | None = None) -> dict[str, Any]:
+        sp = self._create_client(access_token)
+        sp.pause_playback(device_id=device_id)
+        logger.info('Paused playback')
+        return {'status': 'paused', 'device_id': device_id}
+
     async def pause_playback(self, access_token: str, device_id: str | None = None) -> dict[str, Any]:
         """Pause current playback with automatic retry on transient failures."""
         try:
-            sp = self._create_client(access_token)
-            sp.pause_playback(device_id=device_id)
-            logger.info('Paused playback')
-            return {'status': 'paused', 'device_id': device_id}
+            return await self._pause_playback_impl(access_token, device_id)
         except spotipy.SpotifyException as e:
             logger.error(f'Spotify API error pausing playback: {e}')
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Spotify API error: {str(e)}')
@@ -172,45 +178,48 @@ class SpotifyAdapter(MusicStreamingAdapter):
         retry=retry_if_exception_type((spotipy.SpotifyException, ConnectionError)),
         reraise=True
     )
+    async def _get_playback_state_impl(self, access_token: str) -> dict[str, Any]:
+        sp = self._create_client(access_token)
+        playback = sp.current_playback()
+        logger.info('Retrieved playback state')
+
+        if not playback:
+            return {
+                'is_playing': False,
+                'track': None,
+                'device_id': None,
+                'progress_ms': 0,
+                'duration_ms': 0,
+            }
+
+        # Transform Spotify API response to our format
+        track_data = None
+        item = playback.get('item')
+        if item:
+            track_data = {
+                'id': item['id'],
+                'uri': item['uri'],
+                'name': item['name'],
+                'artist': ', '.join(artist['name'] for artist in item.get('artists', [])),
+                'album': item.get('album', {}).get('name', ''),
+                'duration_ms': item.get('duration_ms', 0),
+                'album_art': item['album']['images'][0]['url'] if item.get('album', {}).get('images') else None,
+            }
+
+        device = playback.get('device', {})
+
+        return {
+            'is_playing': playback.get('is_playing', False),
+            'track': track_data,
+            'device_id': device.get('id'),
+            'progress_ms': playback.get('progress_ms', 0),
+            'duration_ms': item.get('duration_ms', 0) if item else 0,
+        }
+
     async def get_playback_state(self, access_token: str) -> dict[str, Any]:
         """Get current playback state with automatic retry on transient failures."""
         try:
-            sp = self._create_client(access_token)
-            playback = sp.current_playback()
-            logger.info('Retrieved playback state')
-
-            if not playback:
-                return {
-                    'is_playing': False,
-                    'track': None,
-                    'device_id': None,
-                    'progress_ms': 0,
-                    'duration_ms': 0,
-                }
-
-            # Transform Spotify API response to our format
-            track_data = None
-            item = playback.get('item')
-            if item:
-                track_data = {
-                    'id': item['id'],
-                    'uri': item['uri'],
-                    'name': item['name'],
-                    'artist': ', '.join(artist['name'] for artist in item.get('artists', [])),
-                    'album': item.get('album', {}).get('name', ''),
-                    'duration_ms': item.get('duration_ms', 0),
-                    'album_art': item['album']['images'][0]['url'] if item.get('album', {}).get('images') else None,
-                }
-
-            device = playback.get('device', {})
-
-            return {
-                'is_playing': playback.get('is_playing', False),
-                'track': track_data,
-                'device_id': device.get('id'),
-                'progress_ms': playback.get('progress_ms', 0),
-                'duration_ms': item.get('duration_ms', 0) if item else 0,
-            }
+            return await self._get_playback_state_impl(access_token)
         except spotipy.SpotifyException as e:
             logger.error(f'Spotify API error getting playback state: {e}')
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f'Spotify API error: {str(e)}')

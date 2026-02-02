@@ -61,3 +61,5 @@ scratchpad*
 test-data/
 frontend/playwright-report/
 frontend/test-results/
+
+data/

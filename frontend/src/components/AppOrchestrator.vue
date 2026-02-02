@@ -36,6 +36,24 @@ const isInitialized = ref(false)
 
 // Load and validate auth state from localStorage on app init
 ;(async () => {
+  // Process OAuth callback params before loadFromStorage so tokens are
+  // available for validation. Uses window.location.search directly to
+  // avoid depending on Vue Router's initial navigation timing.
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get('auth_success') === 'true' && urlParams.get('access_token')) {
+    authStore.setTokens(
+      urlParams.get('access_token')!,
+      urlParams.get('refresh_token') || ''
+    )
+    authStore.setUser({
+      id: urlParams.get('user_id') || '',
+      displayName: urlParams.get('display_name') || '',
+      email: ''
+    })
+    // Clean up URL so tokens aren't visible in the address bar
+    window.history.replaceState({}, '', '/')
+  }
+
   await authStore.loadFromStorage()
   isInitialized.value = true
 
