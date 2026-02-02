@@ -5,7 +5,11 @@
       :song="playerSong"
       :is-incognito="false"
       :show-ready-button="!isReady"
+      :is-host="isHost"
+      :players="roomStore.players"
+      :ready-players="roomStore.readyPlayers"
       @ready="handleReady"
+      @force-start="handleForceStart"
     />
     <!-- Music Player Bar (Fixed Bottom) -->
     <div class="fixed bottom-0 left-0 right-0">
@@ -31,7 +35,12 @@ const { handleRoomResponse, API_URL } = useRoomApi()
 const roomCode = computed(() => roomStore.code || '')
 const currentUserId = computed(() => authStore.user?.id ?? null)
 const isReady = ref(false)
-const readyPlayers = ref<string[]>([])
+const players = computed(() => roomStore.players)
+const isHost = computed(() => {
+  if (!currentUserId.value) return false
+  const currentPlayer = players.value.find(p => p.id === currentUserId.value)
+  return currentPlayer?.isHost ?? false
+})
 
 // Convert roomStore.assignedSong to TrackInfo format expected by SongAssignmentView
 const playerSong = computed<TrackInfo | null>(() => {
@@ -91,7 +100,7 @@ onMounted(async () => {
 
         // Track ready players
         if (data.current_round?.ready_players) {
-          readyPlayers.value = data.current_round.ready_players
+          roomStore.setReadyPlayers(data.current_round.ready_players)
           if (currentUserId.value && data.current_round.ready_players.includes(currentUserId.value)) {
             isReady.value = true
           }
@@ -127,7 +136,7 @@ async function handleReady() {
 
       // Update ready players list
       if (data.current_round?.ready_players) {
-        readyPlayers.value = data.current_round.ready_players
+        roomStore.setReadyPlayers(data.current_round.ready_players)
       }
 
       // Update room status - AppOrchestrator will switch view if 'playing'
@@ -137,6 +146,33 @@ async function handleReady() {
     }
   } catch (error) {
     console.log('Could not mark ready:', error)
+  }
+}
+
+// Handle force-start button click (host only)
+async function handleForceStart() {
+  if (!currentUserId.value || !isHost.value) return
+
+  try {
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/force-start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ player_id: currentUserId.value })
+    })
+
+    // Handle expired room (404)
+    if (await handleRoomResponse(response)) {
+      return
+    }
+
+    if (response.ok) {
+      const data = await response.json()
+      if (data.status) {
+        roomStore.setStatus(data.status)
+      }
+    }
+  } catch (error) {
+    console.log('Could not force start round:', error)
   }
 }
 

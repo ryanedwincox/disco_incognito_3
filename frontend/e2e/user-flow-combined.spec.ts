@@ -546,4 +546,97 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       await guestContext.close();
     }
   });
+
+  test('player leave returns to room selection without disconnect banner and host transfers', async ({
+    browser,
+    serverContext,
+  }: {
+    browser: Browser;
+    serverContext: { backendProcess: unknown; frontendProcess: unknown };
+  }) => {
+    void serverContext;
+
+    const hostContext: BrowserContext = await browser.newContext();
+    const playerContext: BrowserContext = await browser.newContext();
+    const guestContext: BrowserContext = await browser.newContext();
+
+    const hostPage: Page = await hostContext.newPage();
+    const playerPage: Page = await playerContext.newPage();
+    const guestPage: Page = await guestContext.newPage();
+
+    try {
+      // ======================================================================
+      // SETUP: Host creates room, player and guest join (3 players in lobby)
+      // ======================================================================
+      console.log('\n=== SETUP: Room with 3 players ===');
+
+      await loadLandingPage(hostPage);
+      await loginWithSpotify(hostPage);
+      const roomCode = await createRoom(hostPage);
+
+      await loadLandingPage(playerPage);
+      await loginWithSpotify(playerPage);
+      await joinRoomViaUI(playerPage, roomCode);
+
+      await loadLandingPage(guestPage);
+      await loginAsGuest(guestPage, 'Guest Player');
+      await joinRoomViaUI(guestPage, roomCode);
+
+      // All see 3 players
+      await expect(hostPage.locator('ul.space-y-3 li')).toHaveCount(3, { timeout: 10000 });
+      await expect(playerPage.locator('ul.space-y-3 li')).toHaveCount(3, { timeout: 10000 });
+      console.log('✅ All 3 players in lobby');
+
+      // ======================================================================
+      // STEP 1-3: Guest clicks Leave, sees RoomSelectionView, no banner
+      // ======================================================================
+      console.log('\n=== Guest leaves room ===');
+
+      await leaveRoomViaUI(guestPage);
+      // leaveRoomViaUI already asserts Create Room button is visible
+      console.log('✅ Guest sees RoomSelectionView after leaving');
+
+      // Wait briefly to catch any flash of the disconnect banner
+      await guestPage.waitForTimeout(1000);
+      const guestBanner = guestPage.locator('role=alert >> text=Server Disconnected');
+      await expect(guestBanner).not.toBeVisible();
+      console.log('✅ No "Server Disconnected" banner on guest page after leave');
+
+      // ======================================================================
+      // STEP 4: Host and player see player count drop from 3 → 2 WITHOUT reload
+      // ======================================================================
+      await expect(hostPage.locator('ul.space-y-3 li')).toHaveCount(2, { timeout: 10000 });
+      await expect(playerPage.locator('ul.space-y-3 li')).toHaveCount(2, { timeout: 10000 });
+      console.log('✅ Host and player see player count drop to 2 without reload');
+
+      // ======================================================================
+      // STEP 5-7: Host clicks Leave, sees RoomSelectionView, no banner
+      // ======================================================================
+      console.log('\n=== Host leaves room ===');
+
+      await leaveRoomViaUI(hostPage);
+      console.log('✅ Host sees RoomSelectionView after leaving');
+
+      await hostPage.waitForTimeout(1000);
+      const hostBanner = hostPage.locator('role=alert >> text=Server Disconnected');
+      await expect(hostBanner).not.toBeVisible();
+      console.log('✅ No "Server Disconnected" banner on host page after leave');
+
+      // ======================================================================
+      // STEP 8-9: Player sees count drop to 1, becomes host
+      // ======================================================================
+      await expect(playerPage.locator('ul.space-y-3 li')).toHaveCount(1, { timeout: 10000 });
+      console.log('✅ Player sees player count drop to 1');
+
+      // Player is now the host — "Start Game" button and "Host" badge visible
+      await expect(playerPage.getByRole('button', { name: 'Start Game' })).toBeVisible({ timeout: 10000 });
+      await expect(playerPage.locator('text=Host').first()).toBeVisible();
+      console.log('✅ Player is now the host — Start Game button and Host badge visible');
+
+    } finally {
+      await hostContext.close();
+      await playerContext.close();
+      await guestContext.close();
+    }
+  });
 });

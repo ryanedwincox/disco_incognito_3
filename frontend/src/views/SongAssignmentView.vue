@@ -48,7 +48,7 @@
         </p>
       </div>
 
-      <!-- Ready Button (optional, for future use) -->
+      <!-- Ready Button -->
       <button
         v-if="showReadyButton"
         class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors"
@@ -57,6 +57,38 @@
       >
         I'm Ready!
       </button>
+
+      <!-- Host: Player Ready Status Panel -->
+      <div v-if="isHost" class="bg-zinc-900 rounded-2xl border border-zinc-500 p-4 space-y-3">
+        <h4 class="text-sm font-semibold text-zinc-300 uppercase tracking-wide">Player Status</h4>
+        <ul class="space-y-2">
+          <li
+            v-for="player in players"
+            :key="player.id"
+            class="flex items-center justify-between text-sm"
+          >
+            <span class="text-white">{{ player.name }}</span>
+            <span
+              :class="readyPlayers.includes(player.id)
+                ? 'text-green-400'
+                : 'text-zinc-500'"
+              class="font-medium"
+            >
+              {{ readyPlayers.includes(player.id) ? 'Ready' : 'Waiting...' }}
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Host: Force Start Button -->
+      <button
+        v-if="isHost"
+        class="w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-3 rounded-full transition-colors"
+        type="button"
+        @click="$emit('force-start')"
+      >
+        Start Round
+      </button>
     </section>
   </div>
 </template>
@@ -64,18 +96,32 @@
 <script setup lang="ts">
 import type { TrackInfo } from '../stores/music'
 
+interface RoomPlayer {
+  id: string
+  name: string
+  isHost: boolean
+  isConnected: boolean
+}
+
 interface Props {
   song: TrackInfo | null
   isIncognito?: boolean
   showReadyButton?: boolean
+  isHost?: boolean
+  players?: RoomPlayer[]
+  readyPlayers?: string[]
 }
 
 withDefaults(defineProps<Props>(), {
   isIncognito: false,
-  showReadyButton: false
+  showReadyButton: false,
+  isHost: false,
+  players: () => [],
+  readyPlayers: () => [],
 })
 
 defineEmits<{
   ready: []
+  'force-start': []
 }>()
 </script>

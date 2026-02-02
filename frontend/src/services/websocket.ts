@@ -29,6 +29,7 @@ export interface WebSocketMessage {
   host_id?: string;
   song_pair_count?: number;
   assigned_song?: { id: string; title: string; artist: string };
+  ready_players?: string[];
   // player_joined fields
   // player_left fields
   new_host_id?: string | null;
@@ -120,12 +121,21 @@ export class WebSocketService {
     }
 
     if (this.socket) {
+      // Null out handlers before close() to prevent the async onclose from
+      // setting status to "disconnected" and triggering reconnect attempts
+      this.socket.onclose = null;
+      this.socket.onerror = null;
       this.socket.close();
       this.socket = null;
     }
 
     // Clear reconnect token when deliberately disconnecting
     sessionStorage.removeItem(RECONNECT_TOKEN_KEY);
+
+    // Reset WS store so hasEverConnected is false — prevents the
+    // ServerDisconnectedBanner from flashing during intentional disconnect
+    const wsStore = useWebSocketStore();
+    wsStore.reset();
 
     this.userId = null;
     this.roomCode = null;
@@ -221,6 +231,12 @@ export class WebSocketService {
           this.handlePlayerLeft(message, roomStore);
           break;
 
+        case "player_ready":
+          if (message.ready_players) {
+            roomStore.setReadyPlayers(message.ready_players);
+          }
+          break;
+
         case "phase_changed":
           this.handlePhaseChanged(message);
           break;
@@ -302,6 +318,10 @@ export class WebSocketService {
 
     if (typeof message.playback_start_time === "string") {
       gameStore.setPlaybackStartTime(message.playback_start_time);
+    }
+
+    if (Array.isArray(message.ready_players)) {
+      roomStore.setReadyPlayers(message.ready_players);
     }
   }
 
@@ -459,6 +479,7 @@ export class WebSocketService {
       case "lobby":
         gameStore.setPlaying(false);
         gameStore.setPlaybackStartTime(null);
+        roomStore.setReadyPlayers([]);
         break;
 
       case "song_selection":

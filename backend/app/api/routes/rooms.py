@@ -454,6 +454,14 @@ async def mark_player_ready(
     if body.player_id not in room.current_round.ready_players:
         room.current_round.ready_players.append(body.player_id)
 
+    # Broadcast player_ready to all clients so host can see real-time updates
+    manager = get_connection_manager()
+    await manager.broadcast_to_room(room_code, {
+        'type': 'player_ready',
+        'user_id': body.player_id,
+        'ready_players': room.current_round.ready_players,
+    })
+
     # Check if all players are ready
     all_player_ids = {p.id for p in room.players}
     ready_player_ids = set(room.current_round.ready_players)
@@ -477,6 +485,68 @@ async def mark_player_ready(
     # Broadcast phase change if all players are ready
     if all_ready:
         await broadcast_phase_changed(room_code, 'playing', playback_start_time=playback_start_time_iso)
+
+    return RoomStateResponse.from_room_state(room)
+
+
+class ForceStartRequest(BaseModel):
+    """Request model for force-starting a round (host only)."""
+
+    player_id: str = Field(..., description='Player ID (must be host)')
+
+
+@router.post('/{room_code}/force-start', summary='Force start the round (host only)', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
+async def force_start_round(
+    request: Request,
+    room_code: str,
+    body: ForceStartRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoomStateResponse:
+    """
+    Force start the round without waiting for all players to be ready (host only).
+
+    Transitions room status from 'song_selection' to 'playing'.
+    Auto-adds host to ready_players if not already there.
+    Returns updated room state.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify requester is host
+    if room.host_id != body.player_id:
+        raise HTTPException(status_code=403, detail='Only the host can force start the round')
+
+    # Verify room is in song_selection state
+    if room.status != 'song_selection':
+        raise HTTPException(status_code=400, detail=f'Cannot force start from {room.status} state')
+
+    # Verify current_round exists
+    if not room.current_round:
+        raise HTTPException(status_code=400, detail='No active round')
+
+    # Auto-add host to ready_players if not already there
+    if body.player_id not in room.current_round.ready_players:
+        room.current_round.ready_players.append(body.player_id)
+
+    # Transition to playing
+    room.status = 'playing'
+    playback_start_time = datetime.now(timezone.utc) + timedelta(seconds=3)
+    room.current_round.playback_start_time = playback_start_time
+    playback_start_time_iso = playback_start_time.isoformat()
+
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info(f'Round force-started in room {room_code} by host {body.player_id}')
+
+    # Broadcast phase change
+    await broadcast_phase_changed(room_code, 'playing', playback_start_time=playback_start_time_iso)
 
     return RoomStateResponse.from_room_state(room)
 
