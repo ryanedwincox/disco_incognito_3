@@ -1,6 +1,6 @@
 <!-- Persistent music player bar shown at bottom of screen during gameplay. Displays current track info, play/pause button, and device selector. Provides controls for Spotify playback across all game views. -->
 <template>
-  <div class="bg-zinc-900/95 backdrop-blur-sm border-t border-zinc-800 px-4 py-3">
+  <div class="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900/95 backdrop-blur-sm border-t border-zinc-800 px-4 py-3">
     <div class="max-w-5xl mx-auto flex items-center gap-3">
       <!-- Album Art (Left) -->
       <div class="flex-shrink-0">
@@ -140,22 +140,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useMusicStore } from '../stores/music'
 
 const musicStore = useMusicStore()
 
 // Device selector state
 const showDeviceSelector = ref(false)
-
-// Debug: watch for store changes
-watch(() => musicStore.currentTrack, (newTrack) => {
-  console.log('MusicPlayerBar: currentTrack changed:', newTrack)
-}, { immediate: true })
-
-watch(() => musicStore.selectedTrack, (newTrack) => {
-  console.log('MusicPlayerBar: selectedTrack changed:', newTrack)
-}, { immediate: true })
 
 // Computed properties from store
 const trackTitle = computed(() => musicStore.currentTrack?.name || null)
@@ -174,20 +165,10 @@ const playbackError = computed(() => musicStore.playbackError)
 
 // Methods connected to music store
 async function togglePlayback() {
-  console.log('togglePlayback called', {
-    isPlaying: isPlaying.value,
-    currentTrack: musicStore.currentTrack,
-    canPlay: canPlay.value
-  })
-
   if (isPlaying.value) {
-    console.log('Pausing playback...')
     await musicStore.pausePlayback()
   } else if (musicStore.currentTrack) {
-    console.log('Playing track:', musicStore.currentTrack.uri)
     await musicStore.playTrack(musicStore.currentTrack.uri, musicStore.activeDeviceId || undefined)
-  } else {
-    console.log('No track to play')
   }
 }
 
@@ -210,7 +191,6 @@ async function selectDevice(deviceId: string) {
 }
 
 async function retryPlayback() {
-  console.log('retryPlayback called')
   musicStore.clearPlaybackError()
   if (musicStore.currentTrack) {
     await musicStore.playTrack(musicStore.currentTrack.uri, musicStore.activeDeviceId || undefined)

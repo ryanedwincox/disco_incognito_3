@@ -5,6 +5,7 @@
  */
 
 import { useGameStore } from "../stores/game";
+import { useMusicStore } from "../stores/music";
 import { useRoomStore } from "../stores/room";
 import { useWebSocketStore } from "../stores/websocket";
 import { API_URL } from "../config/api";
@@ -436,7 +437,7 @@ export class WebSocketService {
    * Handle phase_changed event - updates stores only.
    * Navigation is handled by AppOrchestrator based on store state.
    */
-  private handlePhaseChanged(message: WebSocketMessage): void {
+  private async handlePhaseChanged(message: WebSocketMessage): Promise<void> {
     const { phase, room_code, playback_start_time, assigned_song } = message;
     console.log(`Phase changed to: ${phase} in room ${room_code}`, {
       playback_start_time,
@@ -449,6 +450,7 @@ export class WebSocketService {
 
     const roomStore = useRoomStore();
     const gameStore = useGameStore();
+    const musicStore = useMusicStore();
 
     roomStore.setStatus(
       phase as
@@ -483,7 +485,17 @@ export class WebSocketService {
         break;
 
       case "song_selection":
+        break;
+
       case "guessing":
+        gameStore.setPlaying(false);
+        try {
+          await musicStore.pausePlayback();
+        } catch (error) {
+          console.error("Failed to pause playback on phase change to guessing:", error);
+        }
+        break;
+
       case "results":
         break;
 

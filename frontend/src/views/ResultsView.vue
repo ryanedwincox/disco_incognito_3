@@ -1,6 +1,6 @@
 <!-- Round reveal view showing the true Odd Duck and voting results. Displays who the Odd Duck was, how each player voted, and who guessed correctly. Provides Finish Round button for the host. -->
 <template>
-  <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
+  <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-28">
     <header class="text-center mb-10 space-y-2">
       <h2 class="text-4xl font-bold text-disco-pink uppercase tracking-widest">Reveal</h2>
       <p class="text-zinc-400 text-sm">See who guessed correctly and who the Dancer Incognito really was.</p>

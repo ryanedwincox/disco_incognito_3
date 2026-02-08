@@ -12,6 +12,7 @@
 -->
 <template>
   <component v-if="isInitialized" :is="currentView" />
+  <MusicPlayerBar v-if="isInitialized && showPlayerBar" />
 </template>
 
 <script setup lang="ts">
@@ -24,6 +25,7 @@ import RoomSelectionView from '../views/RoomSelectionView.vue'
 import RoomLobbyView from '../views/RoomLobbyView.vue'
 import SongPickerView from '../views/SongPickerView.vue'
 import SongAssignmentWrapper from '../views/SongAssignmentWrapper.vue'
+import MusicPlayerBar from './MusicPlayerBar.vue'
 import GameView from '../views/GameView.vue'
 import GuessingView from '../views/GuessingView.vue'
 import ResultsView from '../views/ResultsView.vue'
@@ -88,6 +90,11 @@ const appPhase = computed<AppPhase>(() => {
   }
   return roomStore.status as AppPhase
 })
+
+// Show MusicPlayerBar during active gameplay phases
+const showPlayerBar = computed(() =>
+  ['playing', 'guessing', 'results'].includes(appPhase.value)
+)
 
 // Computed view based on phase
 const currentView = computed<Component>(() => {

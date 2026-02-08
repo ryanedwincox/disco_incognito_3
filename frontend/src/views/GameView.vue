@@ -1,6 +1,6 @@
-<!-- Active game round view with countdown timer. Shows remaining time during the 90-second listening phase. Includes the music player bar for playback control during the round. Coordinates synchronized audio playback using playback_start_time from server. -->
+<!-- Active game round view with countdown timer. Shows remaining time during the 90-second listening phase. Coordinates synchronized audio playback using playback_start_time from server. -->
 <template>
-  <div class="min-h-screen bg-zinc-950 text-white flex flex-col">
+  <div class="min-h-screen bg-zinc-950 text-white flex flex-col pb-28">
     <header class="px-6 pt-12 pb-6 text-center space-y-2">
       <h2 class="text-2xl font-semibold uppercase tracking-widest">Round In Progress</h2>
       <p class="text-zinc-400 text-sm">Music plays for 90 seconds. Keep listening and watch other players.</p>
@@ -25,13 +25,11 @@
       </button>
     </div>
 
-    <MusicPlayerBar />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import MusicPlayerBar from '@/components/MusicPlayerBar.vue'
 import { useGameStore } from '@/stores/game'
 import { useMusicStore } from '@/stores/music'
 import { useRoomStore } from '@/stores/room'
