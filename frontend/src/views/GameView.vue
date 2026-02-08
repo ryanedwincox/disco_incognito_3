@@ -71,7 +71,10 @@ async function endListening() {
     if (response.ok) {
       const data = await response.json()
       roomStore.setStatus(data.status)
-      console.log('Listening ended, status:', data.status)
+      // Pause host's own Spotify immediately (non-host clients pause via WebSocket handler)
+      musicStore.pausePlayback().catch((err: unknown) => {
+        console.error('Failed to pause playback after ending listening:', err)
+      })
     } else {
       const error = await response.json()
       console.error('Failed to end listening:', error.detail)
