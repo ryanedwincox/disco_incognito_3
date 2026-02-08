@@ -71,14 +71,6 @@
         <p class="text-zinc-400">{{ songCountText }}</p>
       </div>
     </section>
-    <button
-      v-if="authStore.isSpotifyUser"
-      class="w-full text-sm text-zinc-500 hover:text-zinc-300 transition-colors mt-4"
-      type="button"
-      @click="logout"
-    >
-      Log out of Spotify
-    </button>
     </div>
   </div>
 </template>
@@ -219,10 +211,6 @@ async function leaveRoom() {
 
   // Reset room state - AppOrchestrator will switch to RoomSelectionView
   roomStore.reset()
-}
-
-function logout() {
-  authStore.clearTokens()
 }
 
 function pickSongs() {
