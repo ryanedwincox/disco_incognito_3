@@ -38,6 +38,12 @@ export interface WebSocketMessage {
 
 const RECONNECT_TOKEN_KEY = "disco_reconnect_token";
 
+/**
+ * Minimum ms remaining before playback to show the countdown overlay.
+ * Below this threshold the countdown would flash too briefly to be useful.
+ */
+const COUNTDOWN_THRESHOLD_MS = 500;
+
 export class WebSocketService {
   private socket: WebSocket | null = null;
   private userId: string | null = null;
@@ -319,6 +325,9 @@ export class WebSocketService {
 
     if (typeof message.playback_start_time === "string") {
       gameStore.setPlaybackStartTime(message.playback_start_time);
+      if (message.phase === "playing") {
+        this.signalCountdownIfNeeded(message.playback_start_time);
+      }
     }
 
     if (Array.isArray(message.ready_players)) {
@@ -474,6 +483,7 @@ export class WebSocketService {
       case "playing":
         if (playback_start_time) {
           gameStore.setPlaybackStartTime(playback_start_time);
+          this.signalCountdownIfNeeded(playback_start_time);
         }
         gameStore.setPlaying(true);
         break;
@@ -481,6 +491,7 @@ export class WebSocketService {
       case "lobby":
         gameStore.setPlaying(false);
         gameStore.setPlaybackStartTime(null);
+        gameStore.setCountdownSecondsLeft(null);
         roomStore.setReadyPlayers([]);
         break;
 
@@ -512,6 +523,19 @@ export class WebSocketService {
       const roomStore = useRoomStore();
       roomStore.setSongPairCount(message.song_pair_count);
       console.log(`Song pair count updated: ${message.song_pair_count}`);
+    }
+  }
+
+  /**
+   * Signal the pre-playback countdown if playback_start_time is far enough in the future.
+   * Shared between handleRoomState (reconnect) and handlePhaseChanged (live transition).
+   */
+  private signalCountdownIfNeeded(playbackStartTime: string): void {
+    const gameStore = useGameStore();
+    const msUntilPlayback =
+      new Date(playbackStartTime).getTime() - Date.now();
+    if (msUntilPlayback > COUNTDOWN_THRESHOLD_MS) {
+      gameStore.setCountdownSecondsLeft(Math.ceil(msUntilPlayback / 1000));
     }
   }
 

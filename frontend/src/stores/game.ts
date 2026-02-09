@@ -12,6 +12,9 @@ interface GameState {
   dancerIncognitoId: string | null;
   isPlaying: boolean;
   playbackStartTime: string | null; // ISO timestamp when audio should start
+  // In Pinia because three consumers coordinate: websocket service (sets),
+  // AppOrchestrator (reads for view routing), CountdownView (reads + updates on tick).
+  countdownSecondsLeft: number | null;
 }
 
 export const useGameStore = defineStore("game", {
@@ -20,7 +23,8 @@ export const useGameStore = defineStore("game", {
     countdown: 90,
     dancerIncognitoId: null,
     isPlaying: false,
-    playbackStartTime: null
+    playbackStartTime: null,
+    countdownSecondsLeft: null
   }),
   actions: {
     setCountdown(seconds: number) {
@@ -34,6 +38,9 @@ export const useGameStore = defineStore("game", {
     },
     setPlaybackStartTime(isoTimestamp: string | null) {
       this.playbackStartTime = isoTimestamp;
+    },
+    setCountdownSecondsLeft(seconds: number | null) {
+      this.countdownSecondsLeft = seconds;
     }
   }
 });

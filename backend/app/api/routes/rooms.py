@@ -427,7 +427,8 @@ async def mark_player_ready(
     """
     Mark a player as ready to start playback.
 
-    When all players are ready, transitions room status to 'playing'.
+    Tracks ready state for host visibility. Round starts only when
+    host clicks 'Start Round' (force-start endpoint).
     Returns updated room state.
     """
     room_data = await storage.get_room(room_code)
@@ -462,29 +463,13 @@ async def mark_player_ready(
         'ready_players': room.current_round.ready_players,
     })
 
-    # Check if all players are ready
-    all_player_ids = {p.id for p in room.players}
-    ready_player_ids = set(room.current_round.ready_players)
-    all_ready = all_player_ids == ready_player_ids
-
-    playback_start_time_iso: str | None = None
-    if all_ready:
-        room.status = 'playing'
-        # Set playback_start_time 3 seconds in the future to allow network sync
-        playback_start_time = datetime.now(timezone.utc) + timedelta(seconds=3)
-        room.current_round.playback_start_time = playback_start_time
-        playback_start_time_iso = playback_start_time.isoformat()
-        logger.info(f'All players ready in room {room_code}, transitioning to playing at {playback_start_time_iso}')
-
     # Update last_active_at and save
     room.last_active_at = datetime.utcnow()
     await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
+    all_player_ids = {p.id for p in room.players}
+    ready_player_ids = set(room.current_round.ready_players)
     logger.info(f'Player {body.player_id} marked ready in room {room_code} ({len(ready_player_ids)}/{len(all_player_ids)} ready)')
-
-    # Broadcast phase change if all players are ready
-    if all_ready:
-        await broadcast_phase_changed(room_code, 'playing', playback_start_time=playback_start_time_iso)
 
     return RoomStateResponse.from_room_state(room)
 

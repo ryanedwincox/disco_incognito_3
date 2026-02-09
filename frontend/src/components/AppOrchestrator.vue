@@ -6,6 +6,7 @@
     - lobby → RoomLobbyView
     - picking_songs → SongPickerView
     - song_selection → SongAssignmentView
+    - playing (countdown active) → CountdownView
     - playing → GameView
     - guessing → GuessingView
     - results → ResultsView
@@ -18,6 +19,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, type Component } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { useGameStore } from '../stores/game'
 import { useRoomStore } from '../stores/room'
 import { websocketService } from '../services/websocket'
 import LoginView from '../views/LoginView.vue'
@@ -26,11 +28,13 @@ import RoomLobbyView from '../views/RoomLobbyView.vue'
 import SongPickerView from '../views/SongPickerView.vue'
 import SongAssignmentWrapper from '../views/SongAssignmentWrapper.vue'
 import MusicPlayerBar from './MusicPlayerBar.vue'
+import CountdownView from '../views/CountdownView.vue'
 import GameView from '../views/GameView.vue'
 import GuessingView from '../views/GuessingView.vue'
 import ResultsView from '../views/ResultsView.vue'
 
 const authStore = useAuthStore()
+const gameStore = useGameStore()
 const roomStore = useRoomStore()
 
 // Track initialization state - render nothing until auth validation completes
@@ -103,6 +107,9 @@ const currentView = computed<Component>(() => {
   }
   if (appPhase.value === 'authenticated_no_room') {
     return RoomSelectionView
+  }
+  if (appPhase.value === 'playing' && gameStore.countdownSecondsLeft != null) {
+    return CountdownView
   }
   return phaseToViewMap[appPhase.value] || RoomLobbyView
 })
