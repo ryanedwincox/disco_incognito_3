@@ -13,7 +13,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
@@ -59,9 +59,17 @@ app.add_middleware(
 app.include_router(api_router)
 
 # Serve frontend static files in production (built into static/ by Docker)
+# NOTE: Cannot use app.mount("/", StaticFiles(...)) because it catches WebSocket
+# requests and crashes (StaticFiles asserts scope["type"] == "http").
+# Instead, mount assets at /assets and add a catch-all route for SPA index.html.
 static_dir = Path(__file__).parent.parent / "static"
 if static_dir.is_dir():
-    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="static-assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str) -> FileResponse:
+        """Serve index.html for all non-API routes (SPA client-side routing)."""
+        return FileResponse(str(static_dir / "index.html"))
 
 
 @app.on_event('startup')
