@@ -165,12 +165,13 @@ async function handleForceStart() {
       return
     }
 
-    if (response.ok) {
+    if (!response.ok) {
       const data = await response.json()
-      if (data.status) {
-        roomStore.setStatus(data.status)
-      }
+      console.log('Force start failed:', data.detail)
     }
+    // Don't set status here — the WebSocket phase_changed handler sets
+    // both status and countdownSecondsLeft atomically, which is required
+    // for AppOrchestrator to route to CountdownView before GameView.
   } catch (error) {
     console.log('Could not force start round:', error)
   }
