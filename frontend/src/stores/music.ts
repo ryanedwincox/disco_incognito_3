@@ -47,6 +47,7 @@ interface MusicState {
   isRetrying: boolean;
   retryAttempt: number;
   playbackError: string | null;
+  /** Consumed by NoSpotifyDeviceBanner to suppress flash before first device API response. */
   hasCheckedDevices: boolean;
 }
 
@@ -99,6 +100,12 @@ export const useMusicStore = defineStore("music", {
       this.playbackError = null;
       this.retryAttempt = 0;
       this.isRetrying = false;
+    },
+
+    resetDeviceCheckState() {
+      this.hasCheckedDevices = false;
+      this.devices = [];
+      this.activeDeviceId = null;
     },
 
     setSelectedTrack(track: TrackInfo | null) {

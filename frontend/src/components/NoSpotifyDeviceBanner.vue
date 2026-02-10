@@ -1,4 +1,4 @@
-<!-- Persistent bottom banner shown when no Spotify devices are available. Polls for device recovery at 10s intervals. Provides "Check Now" manual refresh. -->
+<!-- NoSpotifyDeviceBanner: Persistent amber bottom banner when no Spotify devices detected. Polls for device recovery at 10s intervals, provides manual "Check Now" refresh. NOT concerned with: playback logic, device selection/transfer, authentication flow. | I/O: authStore.isAuthenticated + musicStore.devices → visibility + polling lifecycle -->
 <template>
   <Transition name="slide">
     <div
@@ -72,7 +72,7 @@ const showBanner = computed(() =>
 
 function startPolling() {
   if (pollInterval) return
-  pollInterval = setInterval(async () => { await musicStore.getDevices() }, POLL_INTERVAL_MS)
+  pollInterval = setInterval(() => { musicStore.getDevices().catch(() => {}) }, POLL_INTERVAL_MS)
 }
 
 function stopPolling() {
@@ -98,7 +98,7 @@ async function checkNow() {
 // Reset device check state on logout to prevent stale banner flash on re-login
 watch(() => authStore.isAuthenticated, (authenticated) => {
   if (!authenticated) {
-    musicStore.hasCheckedDevices = false
+    musicStore.resetDeviceCheckState()
     stopPolling()
   }
 })
