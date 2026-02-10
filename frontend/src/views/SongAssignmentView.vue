@@ -30,22 +30,6 @@
           <p class="text-lg text-zinc-400">{{ song?.artist || 'Unknown Artist' }}</p>
           <p v-if="song?.album" class="text-sm text-zinc-500">{{ song.album }}</p>
         </div>
-
-        <!-- Song Type Badge -->
-        <div class="flex justify-center">
-          <span
-            class="px-4 py-2 rounded-full text-sm font-medium bg-green-500/20 text-green-400 border border-green-500"
-          >
-            🎵 Your Song
-          </span>
-        </div>
-      </div>
-
-      <!-- Instructions -->
-      <div class="bg-zinc-900/50 rounded-2xl border border-zinc-500 p-4 text-center">
-        <p class="text-sm text-zinc-400">
-          Dance to your song and try to blend in!
-        </p>
       </div>
 
       <!-- Ready Button -->
@@ -105,7 +89,6 @@ interface RoomPlayer {
 
 interface Props {
   song: TrackInfo | null
-  isIncognito?: boolean
   showReadyButton?: boolean
   isHost?: boolean
   players?: RoomPlayer[]
@@ -113,7 +96,6 @@ interface Props {
 }
 
 withDefaults(defineProps<Props>(), {
-  isIncognito: false,
   showReadyButton: false,
   isHost: false,
   players: () => [],

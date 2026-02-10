@@ -1,11 +1,8 @@
 <!-- Song selection interface for adding tracks to the game pool. Provides Spotify search with popover results and song preview playback via the Spotify play_track API. Handles song pair saving. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
-    <header class="text-center mb-8 space-y-2">
+    <header class="text-center mb-8">
       <h2 class="text-3xl font-semibold">Add Songs</h2>
-      <p class="text-zinc-400 text-sm max-w-md mx-auto">
-        Search for tracks and add them to the room pool. Add at least 2 songs to start the game.
-      </p>
     </header>
 
     <div class="max-w-lg mx-auto space-y-6">
@@ -152,31 +149,25 @@
             </div>
           </div>
 
-          <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
-            <h3 class="text-lg font-semibold mb-3">Actions</h3>
-            <div class="space-y-3">
-              <button
-                class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                type="button"
-                :disabled="selectedTracks.length !== 2 || isSaving"
-                @click="addSongPair"
-              >
-                {{ isSaving ? 'Adding...' : 'Add Song Pair' }}
-              </button>
-              <button
-                class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
-                type="button"
-                @click="goBack"
-              >
-                Back to Lobby
-              </button>
-            </div>
+          <div class="space-y-3">
+            <button
+              class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+              :disabled="selectedTracks.length !== 2 || isSaving"
+              @click="addSongPair"
+            >
+              {{ isSaving ? 'Adding...' : 'Add Song Pair' }}
+            </button>
+            <button
+              class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
+              type="button"
+              @click="goBack"
+            >
+              Back to Lobby
+            </button>
           </div>
         </div>
 
-        <div v-if="successMessage" class="bg-green-900/30 border border-green-500 text-green-200 px-4 py-3 rounded-xl text-sm text-center">
-          {{ successMessage }}
-        </div>
       </template>
     </div>
   </div>
@@ -188,18 +179,19 @@ import { useAuthStore } from '../stores/auth'
 import { useRoomStore } from '../stores/room'
 import { useMusicStore } from '../stores/music'
 import type { TrackInfo } from '../stores/music'
+import { useNotificationStore } from '../stores/notifications'
 import { useRoomApi } from '../composables/useRoomApi'
 
 const authStore = useAuthStore()
 const roomStore = useRoomStore()
 const musicStore = useMusicStore()
+const notificationStore = useNotificationStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
 
 const isSpotifyUser = computed(() => authStore.isSpotifyUser)
 
 const selectedTracks = ref<TrackInfo[]>([])
 const isSaving = ref(false)
-const successMessage = ref('')
 const searchQuery = ref('')
 const searchResults = ref<TrackInfo[]>([])
 const isSearching = ref(false)
@@ -334,8 +326,6 @@ async function addSongPair() {
   }
 
   isSaving.value = true
-  successMessage.value = ''
-
   try {
     const roomCode = roomStore.code
 
@@ -367,18 +357,13 @@ async function addSongPair() {
 
     console.log('Added song pair to room:', roomCode)
     const songNames = selectedTracks.value.map(t => t.name).join('" and "')
-    successMessage.value = `Added "${songNames}" to the room!`
-
-    // Clear selection to allow adding more pairs
     selectedTracks.value = []
-
-    // Clear success message after a few seconds
-    setTimeout(() => {
-      successMessage.value = ''
-    }, 3000)
+    // Toast persists across navigation (Pinia store is global, NotificationToast mounted in App.vue)
+    notificationStore.success('Songs Added', `Added "${songNames}" to the room!`)
+    await goBack()
   } catch (error: unknown) {
     console.error('Failed to add song pair:', error)
-    successMessage.value = 'Failed to add song pair'
+    notificationStore.error('Error', 'Failed to add song pair')
   } finally {
     isSaving.value = false
   }
