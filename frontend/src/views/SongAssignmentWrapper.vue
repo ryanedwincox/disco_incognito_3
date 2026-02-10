@@ -24,12 +24,14 @@ import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useMusicStore, type TrackInfo } from '../stores/music'
 import { useRoomApi } from '../composables/useRoomApi'
+import { useWebSocketStore } from '../stores/websocket'
 import SongAssignmentView from './SongAssignmentView.vue'
 import MusicPlayerBar from '../components/MusicPlayerBar.vue'
 
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
 const musicStore = useMusicStore()
+const wsStore = useWebSocketStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
 
 const roomCode = computed(() => roomStore.code || '')
@@ -153,12 +155,21 @@ async function handleReady() {
 async function handleForceStart() {
   if (!currentUserId.value || !isHost.value) return
 
+  const url = `${API_URL}/api/rooms/${roomCode.value}/force-start`
+  console.log('[force-start] POST', url, { player_id: currentUserId.value, wsStatus: wsStore.status })
+
+  if (wsStore.status !== 'connected') {
+    console.warn(`[force-start] WebSocket is ${wsStore.status} — force-start may succeed but phase_changed won't arrive`)
+  }
+
   try {
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/force-start`, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ player_id: currentUserId.value })
     })
+
+    console.log('[force-start] response', response.status, response.statusText)
 
     // Handle expired room (404)
     if (await handleRoomResponse(response)) {
@@ -167,13 +178,15 @@ async function handleForceStart() {
 
     if (!response.ok) {
       const data = await response.json()
-      console.log('Force start failed:', data.detail)
+      console.error('[force-start] failed:', response.status, data.detail)
+    } else {
+      console.log('[force-start] success — waiting for WebSocket phase_changed')
     }
     // Don't set status here — the WebSocket phase_changed handler sets
     // both status and countdownSecondsLeft atomically, which is required
     // for AppOrchestrator to route to CountdownView before GameView.
   } catch (error) {
-    console.log('Could not force start round:', error)
+    console.error('[force-start] network error:', error)
   }
 }
 

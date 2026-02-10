@@ -6,6 +6,7 @@ endpoints. Handles application startup including storage file initialization.
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -220,6 +221,13 @@ async def room_websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                if msg.get('type') == 'ping':
+                    await websocket.send_json({'type': 'pong'})
+                    continue
+            except (json.JSONDecodeError, TypeError):
+                pass
             logger.debug(f'Room WS received from user {user_id} in room {room_code}: {data}')
     except WebSocketDisconnect:
         logger.info(f'Room WS disconnected for user {user_id} in room {room_code}')

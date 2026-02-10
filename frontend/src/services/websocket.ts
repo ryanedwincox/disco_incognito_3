@@ -53,6 +53,7 @@ export class WebSocketService {
   private reconnectDelay = 1000;
   private reconnectTimer: number | null = null;
   private reconnectToken: string | null = null;
+  private heartbeatTimer: number | null = null;
 
   /**
    * Connect to a room-scoped WebSocket endpoint.
@@ -94,6 +95,7 @@ export class WebSocketService {
         );
         this.reconnectAttempts = 0;
         wsStore.setStatus("connected");
+        this.startHeartbeat();
       };
 
       this.socket.onmessage = (event) => {
@@ -108,6 +110,7 @@ export class WebSocketService {
       this.socket.onclose = () => {
         console.log(`Room WebSocket disconnected`);
         this.socket = null;
+        this.stopHeartbeat();
         wsStore.setStatus("disconnected");
         this.attemptReconnect();
       };
@@ -122,6 +125,8 @@ export class WebSocketService {
    * Disconnect from the current WebSocket connection.
    */
   disconnect(): void {
+    this.stopHeartbeat();
+
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -484,6 +489,9 @@ export class WebSocketService {
         if (playback_start_time) {
           gameStore.setPlaybackStartTime(playback_start_time);
           this.signalCountdownIfNeeded(playback_start_time);
+          console.log(`[phase_changed→playing] countdownSecondsLeft=${gameStore.countdownSecondsLeft}, playbackStartTime=${playback_start_time}`);
+        } else {
+          console.warn("[phase_changed→playing] missing playback_start_time — countdown won't trigger");
         }
         gameStore.setPlaying(true);
         break;
@@ -536,6 +544,28 @@ export class WebSocketService {
       new Date(playbackStartTime).getTime() - Date.now();
     if (msUntilPlayback > COUNTDOWN_THRESHOLD_MS) {
       gameStore.setCountdownSecondsLeft(Math.ceil(msUntilPlayback / 1000));
+    }
+  }
+
+  /**
+   * Start sending periodic ping messages to keep the connection alive through proxies/LBs.
+   */
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = window.setInterval(() => {
+      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+        this.socket.send(JSON.stringify({ type: "ping" }));
+      }
+    }, 30_000);
+  }
+
+  /**
+   * Stop the heartbeat interval.
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer !== null) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
   }
 
