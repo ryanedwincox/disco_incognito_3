@@ -47,6 +47,7 @@ interface MusicState {
   isRetrying: boolean;
   retryAttempt: number;
   playbackError: string | null;
+  hasCheckedDevices: boolean;
 }
 
 export const useMusicStore = defineStore("music", {
@@ -67,7 +68,8 @@ export const useMusicStore = defineStore("music", {
     error: null,
     isRetrying: false,
     retryAttempt: 0,
-    playbackError: null
+    playbackError: null,
+    hasCheckedDevices: false
   }),
 
   getters: {
@@ -97,14 +99,6 @@ export const useMusicStore = defineStore("music", {
       this.playbackError = null;
       this.retryAttempt = 0;
       this.isRetrying = false;
-    },
-
-    warnNoDevices() {
-      const notificationStore = useNotificationStore();
-      notificationStore.warning(
-        "No Spotify Devices",
-        "No Spotify devices found. Open Spotify on a device to enable playback."
-      );
     },
 
     setSelectedTrack(track: TrackInfo | null) {
@@ -180,7 +174,6 @@ export const useMusicStore = defineStore("music", {
           await this.getDevices();
         }
         if (!this.activeDeviceId) {
-          this.warnNoDevices();
           return false;
         }
         deviceId = this.activeDeviceId;
@@ -321,6 +314,7 @@ export const useMusicStore = defineStore("music", {
         }));
 
         this.devices = devices;
+        this.hasCheckedDevices = true;
 
         const activeDevice = devices.find(d => d.isActive);
         if (activeDevice) {
@@ -329,17 +323,14 @@ export const useMusicStore = defineStore("music", {
           const transferred = await this.transferPlayback(devices[0].id, false);
           if (transferred) {
             this.activeDeviceId = devices[0].id;
-          } else {
-            this.warnNoDevices();
           }
-        } else {
-          this.warnNoDevices();
         }
 
         return devices;
       } catch (error) {
         console.error("Get devices failed:", error);
         this.error = "Failed to get devices";
+        this.hasCheckedDevices = true;
         return [];
       }
     },
