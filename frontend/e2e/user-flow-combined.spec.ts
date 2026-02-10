@@ -306,16 +306,35 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       console.log(`✅ Coverage (e): Guest assigned song: ${guestSong}`);
 
       // ======================================================================
-      // PHASE 5: All click ready → auto-transition to playing
+      // PHASE 5: All click ready → host clicks Start Round → countdown → playing
       // Coverage req (f): song_selection -> playing transition
       // ======================================================================
-      console.log('\n=== PHASE 5: All players ready ===');
+      console.log('\n=== PHASE 5: All players ready + host starts round ===');
 
       await clickReady(hostPage, 'Host');
       await clickReady(playerPage, 'Player');
       await clickReady(guestPage, 'Guest');
 
-      // All should auto-transition to GameView ("Round In Progress") via WS phase_changed
+      // Host clicks "Start Round" to begin the round
+      const startRoundButton = hostPage.getByRole('button', { name: 'Start Round' });
+      await expect(startRoundButton).toBeVisible({ timeout: 5000 });
+      await startRoundButton.click();
+      console.log('✅ Host clicked Start Round');
+
+      // All players should see the countdown overlay ("Get Ready!")
+      const hostCountdown = hostPage.locator('h2:has-text("Get Ready!")');
+      await expect(hostCountdown).toBeVisible({ timeout: 10000 });
+      console.log('✅ Host sees countdown');
+
+      const playerCountdown = playerPage.locator('h2:has-text("Get Ready!")');
+      await expect(playerCountdown).toBeVisible({ timeout: 10000 });
+      console.log('✅ Player sees countdown');
+
+      const guestCountdown = guestPage.locator('h2:has-text("Get Ready!")');
+      await expect(guestCountdown).toBeVisible({ timeout: 10000 });
+      console.log('✅ Guest sees countdown');
+
+      // After countdown, all should transition to GameView ("Round In Progress")
       const hostRoundHeader = hostPage.locator('h2:has-text("Round In Progress")');
       await expect(hostRoundHeader).toBeVisible({ timeout: 15000 });
       console.log('✅ Host sees Round In Progress');
