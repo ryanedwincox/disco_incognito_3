@@ -22,6 +22,7 @@ export const STORIES = [
   { id: 'views-roomlobbyview--with-players', name: 'RoomLobbyView-WithPlayers' },
   { id: 'views-roomlobbyview--empty-lobby', name: 'RoomLobbyView-EmptyLobby' },
   { id: 'views-songpickerview--spotify-user', name: 'SongPickerView-SpotifyUser' },
+  { id: 'views-songpickerview--guest-user', name: 'SongPickerView-GuestUser' },
   { id: 'views-gameview--round-in-progress', name: 'GameView-RoundInProgress' },
   { id: 'views-guessingview--default', name: 'GuessingView-Default' },
   { id: 'views-resultsview--default', name: 'ResultsView-Default' },

@@ -30,3 +30,19 @@ type Story = StoryObj<typeof meta>;
 export const SpotifyUser: Story = {
   name: 'Spotify User',
 };
+
+// Guest user sees spectator message
+export const GuestUser: Story = {
+  name: 'Guest User (Spectator)',
+  decorators: [
+    (story) => {
+      const authStore = useAuthStore();
+      authStore.$patch({
+        accessToken: 'test-token',
+        user: { id: 'guest-1', displayName: 'Guest', email: '' },
+        isSpotifyUser: false,
+      });
+      return { components: { story }, template: '<story />' };
+    },
+  ],
+};

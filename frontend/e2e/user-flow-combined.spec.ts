@@ -15,7 +15,7 @@
  *   i. At least 3 browser contexts: host, player, guest
  *   j. Full game cycle through all phases
  *   k. Host transfer on host leave
- *   l. Song adding by any authenticated user
+ *   l. Song adding by spotify user
  *   m. Guest login flow
  */
 import { test, expect, getArtifactsPath, getBaselinePath } from './fixtures';
@@ -97,7 +97,7 @@ async function joinRoomViaUI(page: Page, roomCode: string): Promise<void> {
 
 /**
  * Add songs via UI (search + select 2 + add pair + back to lobby).
- * Coverage req (l): Song adding by any authenticated user.
+ * Coverage req (l): Song adding by spotify user.
  */
 async function addSongs(page: Page): Promise<void> {
   const pickSongsButton = page.getByRole('button', { name: 'Pick Songs' });
@@ -187,7 +187,7 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
     try {
       // ======================================================================
       // PHASE 1: Host creates room and adds songs
-      // Coverage req (l): Song adding by any authenticated user
+      // Coverage req (l): Song adding by spotify user
       // ======================================================================
       console.log('\n=== PHASE 1: Host creates room ===');
 
@@ -252,11 +252,11 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       await expect(playerPlayerList).toHaveCount(3, { timeout: 10000 });
       console.log('✅ All players see 3 players in lobby without reload');
 
-      // Verify guest CAN see Pick Songs button (full participation)
-      await expect(guestPage.getByRole('button', { name: 'Pick Songs' })).toBeVisible();
-      console.log('✅ Guest sees Pick Songs button (full participation)');
+      // Verify guest does NOT see Pick Songs button
+      await expect(guestPage.getByRole('button', { name: 'Pick Songs' })).not.toBeVisible();
+      console.log('✅ Guest does NOT see Pick Songs button (non-Spotify user)');
 
-      // Verify guest does NOT see Start Game button (only host can start)
+      // Verify guest does NOT see Start Game button
       await expect(guestPage.getByRole('button', { name: 'Start Game' })).not.toBeVisible();
 
       // ======================================================================

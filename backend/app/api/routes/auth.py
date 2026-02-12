@@ -257,7 +257,7 @@ async def manual_login(
     Create a guest user with the provided display name.
 
     This endpoint allows users to join without Spotify authentication.
-    These users have full participation rights including song selection and gameplay.
+    These users can participate in games but cannot select songs or control playback.
 
     Returns:
         Dict containing access_token, refresh_token, user_id, display_name, and is_spotify_user flag

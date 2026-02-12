@@ -32,7 +32,7 @@ export const SpotifyUser: Story = {
   name: 'Spotify User',
 };
 
-// Guest user variant (same capabilities as Spotify user)
+// Guest user variant (no Test Playback button)
 export const GuestUser: Story = {
   name: 'Guest User',
   decorators: [
