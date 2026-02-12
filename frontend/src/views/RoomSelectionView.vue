@@ -29,6 +29,7 @@
         </button>
       </div>
       <button
+        v-if="authStore.isSpotifyUser"
         class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium px-8 py-3 rounded-full transition-colors"
         type="button"
         @click="goToTest"
@@ -36,6 +37,7 @@
         Test Playback
       </button>
       <button
+        v-if="authStore.isSpotifyUser"
         class="w-full text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
         type="button"
         @click="logout"

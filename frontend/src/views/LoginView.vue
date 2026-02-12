@@ -58,6 +58,10 @@
         >
           Continue as Guest
         </button>
+
+        <p class="text-xs text-zinc-500 text-center mt-2">
+          Guest users can join games but cannot select songs
+        </p>
       </template>
 
       <!-- Error Message -->

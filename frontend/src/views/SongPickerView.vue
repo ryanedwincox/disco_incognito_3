@@ -6,152 +6,172 @@
     </header>
 
     <div class="max-w-lg mx-auto space-y-6">
-      <!-- Search container with popover -->
-      <div class="relative" ref="searchContainerRef">
-        <input
-          v-model="searchQuery"
-          class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg"
-          placeholder="Search for songs..."
-          aria-label="Search for songs"
-          type="search"
-          @input="handleSearchInput"
-          @focus="isSearchOpen = true"
-        />
-
-        <!-- Popover search results -->
-        <div
-          v-if="showSearchResults"
-          class="absolute top-full left-0 right-0 mt-2 z-50 bg-zinc-900 rounded-3xl border border-zinc-500 p-5 shadow-2xl"
+      <!-- Spectator mode message for non-Spotify users -->
+      <div v-if="!isSpotifyUser" class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 text-center space-y-4">
+        <div class="text-5xl mb-2" aria-hidden="true">🎵</div>
+        <h3 class="text-xl font-semibold">Spotify Login Required</h3>
+        <p class="text-zinc-400 text-sm max-w-md mx-auto">
+          You're logged in as a guest. To add songs to the game, you'll need to log in with Spotify.
+        </p>
+        <button
+          class="w-full max-w-xs mx-auto bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
+          type="button"
+          @click="goBack"
         >
-          <h3 class="text-lg font-semibold mb-3">Search Results</h3>
-          <div v-if="isSearching" class="text-zinc-500 text-center py-4">
-            Searching...
+          Back to Lobby
+        </button>
+      </div>
+
+      <!-- Song picker for Spotify users -->
+      <template v-else>
+        <!-- Search container with popover -->
+        <div class="relative" ref="searchContainerRef">
+          <input
+            v-model="searchQuery"
+            class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg"
+            placeholder="Search for songs..."
+            aria-label="Search for songs"
+            type="search"
+            @input="handleSearchInput"
+            @focus="isSearchOpen = true"
+          />
+
+          <!-- Popover search results -->
+          <div
+            v-if="showSearchResults"
+            class="absolute top-full left-0 right-0 mt-2 z-50 bg-zinc-900 rounded-3xl border border-zinc-500 p-5 shadow-2xl"
+          >
+            <h3 class="text-lg font-semibold mb-3">Search Results</h3>
+            <div v-if="isSearching" class="text-zinc-500 text-center py-4">
+              Searching...
+            </div>
+            <div v-else-if="searchResults.length > 0" class="space-y-2 max-h-80 overflow-y-auto -mx-1 px-1">
+              <div
+                v-for="track in searchResults"
+                :key="track.id"
+                data-testid="track-result"
+                role="button"
+                tabindex="0"
+                class="w-full text-left bg-zinc-800 hover:bg-zinc-700 rounded-xl p-3 transition-colors cursor-pointer"
+                :class="{ 'ring-2 ring-disco-pink': isSelected(track) }"
+                @click="selectTrack(track)"
+                @keydown.enter="selectTrack(track)"
+                @keydown.space.prevent="selectTrack(track)"
+              >
+                <div class="flex items-center gap-3">
+                  <img
+                    :src="track.albumArt"
+                    :alt="track.album"
+                    class="w-12 h-12 rounded-lg object-cover"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium truncate">{{ track.name }}</p>
+                    <p class="text-sm text-zinc-400 truncate">{{ track.artist }}</p>
+                  </div>
+                  <!-- Preview play/pause button -->
+                  <button
+                    type="button"
+                    class="w-8 h-8 flex-shrink-0 rounded-full bg-zinc-600 hover:bg-zinc-500 flex items-center justify-center transition-colors"
+                    :aria-label="currentPreviewTrackId === track.id && isPreviewPlaying ? `Pause preview of ${track.name}` : `Play preview of ${track.name}`"
+                    @click.stop="togglePreview(track)"
+                  >
+                    <!-- Pause icon -->
+                    <svg v-if="currentPreviewTrackId === track.id && isPreviewPlaying" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="6" y="4" width="4" height="16" rx="1" />
+                      <rect x="14" y="4" width="4" height="16" rx="1" />
+                    </svg>
+                    <!-- Play icon -->
+                    <svg v-else aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </button>
+                  <div v-if="isSelected(track)" class="text-disco-pink font-bold text-lg" aria-hidden="true">
+                    ✓
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p v-else class="text-zinc-500">
+              No results found
+            </p>
           </div>
-          <div v-else-if="searchResults.length > 0" class="space-y-2 max-h-80 overflow-y-auto -mx-1 px-1">
-            <div
-              v-for="track in searchResults"
-              :key="track.id"
-              data-testid="track-result"
-              role="button"
-              tabindex="0"
-              class="w-full text-left bg-zinc-800 hover:bg-zinc-700 rounded-xl p-3 transition-colors cursor-pointer"
-              :class="{ 'ring-2 ring-disco-pink': isSelected(track) }"
-              @click="selectTrack(track)"
-              @keydown.enter="selectTrack(track)"
-              @keydown.space.prevent="selectTrack(track)"
-            >
-              <div class="flex items-center gap-3">
+        </div>
+
+        <!-- Selected Songs & Actions (outside the relative container) -->
+        <div class="space-y-4">
+          <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
+            <h3 class="text-lg font-semibold mb-3">Selected Songs ({{ selectedTracks.length }}/2)</h3>
+            <div class="space-y-2">
+              <!-- Slot 1 -->
+              <div v-if="selectedTracks[0]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
                 <img
-                  :src="track.albumArt"
-                  :alt="track.album"
-                  class="w-12 h-12 rounded-lg object-cover"
+                  :src="selectedTracks[0].albumArt"
+                  :alt="selectedTracks[0].album"
+                  class="w-10 h-10 rounded-lg object-cover"
                 />
                 <div class="flex-1 min-w-0">
-                  <p class="font-medium truncate">{{ track.name }}</p>
-                  <p class="text-sm text-zinc-400 truncate">{{ track.artist }}</p>
+                  <p class="font-medium truncate">{{ selectedTracks[0].name }}</p>
+                  <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[0].artist }}</p>
                 </div>
-                <!-- Preview play/pause button -->
                 <button
                   type="button"
-                  class="w-8 h-8 flex-shrink-0 rounded-full bg-zinc-600 hover:bg-zinc-500 flex items-center justify-center transition-colors"
-                  :aria-label="currentPreviewTrackId === track.id && isPreviewPlaying ? `Pause preview of ${track.name}` : `Play preview of ${track.name}`"
-                  @click.stop="togglePreview(track)"
+                  class="text-zinc-400 hover:text-white p-1"
+                  :aria-label="`Remove ${selectedTracks[0].name}`"
+                  @click="clearSelection(0)"
                 >
-                  <!-- Pause icon -->
-                  <svg v-if="currentPreviewTrackId === track.id && isPreviewPlaying" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="4" width="4" height="16" rx="1" />
-                    <rect x="14" y="4" width="4" height="16" rx="1" />
-                  </svg>
-                  <!-- Play icon -->
-                  <svg v-else aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+                  <span aria-hidden="true">✕</span>
                 </button>
-                <div v-if="isSelected(track)" class="text-disco-pink font-bold text-lg" aria-hidden="true">
-                  ✓
+              </div>
+              <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
+                Select first song
+              </div>
+
+              <!-- Slot 2 -->
+              <div v-if="selectedTracks[1]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
+                <img
+                  :src="selectedTracks[1].albumArt"
+                  :alt="selectedTracks[1].album"
+                  class="w-10 h-10 rounded-lg object-cover"
+                />
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium truncate">{{ selectedTracks[1].name }}</p>
+                  <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[1].artist }}</p>
                 </div>
+                <button
+                  type="button"
+                  class="text-zinc-400 hover:text-white p-1"
+                  :aria-label="`Remove ${selectedTracks[1].name}`"
+                  @click="clearSelection(1)"
+                >
+                  <span aria-hidden="true">✕</span>
+                </button>
+              </div>
+              <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
+                Select second song
               </div>
             </div>
           </div>
-          <p v-else class="text-zinc-500">
-            No results found
-          </p>
-        </div>
-      </div>
 
-      <!-- Selected Songs & Actions (outside the relative container) -->
-      <div class="space-y-4">
-        <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
-          <h3 class="text-lg font-semibold mb-3">Selected Songs ({{ selectedTracks.length }}/2)</h3>
-          <div class="space-y-2">
-            <!-- Slot 1 -->
-            <div v-if="selectedTracks[0]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
-              <img
-                :src="selectedTracks[0].albumArt"
-                :alt="selectedTracks[0].album"
-                class="w-10 h-10 rounded-lg object-cover"
-              />
-              <div class="flex-1 min-w-0">
-                <p class="font-medium truncate">{{ selectedTracks[0].name }}</p>
-                <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[0].artist }}</p>
-              </div>
-              <button
-                type="button"
-                class="text-zinc-400 hover:text-white p-1"
-                :aria-label="`Remove ${selectedTracks[0].name}`"
-                @click="clearSelection(0)"
-              >
-                <span aria-hidden="true">✕</span>
-              </button>
-            </div>
-            <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
-              Select first song
-            </div>
-
-            <!-- Slot 2 -->
-            <div v-if="selectedTracks[1]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
-              <img
-                :src="selectedTracks[1].albumArt"
-                :alt="selectedTracks[1].album"
-                class="w-10 h-10 rounded-lg object-cover"
-              />
-              <div class="flex-1 min-w-0">
-                <p class="font-medium truncate">{{ selectedTracks[1].name }}</p>
-                <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[1].artist }}</p>
-              </div>
-              <button
-                type="button"
-                class="text-zinc-400 hover:text-white p-1"
-                :aria-label="`Remove ${selectedTracks[1].name}`"
-                @click="clearSelection(1)"
-              >
-                <span aria-hidden="true">✕</span>
-              </button>
-            </div>
-            <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
-              Select second song
-            </div>
+          <div class="space-y-3">
+            <button
+              class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+              :disabled="selectedTracks.length !== 2 || isSaving"
+              @click="addSongPair"
+            >
+              {{ isSaving ? 'Adding...' : 'Add Song Pair' }}
+            </button>
+            <button
+              class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
+              type="button"
+              @click="goBack"
+            >
+              Back to Lobby
+            </button>
           </div>
         </div>
 
-        <div class="space-y-3">
-          <button
-            class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            type="button"
-            :disabled="selectedTracks.length !== 2 || isSaving"
-            @click="addSongPair"
-          >
-            {{ isSaving ? 'Adding...' : 'Add Song Pair' }}
-          </button>
-          <button
-            class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
-            type="button"
-            @click="goBack"
-          >
-            Back to Lobby
-          </button>
-        </div>
-      </div>
+      </template>
     </div>
   </div>
 </template>
@@ -170,6 +190,8 @@ const roomStore = useRoomStore()
 const musicStore = useMusicStore()
 const notificationStore = useNotificationStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
+
+const isSpotifyUser = computed(() => authStore.isSpotifyUser)
 
 const selectedTracks = ref<TrackInfo[]>([])
 const isSaving = ref(false)
