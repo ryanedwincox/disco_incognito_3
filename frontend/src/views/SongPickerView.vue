@@ -2,13 +2,13 @@
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
     <header class="text-center mb-8">
-      <h2 class="text-3xl font-semibold">Add Songs</h2>
+      <h1 class="text-3xl font-semibold">Add Songs</h1>
     </header>
 
     <div class="max-w-lg mx-auto space-y-6">
       <!-- Spectator mode message for non-Spotify users -->
       <div v-if="!isSpotifyUser" class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 text-center space-y-4">
-        <div class="text-5xl mb-2">🎵</div>
+        <div class="text-5xl mb-2" aria-hidden="true">🎵</div>
         <h3 class="text-xl font-semibold">Spotify Login Required</h3>
         <p class="text-zinc-400 text-sm max-w-md mx-auto">
           You're logged in as a guest. To add songs to the game, you'll need to log in with Spotify.
@@ -30,6 +30,7 @@
             v-model="searchQuery"
             class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg"
             placeholder="Search for songs..."
+            aria-label="Search for songs"
             type="search"
             @input="handleSearchInput"
             @focus="isSearchOpen = true"
@@ -71,20 +72,20 @@
                   <button
                     type="button"
                     class="w-8 h-8 flex-shrink-0 rounded-full bg-zinc-600 hover:bg-zinc-500 flex items-center justify-center transition-colors"
-                    :title="currentPreviewTrackId === track.id && isPreviewPlaying ? 'Pause preview' : 'Play preview'"
+                    :aria-label="currentPreviewTrackId === track.id && isPreviewPlaying ? `Pause preview of ${track.name}` : `Play preview of ${track.name}`"
                     @click.stop="togglePreview(track)"
                   >
                     <!-- Pause icon -->
-                    <svg v-if="currentPreviewTrackId === track.id && isPreviewPlaying" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <svg v-if="currentPreviewTrackId === track.id && isPreviewPlaying" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
                       <rect x="6" y="4" width="4" height="16" rx="1" />
                       <rect x="14" y="4" width="4" height="16" rx="1" />
                     </svg>
                     <!-- Play icon -->
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                    <svg v-else aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   </button>
-                  <div v-if="isSelected(track)" class="text-disco-pink font-bold text-lg">
+                  <div v-if="isSelected(track)" class="text-disco-pink font-bold text-lg" aria-hidden="true">
                     ✓
                   </div>
                 </div>
@@ -115,9 +116,10 @@
                 <button
                   type="button"
                   class="text-zinc-400 hover:text-white p-1"
+                  :aria-label="`Remove ${selectedTracks[0].name}`"
                   @click="clearSelection(0)"
                 >
-                  ✕
+                  <span aria-hidden="true">✕</span>
                 </button>
               </div>
               <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
@@ -138,9 +140,10 @@
                 <button
                   type="button"
                   class="text-zinc-400 hover:text-white p-1"
+                  :aria-label="`Remove ${selectedTracks[1].name}`"
                   @click="clearSelection(1)"
                 >
-                  ✕
+                  <span aria-hidden="true">✕</span>
                 </button>
               </div>
               <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">

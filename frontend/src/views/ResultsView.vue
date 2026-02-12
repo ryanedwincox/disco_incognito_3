@@ -2,7 +2,7 @@
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-28">
     <header class="text-center mb-10 space-y-2">
-      <h2 class="text-4xl font-bold text-disco-pink uppercase tracking-widest">Reveal</h2>
+      <h1 class="text-4xl font-bold text-disco-pink uppercase tracking-widest">Reveal</h1>
       <p class="text-zinc-400 text-sm">See who guessed correctly and who the Dancer Incognito really was.</p>
     </header>
 

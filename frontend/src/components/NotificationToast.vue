@@ -18,6 +18,7 @@
               <!-- Error Icon -->
               <svg
                 v-if="notification.type === 'error'"
+                aria-hidden="true"
                 class="w-6 h-6"
                 fill="currentColor"
                 viewBox="0 0 20 20"
@@ -31,6 +32,7 @@
               <!-- Warning Icon -->
               <svg
                 v-else-if="notification.type === 'warning'"
+                aria-hidden="true"
                 class="w-6 h-6"
                 fill="currentColor"
                 viewBox="0 0 20 20"
@@ -44,6 +46,7 @@
               <!-- Info Icon -->
               <svg
                 v-else-if="notification.type === 'info'"
+                aria-hidden="true"
                 class="w-6 h-6"
                 fill="currentColor"
                 viewBox="0 0 20 20"
@@ -57,6 +60,7 @@
               <!-- Success Icon -->
               <svg
                 v-else-if="notification.type === 'success'"
+                aria-hidden="true"
                 class="w-6 h-6"
                 fill="currentColor"
                 viewBox="0 0 20 20"
@@ -78,11 +82,12 @@
             <!-- Dismiss Button -->
             <button
               v-if="notification.dismissible"
-              class="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity"
+              class="flex-shrink-0 p-2 opacity-70 hover:opacity-100 transition-opacity"
+              aria-label="Dismiss notification"
               type="button"
               @click="dismiss(notification.id)"
             >
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <svg aria-hidden="true" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
                 />

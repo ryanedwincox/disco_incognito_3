@@ -11,7 +11,7 @@
             :alt="trackTitle || 'Album art'"
             class="w-full h-full object-cover"
           />
-          <svg v-else class="w-8 h-8 text-disco-pink/40" fill="currentColor" viewBox="0 0 20 20">
+          <svg v-else aria-hidden="true" class="w-8 h-8 text-disco-pink/40" fill="currentColor" viewBox="0 0 20 20">
             <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
           </svg>
         </div>
@@ -45,20 +45,21 @@
             ? 'bg-disco-pink hover:bg-disco-pink-light hover:scale-105'
             : 'bg-white hover:bg-gray-100 hover:scale-105'"
           :disabled="!canPlay || isRetrying"
+          :aria-label="isRetrying ? 'Loading playback' : isPlaying ? 'Pause' : 'Play'"
           type="button"
           @click="togglePlayback"
         >
           <!-- Retry Spinner -->
-          <svg v-if="isRetrying" class="w-5 h-5 text-black animate-spin" fill="none" viewBox="0 0 24 24">
+          <svg v-if="isRetrying" aria-hidden="true" class="w-5 h-5 text-black animate-spin" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
           <!-- Play Icon -->
-          <svg v-else-if="!isPlaying" class="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <svg v-else-if="!isPlaying" aria-hidden="true" class="w-5 h-5 text-black ml-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
           </svg>
           <!-- Pause Icon -->
-          <svg v-else class="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 20 20">
+          <svg v-else aria-hidden="true" class="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 20 20">
             <path d="M5.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75A.75.75 0 007.25 3h-1.5zM12.75 3a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75V3.75a.75.75 0 00-.75-.75h-1.5z" />
           </svg>
         </button>
@@ -70,7 +71,7 @@
           type="button"
           @click="retryPlayback"
         >
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <svg aria-hidden="true" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
           </svg>
           Retry
@@ -84,11 +85,14 @@
           :class="deviceConnected
             ? 'bg-disco-pink/10 text-disco-pink hover:bg-disco-pink/20'
             : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'"
+          aria-label="Select playback device"
+          aria-haspopup="listbox"
+          :aria-expanded="showDeviceSelector"
           type="button"
           @click="toggleDeviceSelector"
         >
           <!-- Speaker Device Icon -->
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <svg aria-hidden="true" class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 3.75a.75.75 0 00-1.264-.546L4.703 7H3.167a.75.75 0 00-.7.48A6.985 6.985 0 002 10c0 .887.165 1.737.468 2.52.111.29.39.48.7.48h1.535l4.033 3.796A.75.75 0 0010 16.25V3.75zM15.95 5.05a.75.75 0 00-1.06 1.061 5.5 5.5 0 010 7.778.75.75 0 001.06 1.06 7 7 0 000-9.899z" />
             <path d="M13.829 7.172a.75.75 0 00-1.061 1.06 2.5 2.5 0 010 3.536.75.75 0 001.06 1.06 4 4 0 000-5.656z" />
           </svg>
@@ -110,7 +114,7 @@
               Refresh
             </button>
           </div>
-          <div class="max-h-48 overflow-y-auto">
+          <div role="listbox" aria-label="Available Spotify devices" class="max-h-48 overflow-y-auto">
             <div
               v-if="musicStore.devices.length === 0"
               class="p-4 text-center text-zinc-500 text-sm"
@@ -120,12 +124,14 @@
             <button
               v-for="device in musicStore.devices"
               :key="device.id"
+              role="option"
+              :aria-selected="device.isActive"
               class="w-full px-4 py-3 flex items-center justify-between hover:bg-zinc-700/50 transition-colors text-left"
               type="button"
               @click="selectDevice(device.id)"
             >
               <div class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-zinc-400" fill="currentColor" viewBox="0 0 20 20">
+                <svg aria-hidden="true" class="w-5 h-5 text-zinc-400" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M10 3.75a.75.75 0 00-1.264-.546L4.703 7H3.167a.75.75 0 00-.7.48A6.985 6.985 0 002 10c0 .887.165 1.737.468 2.52.111.29.39.48.7.48h1.535l4.033 3.796A.75.75 0 0010 16.25V3.75z" />
                 </svg>
                 <span class="text-sm text-white">{{ device.name }}</span>

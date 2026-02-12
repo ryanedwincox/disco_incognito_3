@@ -4,7 +4,7 @@
     <!-- Main Content -->
     <div class="px-6 pt-12 pb-32">
       <header class="text-center mb-8 space-y-2">
-        <h2 class="text-3xl font-semibold tracking-wide">Playback Test</h2>
+        <h1 class="text-3xl font-semibold tracking-wide">Playback Test</h1>
         <p class="text-zinc-400 text-sm max-w-md mx-auto">Search for a song and test Spotify playback integration</p>
       </header>
 
@@ -27,7 +27,8 @@
         <div class="relative">
           <input
             v-model="searchQuery"
-            class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-disco-pink/50"
+            class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg placeholder:text-zinc-500"
+            aria-label="Search for a song"
             placeholder="Search for a song..."
             type="search"
             :disabled="!authStore.isAuthenticated"
@@ -35,6 +36,7 @@
           />
           <svg
             v-if="musicStore.isSearching"
+            aria-hidden="true"
             class="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-disco-pink animate-spin"
             fill="none"
             viewBox="0 0 24 24"
@@ -62,8 +64,12 @@
           <div
             v-for="track in musicStore.searchResults"
             :key="track.id"
+            role="button"
+            tabindex="0"
             class="flex items-center gap-4 p-3 rounded-xl hover:bg-zinc-800 transition-colors cursor-pointer"
             @click="selectTrack(track)"
+            @keydown.enter="selectTrack(track)"
+            @keydown.space.prevent="selectTrack(track)"
           >
             <!-- Album Art -->
             <div class="flex-shrink-0 w-12 h-12 bg-zinc-800 rounded-lg overflow-hidden">
@@ -74,7 +80,7 @@
                 class="w-full h-full object-cover"
               />
               <div v-else class="w-full h-full flex items-center justify-center">
-                <svg class="w-6 h-6 text-zinc-600" fill="currentColor" viewBox="0 0 20 20">
+                <svg aria-hidden="true" class="w-6 h-6 text-zinc-600" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
                 </svg>
               </div>
@@ -93,7 +99,7 @@
 
         <!-- Empty State -->
         <div v-else-if="searchQuery && !musicStore.isSearching" class="bg-zinc-900 rounded-3xl p-8 text-center">
-          <svg class="w-16 h-16 text-zinc-700 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
+          <svg aria-hidden="true" class="w-16 h-16 text-zinc-700 mx-auto mb-4" fill="currentColor" viewBox="0 0 20 20">
             <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
             <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
           </svg>

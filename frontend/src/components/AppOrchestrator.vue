@@ -12,12 +12,14 @@
     - results → ResultsView
 -->
 <template>
-  <component v-if="isInitialized" :is="currentView" />
+  <div ref="viewContainer">
+    <component v-if="isInitialized" :is="currentView" />
+  </div>
   <MusicPlayerBar v-if="isInitialized && showPlayerBar" />
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, type Component } from 'vue'
+import { computed, nextTick, ref, watch, type Component } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useGameStore } from '../stores/game'
 import { useRoomStore } from '../stores/room'
@@ -124,4 +126,17 @@ watch(
     }
   }
 )
+
+// Focus management: move focus to heading on view transitions for screen readers
+const viewContainer = ref<HTMLElement | null>(null)
+
+watch(currentView, async () => {
+  await nextTick()
+  if (!viewContainer.value) return
+  // h2 fallback: RoomLobbyView still uses h2 (needs design decision for h1)
+  const heading = viewContainer.value.querySelector('h1, h2') as HTMLElement | null
+  if (!heading) return
+  heading.setAttribute('tabindex', '-1')
+  heading.focus()
+})
 </script>

@@ -1,8 +1,8 @@
 <!-- Pre-playback countdown overlay. Shows 3→2→1→GO! before music starts. Driven by gameStore.playbackStartTime; sets countdownSecondsLeft to null on completion to yield to GameView. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center">
-    <h2 class="text-2xl font-semibold uppercase tracking-widest mb-12">Get Ready!</h2>
-    <p class="text-8xl font-bold text-disco-pink">{{ displayText }}</p>
+    <h1 class="text-2xl font-semibold uppercase tracking-widest mb-12">Get Ready!</h1>
+    <p class="text-8xl font-bold text-disco-pink" role="timer" aria-live="assertive" aria-atomic="true">{{ displayText }}</p>
   </div>
 </template>
 

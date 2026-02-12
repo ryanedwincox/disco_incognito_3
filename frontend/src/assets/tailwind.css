@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  button:focus-visible,
+  [type="button"]:focus-visible,
+  [role="button"]:focus-visible,
+  input:focus-visible,
+  a:focus-visible {
+    outline: 2px solid theme('colors.disco-pink.DEFAULT');
+    outline-offset: 2px;
+  }
+}

@@ -16,7 +16,7 @@
             type="text"
             placeholder="Your name"
             maxlength="50"
-            class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-disco-pink transition-colors"
+            class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
             @keyup.enter="handleManualLogin"
           />
         </div>

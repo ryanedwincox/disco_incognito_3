@@ -2,7 +2,7 @@
 <template>
   <div class="min-h-screen bg-zinc-950 text-white flex flex-col pb-28">
     <header class="px-6 pt-12 pb-6 text-center space-y-2">
-      <h2 class="text-2xl font-semibold uppercase tracking-widest">Round In Progress</h2>
+      <h1 class="text-2xl font-semibold uppercase tracking-widest">Round In Progress</h1>
       <p class="text-zinc-400 text-sm">Music plays for 90 seconds. Keep listening and watch other players.</p>
     </header>
 
@@ -11,7 +11,7 @@
         <p class="text-sm uppercase text-zinc-400">
           {{ waitingForSync ? 'Syncing...' : 'Time Remaining' }}
         </p>
-        <p class="text-6xl font-bold text-disco-pink">{{ formattedCountdown }}</p>
+        <p class="text-6xl font-bold text-disco-pink" role="timer" aria-live="polite" aria-label="Time remaining">{{ formattedCountdown }}</p>
       </div>
     </main>
 

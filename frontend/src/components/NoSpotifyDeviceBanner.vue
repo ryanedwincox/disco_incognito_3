@@ -10,7 +10,7 @@
         <div class="flex items-center gap-3 flex-1 min-w-0">
           <!-- Speaker X Icon -->
           <div class="flex-shrink-0">
-            <svg class="w-6 h-6 text-amber-300" fill="currentColor" viewBox="0 0 20 20">
+            <svg aria-hidden="true" class="w-6 h-6 text-amber-300" fill="currentColor" viewBox="0 0 20 20">
               <path d="M9.547 3.062A.75.75 0 0110 3.75v12.5a.75.75 0 01-1.264.546L5.203 13H3.75A.75.75 0 013 12.25v-4.5A.75.75 0 013.75 7h1.453l3.533-3.796a.75.75 0 01.811-.142z" />
               <path d="M13.28 7.22a.75.75 0 10-1.06 1.06L13.94 10l-1.72 1.72a.75.75 0 101.06 1.06L15 11.06l1.72 1.72a.75.75 0 101.06-1.06L16.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L15 8.94l-1.72-1.72z" />
             </svg>
@@ -37,7 +37,7 @@
 
         <!-- Checking Spinner -->
         <div v-else class="flex-shrink-0">
-          <svg class="w-5 h-5 text-amber-300 animate-spin" fill="none" viewBox="0 0 24 24">
+          <svg aria-hidden="true" class="w-5 h-5 text-amber-300 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
             <path
               class="opacity-75"
