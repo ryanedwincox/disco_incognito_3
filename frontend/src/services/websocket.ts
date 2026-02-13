@@ -293,17 +293,9 @@ export class WebSocketService {
     const roomStore = useRoomStore();
     const gameStore = useGameStore();
 
-    if (message.phase) {
-      roomStore.setStatus(
-        message.phase as
-          | "lobby"
-          | "picking_songs"
-          | "song_selection"
-          | "playing"
-          | "guessing"
-          | "results"
-      );
-    }
+    // Populate all data BEFORE setting status. The status change triggers
+    // AppOrchestrator's currentView computation — all dependent data must
+    // already be in place to prevent the countdown gate from being missed.
 
     if (message.players && Array.isArray(message.players)) {
       roomStore.setPlayers(
@@ -337,6 +329,19 @@ export class WebSocketService {
 
     if (Array.isArray(message.ready_players)) {
       roomStore.setReadyPlayers(message.ready_players);
+    }
+
+    // Set status LAST so the view transition sees all data already populated
+    if (message.phase) {
+      roomStore.setStatus(
+        message.phase as
+          | "lobby"
+          | "picking_songs"
+          | "song_selection"
+          | "playing"
+          | "guessing"
+          | "results"
+      );
     }
   }
 
@@ -466,15 +471,6 @@ export class WebSocketService {
     const gameStore = useGameStore();
     const musicStore = useMusicStore();
 
-    roomStore.setStatus(
-      phase as
-        | "lobby"
-        | "song_selection"
-        | "playing"
-        | "guessing"
-        | "results"
-    );
-
     // Set assigned_song if present in phase_changed (per-player delivery)
     if (assigned_song) {
       roomStore.setAssignedSong({
@@ -484,6 +480,9 @@ export class WebSocketService {
       });
     }
 
+    // Populate phase-specific data BEFORE setting status. The status change
+    // triggers AppOrchestrator's currentView computation — all dependent data
+    // (countdown, playbackStartTime, etc.) must already be in place.
     switch (phase) {
       case "playing":
         if (playback_start_time) {
@@ -521,6 +520,16 @@ export class WebSocketService {
       default:
         console.warn(`Unknown phase: ${phase}`);
     }
+
+    // Set status LAST so the view transition sees all data already populated
+    roomStore.setStatus(
+      phase as
+        | "lobby"
+        | "song_selection"
+        | "playing"
+        | "guessing"
+        | "results"
+    );
   }
 
   /**

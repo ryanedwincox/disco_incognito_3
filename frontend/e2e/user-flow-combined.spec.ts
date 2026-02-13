@@ -272,17 +272,17 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       await startButton.click();
 
       // Host sees song assignment via HTTP response
-      const hostYourSong = hostPage.locator('h2:has-text("Your Song")');
+      const hostYourSong = hostPage.locator('h1:has-text("Your Song")');
       await expect(hostYourSong).toBeVisible({ timeout: 10000 });
       console.log('✅ Host sees song assignment view');
 
       // Coverage (d): Player auto-navigates via WS phase_changed + assigned_song
-      const playerYourSong = playerPage.locator('h2:has-text("Your Song")');
+      const playerYourSong = playerPage.locator('h1:has-text("Your Song")');
       await expect(playerYourSong).toBeVisible({ timeout: 10000 });
       console.log('✅ Coverage (d): Player auto-navigated to song assignment via WS');
 
       // Coverage (d): Guest auto-navigates via WS
-      const guestYourSong = guestPage.locator('h2:has-text("Your Song")');
+      const guestYourSong = guestPage.locator('h1:has-text("Your Song")');
       await expect(guestYourSong).toBeVisible({ timeout: 10000 });
       console.log('✅ Coverage (d): Guest auto-navigated to song assignment via WS');
 
@@ -322,28 +322,28 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       console.log('✅ Host clicked Start Round');
 
       // All players should see the countdown overlay ("Get Ready!")
-      const hostCountdown = hostPage.locator('h2:has-text("Get Ready!")');
+      const hostCountdown = hostPage.locator('h1:has-text("Get Ready!")');
       await expect(hostCountdown).toBeVisible({ timeout: 10000 });
       console.log('✅ Host sees countdown');
 
-      const playerCountdown = playerPage.locator('h2:has-text("Get Ready!")');
+      const playerCountdown = playerPage.locator('h1:has-text("Get Ready!")');
       await expect(playerCountdown).toBeVisible({ timeout: 10000 });
       console.log('✅ Player sees countdown');
 
-      const guestCountdown = guestPage.locator('h2:has-text("Get Ready!")');
+      const guestCountdown = guestPage.locator('h1:has-text("Get Ready!")');
       await expect(guestCountdown).toBeVisible({ timeout: 10000 });
       console.log('✅ Guest sees countdown');
 
       // After countdown, all should transition to GameView ("Round In Progress")
-      const hostRoundHeader = hostPage.locator('h2:has-text("Round In Progress")');
+      const hostRoundHeader = hostPage.locator('h1:has-text("Round In Progress")');
       await expect(hostRoundHeader).toBeVisible({ timeout: 15000 });
       console.log('✅ Host sees Round In Progress');
 
-      const playerRoundHeader = playerPage.locator('h2:has-text("Round In Progress")');
+      const playerRoundHeader = playerPage.locator('h1:has-text("Round In Progress")');
       await expect(playerRoundHeader).toBeVisible({ timeout: 15000 });
       console.log('✅ Player sees Round In Progress');
 
-      const guestRoundHeader = guestPage.locator('h2:has-text("Round In Progress")');
+      const guestRoundHeader = guestPage.locator('h1:has-text("Round In Progress")');
       await expect(guestRoundHeader).toBeVisible({ timeout: 15000 });
       console.log('✅ Guest sees Round In Progress');
 
@@ -367,15 +367,15 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       console.log('✅ Host clicked End Listening');
 
       // All players should see GuessingView via WS phase_changed broadcast
-      const hostGuessHeader = hostPage.locator('h2:has-text("Who Is The Dancer Incognito?")');
+      const hostGuessHeader = hostPage.locator('h1:has-text("Who Is The Dancer Incognito?")');
       await expect(hostGuessHeader).toBeVisible({ timeout: 10000 });
       console.log('✅ Host on guessing page');
 
-      const playerGuessHeader = playerPage.locator('h2:has-text("Who Is The Dancer Incognito?")');
+      const playerGuessHeader = playerPage.locator('h1:has-text("Who Is The Dancer Incognito?")');
       await expect(playerGuessHeader).toBeVisible({ timeout: 10000 });
       console.log('✅ Player on guessing page (via WS)');
 
-      const guestGuessHeader = guestPage.locator('h2:has-text("Who Is The Dancer Incognito?")');
+      const guestGuessHeader = guestPage.locator('h1:has-text("Who Is The Dancer Incognito?")');
       await expect(guestGuessHeader).toBeVisible({ timeout: 10000 });
       console.log('✅ Guest on guessing page (via WS)');
 
@@ -407,16 +407,16 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
 
       // All should see ResultsView with "REVEAL" header via WS phase_changed
       // Guest may transition immediately (from vote response) or via WS
-      const guestReveal = guestPage.locator('h2:has-text("Reveal")');
+      const guestReveal = guestPage.locator('h1:has-text("Reveal")');
       await expect(guestReveal).toBeVisible({ timeout: 10000 });
       console.log('✅ Guest sees Results view');
 
       // Host and player should see results via WS broadcast
-      const hostReveal = hostPage.locator('h2:has-text("Reveal")');
+      const hostReveal = hostPage.locator('h1:has-text("Reveal")');
       await expect(hostReveal).toBeVisible({ timeout: 10000 });
       console.log('✅ Host sees Results view (via WS)');
 
-      const playerReveal = playerPage.locator('h2:has-text("Reveal")');
+      const playerReveal = playerPage.locator('h1:has-text("Reveal")');
       await expect(playerReveal).toBeVisible({ timeout: 10000 });
       console.log('✅ Player sees Results view (via WS)');
 
@@ -683,7 +683,7 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       await testPlaybackButton.click();
 
       // Assert TestPlaybackView renders
-      const header = page.locator('h2:has-text("Playback Test")');
+      const header = page.locator('h1:has-text("Playback Test")');
       await expect(header).toBeVisible({ timeout: 10000 });
       const searchInput = page.locator('input[type="search"]');
       await expect(searchInput).toBeVisible();

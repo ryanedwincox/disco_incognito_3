@@ -4,9 +4,11 @@ Provides endpoints for creating and managing game rooms. Handles room creation,
 player joining, and room state retrieval.
 """
 
+import asyncio
 import logging
 import random
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -22,6 +24,18 @@ from ...storage.base import StorageAdapter
 
 router = APIRouter(prefix='/rooms', tags=['Rooms'])
 logger = logging.getLogger(__name__)
+
+# Per-room asyncio locks to serialize read-modify-write cycles.
+# Prevents lost-update races when concurrent requests mutate the same room
+# (e.g. guest /ready + host /force-start overlapping at await boundaries).
+#
+# INTENTIONAL DEVIATION from python-standards asyncio.Lock guidance (-9 score):
+# Each endpoint has MULTIPLE await points within a single read-modify-write cycle
+# (get_room → mutate → upsert_room). The GIL only prevents interleaving between
+# await points, NOT across them. The storage layer is a simple JSON file with no
+# conditional writes or optimistic concurrency, so application-level locking is
+# the correct pragmatic solution to prevent lost updates.
+_room_locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
 async def broadcast_phase_changed(room_code: str, phase: str, playback_start_time: str | None = None) -> None:
@@ -135,31 +149,32 @@ async def create_room(
         Created room data including code, host_id, players list, and status.
     """
     try:
-        # Check if room already exists
-        existing_room = await storage.get_room(body.room_code)
-        if existing_room:
-            raise HTTPException(status_code=409, detail='Room already exists')
+        async with _room_locks[body.room_code]:
+            # Check if room already exists
+            existing_room = await storage.get_room(body.room_code)
+            if existing_room:
+                raise HTTPException(status_code=409, detail='Room already exists')
 
-        # Create host player
-        host_player = Player(
-            id=current_user.user_id,
-            display_name=current_user.display_name,
-            is_host=True,
-            is_connected=True,
-        )
+            # Create host player
+            host_player = Player(
+                id=current_user.user_id,
+                display_name=current_user.display_name,
+                is_host=True,
+                is_connected=True,
+            )
 
-        # Create room state (last_active_at is set by default in RoomState)
-        room = RoomState(
-            code=body.room_code,
-            host_id=current_user.user_id,
-            players=[host_player],
-            status='lobby',
-        )
+            # Create room state (last_active_at is set by default in RoomState)
+            room = RoomState(
+                code=body.room_code,
+                host_id=current_user.user_id,
+                players=[host_player],
+                status='lobby',
+            )
 
-        # Store the room
-        await storage.upsert_room(body.room_code, room.model_dump(mode='json'))
+            # Store the room
+            await storage.upsert_room(body.room_code, room.model_dump(mode='json'))
 
-        logger.info(f'Room {body.room_code} created by user {current_user.user_id}')
+            logger.info(f'Room {body.room_code} created by user {current_user.user_id}')
 
         return CreateRoomResponse(
             code=room.code,
@@ -211,36 +226,37 @@ async def join_room(
     Returns updated room state.
     Security: Excludes incognito player identity from response.
     """
-    room_data = await storage.get_room(room_code)
+    async with _room_locks[room_code]:
+        room_data = await storage.get_room(room_code)
 
-    if not room_data:
-        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+        if not room_data:
+            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    room = RoomState(**room_data)
+        room = RoomState(**room_data)
 
-    # Check if player already in room
-    existing_player = next((p for p in room.players if p.id == body.player_id), None)
-    if existing_player:
-        # Update connection status and display name if rejoining (name may have changed)
-        existing_player.is_connected = True
-        existing_player.display_name = body.display_name
-    else:
-        # Add new player
-        new_player = Player(
-            id=body.player_id,
-            display_name=body.display_name,
-            is_host=False,
-            is_connected=True,
-        )
-        room.players.append(new_player)
+        # Check if player already in room
+        existing_player = next((p for p in room.players if p.id == body.player_id), None)
+        if existing_player:
+            # Update connection status and display name if rejoining (name may have changed)
+            existing_player.is_connected = True
+            existing_player.display_name = body.display_name
+        else:
+            # Add new player
+            new_player = Player(
+                id=body.player_id,
+                display_name=body.display_name,
+                is_host=False,
+                is_connected=True,
+            )
+            room.players.append(new_player)
 
-    # Update last_active_at and save
-    room.last_active_at = datetime.utcnow()
-    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+        # Update last_active_at and save
+        room.last_active_at = datetime.utcnow()
+        await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    logger.info(f'Player {body.player_id} joined room {room_code}')
+        logger.info(f'Player {body.player_id} joined room {room_code}')
 
-    # Broadcast player_joined to existing room members
+    # Broadcast player_joined to existing room members (outside lock — network I/O)
     manager = get_connection_manager()
     await manager.broadcast_to_room(
         room_code,
@@ -269,42 +285,44 @@ async def add_song(
     Returns updated room state.
     Security: Excludes incognito player identity from response.
     """
-    room_data = await storage.get_room(room_code)
+    async with _room_locks[room_code]:
+        room_data = await storage.get_room(room_code)
 
-    if not room_data:
-        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+        if not room_data:
+            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    room = RoomState(**room_data)
+        room = RoomState(**room_data)
 
-    # Verify player is in room
-    player = next((p for p in room.players if p.id == body.player_id), None)
-    if not player:
-        raise HTTPException(status_code=403, detail='Player not in room')
+        # Verify player is in room
+        player = next((p for p in room.players if p.id == body.player_id), None)
+        if not player:
+            raise HTTPException(status_code=403, detail='Player not in room')
 
-    # Create song
-    song_id = f'song-{uuid.uuid4().hex[:8]}'
-    song = Song(
-        id=song_id,
-        track_uri=body.track_uri,
-        title=body.title,
-        artist=body.artist,
-        added_by=body.player_id,
-    )
-    room.songs.append(song)
+        # Create song
+        song_id = f'song-{uuid.uuid4().hex[:8]}'
+        song = Song(
+            id=song_id,
+            track_uri=body.track_uri,
+            title=body.title,
+            artist=body.artist,
+            added_by=body.player_id,
+        )
+        room.songs.append(song)
 
-    # Update last_active_at and save
-    room.last_active_at = datetime.utcnow()
-    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+        # Update last_active_at and save
+        room.last_active_at = datetime.utcnow()
+        await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    logger.info(f'Song {song_id} added to room {room_code} by player {body.player_id}')
+        logger.info(f'Song {song_id} added to room {room_code} by player {body.player_id}')
+        song_pair_count = len(room.songs)
 
-    # Broadcast song_added to all players in room
+    # Broadcast song_added to all players in room (outside lock — network I/O)
     manager = get_connection_manager()
     await manager.broadcast_to_room(
         room_code,
         {
             'type': 'song_added',
-            'song_pair_count': len(room.songs),
+            'song_pair_count': song_pair_count,
         },
     )
 
@@ -328,80 +346,81 @@ async def start_game(
     Security: Excludes incognito player identity from response. Players can only see
     their own song assignment via current_round.player_assignments[player_id].
     """
-    room_data = await storage.get_room(room_code)
+    async with _room_locks[room_code]:
+        room_data = await storage.get_room(room_code)
 
-    if not room_data:
-        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+        if not room_data:
+            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    room = RoomState(**room_data)
+        room = RoomState(**room_data)
 
-    # Verify requester is host
-    if room.host_id != body.player_id:
-        raise HTTPException(status_code=403, detail='Only the host can start the game')
+        # Verify requester is host
+        if room.host_id != body.player_id:
+            raise HTTPException(status_code=403, detail='Only the host can start the game')
 
-    # Verify room is in lobby state
-    if room.status != 'lobby':
-        raise HTTPException(status_code=400, detail=f'Cannot start game from {room.status} state')
+        # Verify room is in lobby state
+        if room.status != 'lobby':
+            raise HTTPException(status_code=400, detail=f'Cannot start game from {room.status} state')
 
-    # Verify there are at least 2 songs
-    if len(room.songs) < 2:
-        raise HTTPException(status_code=400, detail='Need at least 2 songs to start the game')
+        # Verify there are at least 2 songs
+        if len(room.songs) < 2:
+            raise HTTPException(status_code=400, detail='Need at least 2 songs to start the game')
 
-    # Pick two songs (deterministic in test mode for reproducible E2E tests)
-    if settings.spotify_mode.lower() == 'test':
-        selected_songs = room.songs[:2]  # Always first two songs
-        incognito_player = room.players[0]  # Always first player (host)
-        use_song_a_for_majority = True
-    else:
-        selected_songs = random.sample(room.songs, 2)
-        incognito_player = random.choice(room.players)
-        use_song_a_for_majority = random.choice([True, False])
-
-    # Create SongInfo objects for the two songs
-    song_a = SongInfo(
-        id=selected_songs[0].track_uri,
-        title=selected_songs[0].title,
-        artist=selected_songs[0].artist,
-    )
-    song_b = SongInfo(
-        id=selected_songs[1].track_uri,
-        title=selected_songs[1].title,
-        artist=selected_songs[1].artist,
-    )
-
-    # Decide which song is for majority vs incognito
-    if use_song_a_for_majority:
-        song_for_majority, song_for_incognito = song_a, song_b
-    else:
-        song_for_majority, song_for_incognito = song_b, song_a
-
-    # Build player_assignments: incognito gets song_for_incognito, others get song_for_majority
-    player_assignments: dict[str, SongInfo] = {}
-    for player in room.players:
-        if player.id == incognito_player.id:
-            player_assignments[player.id] = song_for_incognito
+        # Pick two songs (deterministic in test mode for reproducible E2E tests)
+        if settings.spotify_mode.lower() == 'test':
+            selected_songs = room.songs[:2]  # Always first two songs
+            incognito_player = room.players[0]  # Always first player (host)
+            use_song_a_for_majority = True
         else:
-            player_assignments[player.id] = song_for_majority
+            selected_songs = random.sample(room.songs, 2)
+            incognito_player = random.choice(room.players)
+            use_song_a_for_majority = random.choice([True, False])
 
-    # Create CurrentRound
-    room.current_round = CurrentRound(
-        song_for_majority=song_for_majority,
-        song_for_incognito=song_for_incognito,
-        incognito_player_id=incognito_player.id,
-        player_assignments=player_assignments,
-    )
+        # Create SongInfo objects for the two songs
+        song_a = SongInfo(
+            id=selected_songs[0].track_uri,
+            title=selected_songs[0].title,
+            artist=selected_songs[0].artist,
+        )
+        song_b = SongInfo(
+            id=selected_songs[1].track_uri,
+            title=selected_songs[1].title,
+            artist=selected_songs[1].artist,
+        )
 
-    # Transition to song_selection
-    room.status = 'song_selection'
-    room.dancer_incognito_player_id = incognito_player.id
+        # Decide which song is for majority vs incognito
+        if use_song_a_for_majority:
+            song_for_majority, song_for_incognito = song_a, song_b
+        else:
+            song_for_majority, song_for_incognito = song_b, song_a
 
-    # Update last_active_at and save
-    room.last_active_at = datetime.utcnow()
-    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+        # Build player_assignments: incognito gets song_for_incognito, others get song_for_majority
+        player_assignments: dict[str, SongInfo] = {}
+        for player in room.players:
+            if player.id == incognito_player.id:
+                player_assignments[player.id] = song_for_incognito
+            else:
+                player_assignments[player.id] = song_for_majority
 
-    logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {incognito_player.id}')
+        # Create CurrentRound
+        room.current_round = CurrentRound(
+            song_for_majority=song_for_majority,
+            song_for_incognito=song_for_incognito,
+            incognito_player_id=incognito_player.id,
+            player_assignments=player_assignments,
+        )
 
-    # Broadcast phase change to all connected clients
+        # Transition to song_selection
+        room.status = 'song_selection'
+        room.dancer_incognito_player_id = incognito_player.id
+
+        # Update last_active_at and save
+        room.last_active_at = datetime.utcnow()
+        await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+        logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {incognito_player.id}')
+
+    # Broadcast phase change to all connected clients (outside lock — network I/O)
     await broadcast_phase_changed(room_code, 'song_selection')
 
     # Send per-player assigned_song via send_to_user
@@ -438,45 +457,47 @@ async def mark_player_ready(
     host clicks 'Start Round' (force-start endpoint).
     Returns updated room state.
     """
-    room_data = await storage.get_room(room_code)
+    async with _room_locks[room_code]:
+        room_data = await storage.get_room(room_code)
 
-    if not room_data:
-        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+        if not room_data:
+            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    room = RoomState(**room_data)
+        room = RoomState(**room_data)
 
-    # Verify room is in song_selection state
-    if room.status != 'song_selection':
-        raise HTTPException(status_code=400, detail=f'Cannot mark ready from {room.status} state')
+        # Verify room is in song_selection state
+        if room.status != 'song_selection':
+            raise HTTPException(status_code=400, detail=f'Cannot mark ready from {room.status} state')
 
-    # Verify current_round exists
-    if not room.current_round:
-        raise HTTPException(status_code=400, detail='No active round')
+        # Verify current_round exists
+        if not room.current_round:
+            raise HTTPException(status_code=400, detail='No active round')
 
-    # Verify player is in room
-    player = next((p for p in room.players if p.id == body.player_id), None)
-    if not player:
-        raise HTTPException(status_code=403, detail='Player not in room')
+        # Verify player is in room
+        player = next((p for p in room.players if p.id == body.player_id), None)
+        if not player:
+            raise HTTPException(status_code=403, detail='Player not in room')
 
-    # Add player to ready list if not already there
-    if body.player_id not in room.current_round.ready_players:
-        room.current_round.ready_players.append(body.player_id)
+        # Add player to ready list if not already there
+        if body.player_id not in room.current_round.ready_players:
+            room.current_round.ready_players.append(body.player_id)
 
-    # Broadcast player_ready to all clients so host can see real-time updates
+        # Update last_active_at and save
+        room.last_active_at = datetime.utcnow()
+        await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+        all_player_ids = {p.id for p in room.players}
+        ready_player_ids = set(room.current_round.ready_players)
+        ready_players_snapshot = list(room.current_round.ready_players)
+        logger.info(f'Player {body.player_id} marked ready in room {room_code} ({len(ready_player_ids)}/{len(all_player_ids)} ready)')
+
+    # Broadcast player_ready to all clients so host can see real-time updates (outside lock — network I/O)
     manager = get_connection_manager()
     await manager.broadcast_to_room(room_code, {
         'type': 'player_ready',
         'user_id': body.player_id,
-        'ready_players': room.current_round.ready_players,
+        'ready_players': ready_players_snapshot,
     })
-
-    # Update last_active_at and save
-    room.last_active_at = datetime.utcnow()
-    await storage.upsert_room(room_code, room.model_dump(mode='json'))
-
-    all_player_ids = {p.id for p in room.players}
-    ready_player_ids = set(room.current_round.ready_players)
-    logger.info(f'Player {body.player_id} marked ready in room {room_code} ({len(ready_player_ids)}/{len(all_player_ids)} ready)')
 
     return RoomStateResponse.from_room_state(room)
 
@@ -502,42 +523,43 @@ async def force_start_round(
     Auto-adds host to ready_players if not already there.
     Returns updated room state.
     """
-    room_data = await storage.get_room(room_code)
+    async with _room_locks[room_code]:
+        room_data = await storage.get_room(room_code)
 
-    if not room_data:
-        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+        if not room_data:
+            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    room = RoomState(**room_data)
+        room = RoomState(**room_data)
 
-    # Verify requester is host
-    if room.host_id != body.player_id:
-        raise HTTPException(status_code=403, detail='Only the host can force start the round')
+        # Verify requester is host
+        if room.host_id != body.player_id:
+            raise HTTPException(status_code=403, detail='Only the host can force start the round')
 
-    # Verify room is in song_selection state
-    if room.status != 'song_selection':
-        raise HTTPException(status_code=400, detail=f'Cannot force start from {room.status} state')
+        # Verify room is in song_selection state
+        if room.status != 'song_selection':
+            raise HTTPException(status_code=400, detail=f'Cannot force start from {room.status} state')
 
-    # Verify current_round exists
-    if not room.current_round:
-        raise HTTPException(status_code=400, detail='No active round')
+        # Verify current_round exists
+        if not room.current_round:
+            raise HTTPException(status_code=400, detail='No active round')
 
-    # Auto-add host to ready_players if not already there
-    if body.player_id not in room.current_round.ready_players:
-        room.current_round.ready_players.append(body.player_id)
+        # Auto-add host to ready_players if not already there
+        if body.player_id not in room.current_round.ready_players:
+            room.current_round.ready_players.append(body.player_id)
 
-    # Transition to playing
-    room.status = 'playing'
-    playback_start_time = datetime.now(timezone.utc) + timedelta(seconds=3)
-    room.current_round.playback_start_time = playback_start_time
-    playback_start_time_iso = playback_start_time.isoformat()
+        # Transition to playing
+        room.status = 'playing'
+        playback_start_time = datetime.now(timezone.utc) + timedelta(seconds=3)
+        room.current_round.playback_start_time = playback_start_time
+        playback_start_time_iso = playback_start_time.isoformat()
 
-    # Update last_active_at and save
-    room.last_active_at = datetime.utcnow()
-    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+        # Update last_active_at and save
+        room.last_active_at = datetime.utcnow()
+        await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    logger.info(f'Round force-started in room {room_code} by host {body.player_id}')
+        logger.info(f'Round force-started in room {room_code} by host {body.player_id}')
 
-    # Broadcast phase change
+    # Broadcast phase change (outside lock — network I/O)
     await broadcast_phase_changed(room_code, 'playing', playback_start_time=playback_start_time_iso)
 
     return RoomStateResponse.from_room_state(room)
@@ -558,61 +580,62 @@ async def cast_vote(
     room status to 'results'.
     Returns updated room state.
     """
-    room_data = await storage.get_room(room_code)
+    async with _room_locks[room_code]:
+        room_data = await storage.get_room(room_code)
 
-    if not room_data:
-        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+        if not room_data:
+            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    room = RoomState(**room_data)
+        room = RoomState(**room_data)
 
-    # Verify room is in playing or guessing state
-    if room.status not in ('playing', 'guessing'):
-        raise HTTPException(status_code=400, detail=f'Cannot vote from {room.status} state')
+        # Verify room is in playing or guessing state
+        if room.status not in ('playing', 'guessing'):
+            raise HTTPException(status_code=400, detail=f'Cannot vote from {room.status} state')
 
-    # Verify current_round exists
-    if not room.current_round:
-        raise HTTPException(status_code=400, detail='No active round')
+        # Verify current_round exists
+        if not room.current_round:
+            raise HTTPException(status_code=400, detail='No active round')
 
-    # Verify voter is in room
-    voter = next((p for p in room.players if p.id == body.player_id), None)
-    if not voter:
-        raise HTTPException(status_code=403, detail='Player not in room')
+        # Verify voter is in room
+        voter = next((p for p in room.players if p.id == body.player_id), None)
+        if not voter:
+            raise HTTPException(status_code=403, detail='Player not in room')
 
-    # Verify guessed player is in room
-    guessed = next((p for p in room.players if p.id == body.guessed_player_id), None)
-    if not guessed:
-        raise HTTPException(status_code=400, detail='Guessed player not in room')
+        # Verify guessed player is in room
+        guessed = next((p for p in room.players if p.id == body.guessed_player_id), None)
+        if not guessed:
+            raise HTTPException(status_code=400, detail='Guessed player not in room')
 
-    # Check if player already voted
-    if body.player_id in room.current_round.votes:
-        raise HTTPException(status_code=400, detail='Player has already voted')
+        # Check if player already voted
+        if body.player_id in room.current_round.votes:
+            raise HTTPException(status_code=400, detail='Player has already voted')
 
-    # Record the vote
-    room.current_round.votes[body.player_id] = body.guessed_player_id
+        # Record the vote
+        room.current_round.votes[body.player_id] = body.guessed_player_id
 
-    # Track if we need to broadcast guessing transition
-    was_playing = room.status == 'playing'
+        # Track if we need to broadcast guessing transition
+        was_playing = room.status == 'playing'
 
-    # Transition to guessing if still playing
-    if room.status == 'playing':
-        room.status = 'guessing'
+        # Transition to guessing if still playing
+        if room.status == 'playing':
+            room.status = 'guessing'
 
-    # Check if all players have voted
-    all_player_ids = {p.id for p in room.players}
-    voted_player_ids = set(room.current_round.votes.keys())
-    all_voted = all_player_ids == voted_player_ids
+        # Check if all players have voted
+        all_player_ids = {p.id for p in room.players}
+        voted_player_ids = set(room.current_round.votes.keys())
+        all_voted = all_player_ids == voted_player_ids
 
-    if all_voted:
-        room.status = 'results'
-        logger.info(f'All players voted in room {room_code}, transitioning to results')
+        if all_voted:
+            room.status = 'results'
+            logger.info(f'All players voted in room {room_code}, transitioning to results')
 
-    # Update last_active_at and save
-    room.last_active_at = datetime.utcnow()
-    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+        # Update last_active_at and save
+        room.last_active_at = datetime.utcnow()
+        await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    logger.info(f'Player {body.player_id} voted for {body.guessed_player_id} in room {room_code} ({len(voted_player_ids)}/{len(all_player_ids)} voted)')
+        logger.info(f'Player {body.player_id} voted for {body.guessed_player_id} in room {room_code} ({len(voted_player_ids)}/{len(all_player_ids)} voted)')
 
-    # Broadcast phase changes
+    # Broadcast phase changes (outside lock — network I/O)
     if was_playing:
         await broadcast_phase_changed(room_code, 'guessing')
     if all_voted:
@@ -635,31 +658,32 @@ async def end_listening(
     Transitions room status from 'playing' to 'guessing'.
     Returns updated room state.
     """
-    room_data = await storage.get_room(room_code)
+    async with _room_locks[room_code]:
+        room_data = await storage.get_room(room_code)
 
-    if not room_data:
-        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+        if not room_data:
+            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    room = RoomState(**room_data)
+        room = RoomState(**room_data)
 
-    # Verify room is in playing state
-    if room.status != 'playing':
-        raise HTTPException(status_code=400, detail=f'Cannot end listening from {room.status} state')
+        # Verify room is in playing state
+        if room.status != 'playing':
+            raise HTTPException(status_code=400, detail=f'Cannot end listening from {room.status} state')
 
-    # Verify requester is host
-    if room.host_id != body.player_id:
-        raise HTTPException(status_code=403, detail='Only the host can end the listening phase')
+        # Verify requester is host
+        if room.host_id != body.player_id:
+            raise HTTPException(status_code=403, detail='Only the host can end the listening phase')
 
-    # Transition to guessing
-    room.status = 'guessing'
+        # Transition to guessing
+        room.status = 'guessing'
 
-    # Update last_active_at and save
-    room.last_active_at = datetime.utcnow()
-    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+        # Update last_active_at and save
+        room.last_active_at = datetime.utcnow()
+        await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    logger.info(f'Listening ended in room {room_code} by host {body.player_id}, transitioning to guessing')
+        logger.info(f'Listening ended in room {room_code} by host {body.player_id}, transitioning to guessing')
 
-    # Broadcast phase change
+    # Broadcast phase change (outside lock — network I/O)
     await broadcast_phase_changed(room_code, 'guessing')
 
     return RoomStateResponse.from_room_state(room)
@@ -680,35 +704,38 @@ async def reveal_results(
     requirement for all players to have voted. Used when a disconnected
     player prevents the game from progressing.
     """
-    room_data = await storage.get_room(room_code)
+    async with _room_locks[room_code]:
+        room_data = await storage.get_room(room_code)
 
-    if not room_data:
-        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+        if not room_data:
+            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    room = RoomState(**room_data)
+        room = RoomState(**room_data)
 
-    # Verify requester is host
-    if room.host_id != body.player_id:
-        raise HTTPException(status_code=403, detail='Only the host can reveal results')
+        # Verify requester is host
+        if room.host_id != body.player_id:
+            raise HTTPException(status_code=403, detail='Only the host can reveal results')
 
-    # Verify room is in guessing state
-    if room.status != 'guessing':
-        raise HTTPException(status_code=400, detail=f'Cannot reveal from {room.status} state')
+        # Verify room is in guessing state
+        if room.status != 'guessing':
+            raise HTTPException(status_code=400, detail=f'Cannot reveal from {room.status} state')
 
-    # Verify current_round exists
-    if not room.current_round:
-        raise HTTPException(status_code=400, detail='No active round')
+        # Verify current_round exists
+        if not room.current_round:
+            raise HTTPException(status_code=400, detail='No active round')
 
-    # Transition to results
-    room.status = 'results'
+        # Transition to results
+        room.status = 'results'
 
-    # Update last_active_at and save
-    room.last_active_at = datetime.utcnow()
-    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+        # Update last_active_at and save
+        room.last_active_at = datetime.utcnow()
+        await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    logger.info('Results revealed in room %s by host %s (%d/%d voted)', room_code, body.player_id, len(room.current_round.votes), len(room.players))
+        vote_count = len(room.current_round.votes)
+        player_count = len(room.players)
+        logger.info('Results revealed in room %s by host %s (%d/%d voted)', room_code, body.player_id, vote_count, player_count)
 
-    # Broadcast phase change
+    # Broadcast phase change (outside lock — network I/O)
     await broadcast_phase_changed(room_code, 'results')
 
     return RoomStateResponse.from_room_state(room)
@@ -771,51 +798,52 @@ async def finish_round(
     Removes the used songs from the pool, resets room status to 'lobby',
     and clears the current round. Players can then start a new round if enough songs remain.
     """
-    room_data = await storage.get_room(room_code)
+    async with _room_locks[room_code]:
+        room_data = await storage.get_room(room_code)
 
-    if not room_data:
-        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+        if not room_data:
+            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    room = RoomState(**room_data)
+        room = RoomState(**room_data)
 
-    # Verify requester is host
-    if room.host_id != body.player_id:
-        raise HTTPException(status_code=403, detail='Only the host can finish the round')
+        # Verify requester is host
+        if room.host_id != body.player_id:
+            raise HTTPException(status_code=403, detail='Only the host can finish the round')
 
-    # Verify room is in results state
-    if room.status != 'results':
-        raise HTTPException(status_code=400, detail=f'Cannot finish round from {room.status} state')
+        # Verify room is in results state
+        if room.status != 'results':
+            raise HTTPException(status_code=400, detail=f'Cannot finish round from {room.status} state')
 
-    # Verify current_round exists
-    if not room.current_round:
-        raise HTTPException(status_code=400, detail='No active round to finish')
+        # Verify current_round exists
+        if not room.current_round:
+            raise HTTPException(status_code=400, detail='No active round to finish')
 
-    # Find and remove the used songs by matching their track URIs
-    used_track_ids = {
-        room.current_round.song_for_majority.id,
-        room.current_round.song_for_incognito.id,
-    }
-    original_song_count = len(room.songs)
-    room.songs = [
-        song for song in room.songs
-        if song.track_uri not in used_track_ids
-    ]
+        # Find and remove the used songs by matching their track URIs
+        used_track_ids = {
+            room.current_round.song_for_majority.id,
+            room.current_round.song_for_incognito.id,
+        }
+        original_song_count = len(room.songs)
+        room.songs = [
+            song for song in room.songs
+            if song.track_uri not in used_track_ids
+        ]
 
-    if len(room.songs) < original_song_count:
-        logger.info(f'Removed used songs from room {room_code} ({original_song_count} -> {len(room.songs)} songs)')
+        if len(room.songs) < original_song_count:
+            logger.info(f'Removed used songs from room {room_code} ({original_song_count} -> {len(room.songs)} songs)')
 
-    # Reset room state for next round
-    room.status = 'lobby'
-    room.current_round = None
-    room.dancer_incognito_player_id = None
+        # Reset room state for next round
+        room.status = 'lobby'
+        room.current_round = None
+        room.dancer_incognito_player_id = None
 
-    # Update last_active_at and save
-    room.last_active_at = datetime.utcnow()
-    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+        # Update last_active_at and save
+        room.last_active_at = datetime.utcnow()
+        await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    logger.info(f'Round finished in room {room_code} by host {body.player_id}')
+        logger.info(f'Round finished in room {room_code} by host {body.player_id}')
 
-    # Broadcast phase change to lobby
+    # Broadcast phase change to lobby (outside lock — network I/O)
     await broadcast_phase_changed(room_code, 'lobby')
 
     return RoomStateResponse.from_room_state(room)
@@ -843,48 +871,54 @@ async def leave_room(
     transfers host role to another player. If this is the last player, deletes the room.
     Broadcasts player_left event to remaining players.
     """
-    room_data = await storage.get_room(room_code)
+    was_host = False
+    async with _room_locks[room_code]:
+        room_data = await storage.get_room(room_code)
 
-    if not room_data:
-        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+        if not room_data:
+            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
 
-    room = RoomState(**room_data)
+        room = RoomState(**room_data)
 
-    # Verify player is in room
-    leaving_player = next((p for p in room.players if p.id == body.player_id), None)
-    if not leaving_player:
-        raise HTTPException(status_code=404, detail='Player not in room')
+        # Verify player is in room
+        leaving_player = next((p for p in room.players if p.id == body.player_id), None)
+        if not leaving_player:
+            raise HTTPException(status_code=404, detail='Player not in room')
 
-    # Remove the player from the list
-    room.players = [p for p in room.players if p.id != body.player_id]
+        was_host = leaving_player.is_host
 
-    # Check if room is now empty
-    if not room.players:
-        # Delete the room
-        await storage.delete_room(room_code)
-        logger.info(f'Room {room_code} deleted (last player {body.player_id} left)')
+        # Remove the player from the list
+        room.players = [p for p in room.players if p.id != body.player_id]
 
-        # Disconnect the leaving player's WebSocket
-        manager = get_connection_manager()
-        await manager.disconnect(room_code, body.player_id)
+        # Check if room is now empty
+        if not room.players:
+            # Delete the room
+            await storage.delete_room(room_code)
+            # Clean up lock entry to prevent memory leak
+            _room_locks.pop(room_code, None)
+            logger.info(f'Room {room_code} deleted (last player {body.player_id} left)')
 
-        return LeaveRoomResponse(room_deleted=True, room=None)
+            # Disconnect the leaving player's WebSocket
+            manager = get_connection_manager()
+            await manager.disconnect(room_code, body.player_id)
 
-    # Handle host transfer if the leaving player was the host
-    if leaving_player.is_host:
-        # Transfer host to the first remaining player
-        new_host = room.players[0]
-        new_host.is_host = True
-        room.host_id = new_host.id
-        logger.info(f'Host transferred from {body.player_id} to {new_host.id} in room {room_code}')
+            return LeaveRoomResponse(room_deleted=True, room=None)
 
-    # Update last_active_at and save
-    room.last_active_at = datetime.utcnow()
-    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+        # Handle host transfer if the leaving player was the host
+        if was_host:
+            # Transfer host to the first remaining player
+            new_host = room.players[0]
+            new_host.is_host = True
+            room.host_id = new_host.id
+            logger.info(f'Host transferred from {body.player_id} to {new_host.id} in room {room_code}')
 
-    logger.info(f'Player {body.player_id} left room {room_code}')
+        # Update last_active_at and save
+        room.last_active_at = datetime.utcnow()
+        await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-    # Disconnect the leaving player's WebSocket
+        logger.info(f'Player {body.player_id} left room {room_code}')
+
+    # Disconnect the leaving player's WebSocket (outside lock — network I/O)
     manager = get_connection_manager()
     await manager.disconnect(room_code, body.player_id)
 
@@ -894,7 +928,7 @@ async def leave_room(
         {
             'type': 'player_left',
             'user_id': body.player_id,
-            'new_host_id': room.host_id if leaving_player.is_host else None,
+            'new_host_id': room.host_id if was_host else None,
         }
     )
 
