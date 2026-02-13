@@ -36,6 +36,23 @@
         </button>
       </li>
     </ul>
+
+    <!-- Host controls: vote progress + reveal override (fetch-time snapshot, not live) -->
+    <div v-if="isHost" class="max-w-lg mx-auto mt-8 space-y-3">
+      <p class="text-center text-zinc-400 text-sm">
+        {{ voteProgress.votedCount }}/{{ voteProgress.totalPlayers }} voted
+      </p>
+      <div class="flex justify-center">
+        <button
+          class="px-6 py-3 rounded-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
+          :disabled="revealing"
+          @click="revealResults"
+        >
+          {{ revealing ? 'Revealing...' : 'Reveal' }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -79,6 +96,8 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 const votedFor = ref<string | null>(null);
 const submitting = ref(false);
+const revealing = ref(false);
+const votesCount = ref(0);
 
 const hasVoted = computed(() => votedFor.value !== null);
 const votedForName = computed(() => {
@@ -88,6 +107,18 @@ const votedForName = computed(() => {
 });
 
 const roomCode = computed(() => roomStore.code || '');
+
+const isHost = computed(() => {
+  const currentUserId = authStore.user?.id;
+  if (!currentUserId) return false;
+  const currentPlayer = roomStore.players.find(p => p.id === currentUserId);
+  return currentPlayer?.isHost ?? false;
+});
+
+const voteProgress = computed(() => ({
+  votedCount: votesCount.value,
+  totalPlayers: players.value.length,
+}));
 
 async function fetchRoom() {
   try {
@@ -114,6 +145,9 @@ async function fetchRoom() {
       id: p.id,
       name: p.display_name,
     }));
+
+    // Track vote progress for host display
+    votesCount.value = Object.keys(room.current_round?.votes ?? {}).length;
 
     // Check if current player has already voted (use auth store for user ID)
     const currentPlayerId = authStore.user?.id ?? playerStore.id;
@@ -182,6 +216,37 @@ async function vote(guessedPlayerId: string) {
     error.value = 'Failed to submit vote. Please try again.';
   } finally {
     submitting.value = false;
+  }
+}
+
+async function revealResults() {
+  if (revealing.value) return;
+
+  const playerId = authStore.user?.id;
+  if (!playerId || !roomCode.value) return;
+  try {
+    revealing.value = true;
+    error.value = null;
+
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/reveal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ player_id: playerId }),
+    });
+    if (await handleRoomResponse(response)) return;
+    if (response.ok) {
+      const data: RoomResponse = await response.json();
+      roomStore.setStatus(data.status);
+    } else {
+      const err = await response.json().catch(() => ({}));
+      console.error('Failed to reveal results:', err.detail);
+      error.value = 'Failed to reveal results. Please try again.';
+    }
+  } catch (err) {
+    console.error('Error revealing results:', err);
+    error.value = 'Failed to reveal results. Please try again.';
+  } finally {
+    revealing.value = false;
   }
 }
 

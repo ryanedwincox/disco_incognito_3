@@ -90,6 +90,12 @@ class VoteRequest(BaseModel):
     guessed_player_id: str = Field(..., description='Player ID being guessed as Dancer Incognito')
 
 
+class RevealRequest(BaseModel):
+    """Request model for revealing results during guessing (host only)."""
+
+    player_id: str = Field(..., description='Player ID (must be host)')
+
+
 class FinishRoundRequest(BaseModel):
     """Request model for finishing a round (host only)."""
 
@@ -655,6 +661,55 @@ async def end_listening(
 
     # Broadcast phase change
     await broadcast_phase_changed(room_code, 'guessing')
+
+    return RoomStateResponse.from_room_state(room)
+
+
+@router.post('/{room_code}/reveal', summary='Reveal results (host only)', response_model=RoomStateResponse)
+@limiter.limit(RATE_LIMITS['rooms'])
+async def reveal_results(
+    request: Request,
+    room_code: str,
+    body: RevealRequest,
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> RoomStateResponse:
+    """
+    Reveal results without waiting for all votes (host only).
+
+    Transitions room status from 'guessing' to 'results', bypassing the
+    requirement for all players to have voted. Used when a disconnected
+    player prevents the game from progressing.
+    """
+    room_data = await storage.get_room(room_code)
+
+    if not room_data:
+        raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
+
+    room = RoomState(**room_data)
+
+    # Verify requester is host
+    if room.host_id != body.player_id:
+        raise HTTPException(status_code=403, detail='Only the host can reveal results')
+
+    # Verify room is in guessing state
+    if room.status != 'guessing':
+        raise HTTPException(status_code=400, detail=f'Cannot reveal from {room.status} state')
+
+    # Verify current_round exists
+    if not room.current_round:
+        raise HTTPException(status_code=400, detail='No active round')
+
+    # Transition to results
+    room.status = 'results'
+
+    # Update last_active_at and save
+    room.last_active_at = datetime.utcnow()
+    await storage.upsert_room(room_code, room.model_dump(mode='json'))
+
+    logger.info('Results revealed in room %s by host %s (%d/%d voted)', room_code, body.player_id, len(room.current_round.votes), len(room.players))
+
+    # Broadcast phase change
+    await broadcast_phase_changed(room_code, 'results')
 
     return RoomStateResponse.from_room_state(room)
 
