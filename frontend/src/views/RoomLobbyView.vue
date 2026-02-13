@@ -138,7 +138,7 @@ onMounted(async () => {
 
         // Auto-join if current user is not already in the room
         const userId = authStore.user?.id
-        const displayName = authStore.user?.displayName || 'Guest'
+        const displayName = authStore.userName
         const isInRoom = data.players.some((p: { id: string }) => p.id === userId)
 
         if (userId && !isInRoom) {

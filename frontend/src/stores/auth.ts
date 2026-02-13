@@ -11,6 +11,7 @@ interface UserInfo {
   id: string;
   displayName: string;
   email: string;
+  customName?: string;
 }
 
 interface AuthState {
@@ -34,7 +35,7 @@ export const useAuthStore = defineStore("auth", {
 
   getters: {
     isAuthenticated: (state) => !!state.accessToken,
-    userName: (state) => state.user?.displayName || "Guest"
+    userName: (state) => state.user?.customName || state.user?.displayName || "Guest"
   },
 
   actions: {
@@ -124,6 +125,35 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
+    async updateDisplayName(customName: string | null): Promise<{ success: boolean; error?: string }> {
+      try {
+        await axios.post(
+          `${API_URL}/api/auth/update-name`,
+          { custom_name: customName },
+          { headers: { Authorization: `Bearer ${this.accessToken}` } }
+        );
+
+        // Update local user object
+        if (this.user) {
+          if (customName) {
+            this.user.customName = customName;
+          } else {
+            delete this.user.customName;
+          }
+          sessionStorage.setItem("user", JSON.stringify(this.user));
+        }
+
+        return { success: true };
+      } catch (error: unknown) {
+        console.error("Failed to update display name:", error);
+        const axiosError = error as { response?: { data?: { detail?: string } }; message?: string };
+        return {
+          success: false,
+          error: axiosError.response?.data?.detail || axiosError.message || "Failed to update name"
+        };
+      }
+    },
+
     async spotifyLogin(): Promise<void> {
       try {
         // Get authorization URL (or direct auth data in test mode)
@@ -192,10 +222,17 @@ export const useAuthStore = defineStore("auth", {
       }
 
       try {
-        await axios.get(`${API_URL}/api/auth/verify`, {
+        const response = await axios.get(`${API_URL}/api/auth/verify`, {
           headers: { Authorization: `Bearer ${this.accessToken}` }
         });
-        // 200 response: tokens valid, no action needed
+        // 200 response: tokens valid — restore custom_name from server
+        if (this.user && response.data?.custom_name) {
+          this.user.customName = response.data.custom_name;
+          sessionStorage.setItem("user", JSON.stringify(this.user));
+        } else if (this.user && !response.data?.custom_name) {
+          delete this.user.customName;
+          sessionStorage.setItem("user", JSON.stringify(this.user));
+        }
       } catch (error: unknown) {
         const axiosError = error as { response?: { status?: number } };
 

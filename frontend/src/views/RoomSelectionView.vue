@@ -2,6 +2,59 @@
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white px-6 py-10">
     <h1 class="text-3xl font-semibold uppercase tracking-wide mb-10">Choose Your Room</h1>
+
+    <!-- Custom name editor (Spotify users only) -->
+    <div v-if="authStore.isSpotifyUser" class="w-full max-w-md mb-8">
+      <div v-if="!isEditingName" class="flex items-center justify-center gap-3">
+        <span class="text-zinc-300 text-lg">{{ authStore.userName }}</span>
+        <button
+          class="text-sm text-disco-pink hover:text-disco-pink-hover transition-colors"
+          type="button"
+          @click="startEditingName"
+        >
+          Edit
+        </button>
+      </div>
+      <div v-else class="bg-zinc-900/70 p-4 rounded-3xl border border-zinc-500 space-y-3">
+        <label class="block text-sm font-medium text-zinc-400" for="custom-name">Display Name</label>
+        <input
+          id="custom-name"
+          v-model="editNameInput"
+          maxlength="50"
+          class="w-full rounded-full bg-zinc-800 px-4 py-3 text-center"
+          placeholder="Enter your name"
+          @keyup.enter="saveName"
+        />
+        <div class="flex gap-2">
+          <button
+            class="flex-1 bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-2 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+            :disabled="!editNameInput.trim() || isSavingName"
+            @click="saveName"
+          >
+            {{ isSavingName ? 'Saving...' : 'Save' }}
+          </button>
+          <button
+            class="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 py-2 rounded-full transition-colors"
+            type="button"
+            :disabled="isSavingName"
+            @click="cancelEditName"
+          >
+            Cancel
+          </button>
+        </div>
+        <button
+          v-if="authStore.user?.customName"
+          class="w-full text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+          type="button"
+          :disabled="isSavingName"
+          @click="resetToSpotifyName"
+        >
+          Reset to Spotify name
+        </button>
+      </div>
+    </div>
+
     <div class="w-full max-w-md space-y-6">
       <button
         class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors"
@@ -63,9 +116,49 @@ const authStore = useAuthStore()
 const roomStore = useRoomStore()
 const notificationStore = useNotificationStore()
 const roomCode = ref('')
+const isEditingName = ref(false)
+const editNameInput = ref('')
+const isSavingName = ref(false)
 
 // Load auth state from sessionStorage on component mount
 authStore.loadFromStorage()
+
+function startEditingName() {
+  editNameInput.value = authStore.userName
+  isEditingName.value = true
+}
+
+function cancelEditName() {
+  isEditingName.value = false
+  editNameInput.value = ''
+}
+
+async function saveName() {
+  const trimmed = editNameInput.value.trim()
+  if (!trimmed) return
+
+  isSavingName.value = true
+  const result = await authStore.updateDisplayName(trimmed)
+  isSavingName.value = false
+
+  if (result.success) {
+    isEditingName.value = false
+  } else {
+    notificationStore.error('Update Failed', result.error || 'Failed to update name')
+  }
+}
+
+async function resetToSpotifyName() {
+  isSavingName.value = true
+  const result = await authStore.updateDisplayName(null)
+  isSavingName.value = false
+
+  if (result.success) {
+    isEditingName.value = false
+  } else {
+    notificationStore.error('Reset Failed', result.error || 'Failed to reset name')
+  }
+}
 
 async function createRoom() {
   // Generate a random 3-digit room code
@@ -117,7 +210,7 @@ async function joinRoom() {
 
     // Join room via API
     const userId = authStore.user?.id
-    const displayName = authStore.user?.displayName || 'Guest'
+    const displayName = authStore.userName
 
     if (userId) {
       await axios.post(`${API_URL}/api/rooms/${code}/join`, {

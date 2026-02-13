@@ -192,4 +192,75 @@ describe("Auth Store - Token Validation", () => {
       expect(mockedAxios.get).not.toHaveBeenCalled();
     });
   });
+
+  describe("Custom Name", () => {
+    it("userName getter prefers customName over displayName", () => {
+      const authStore = useAuthStore();
+      authStore.user = { id: "u1", displayName: "Spotify Name", email: "e@test.com", customName: "My Custom" };
+
+      expect(authStore.userName).toBe("My Custom");
+    });
+
+    it("userName getter falls back to displayName when no customName", () => {
+      const authStore = useAuthStore();
+      authStore.user = { id: "u1", displayName: "Spotify Name", email: "e@test.com" };
+
+      expect(authStore.userName).toBe("Spotify Name");
+    });
+
+    it("updateDisplayName persists customName to store and sessionStorage", async () => {
+      const authStore = useAuthStore();
+      authStore.accessToken = "test_token";
+      authStore.user = { id: "u1", displayName: "Original", email: "e@test.com" };
+
+      // Mock successful POST
+      mockedAxios.post.mockResolvedValueOnce({ status: 200, data: { display_name: "New Name" } });
+
+      const result = await authStore.updateDisplayName("New Name");
+
+      expect(result.success).toBe(true);
+      expect(authStore.user?.customName).toBe("New Name");
+      expect(authStore.userName).toBe("New Name");
+
+      // Verify sessionStorage was updated
+      const stored = JSON.parse(sessionStorageMock._getStore()["user"] || "{}");
+      expect(stored.customName).toBe("New Name");
+    });
+
+    it("updateDisplayName with null clears customName", async () => {
+      const authStore = useAuthStore();
+      authStore.accessToken = "test_token";
+      authStore.user = { id: "u1", displayName: "Original", email: "e@test.com", customName: "Custom" };
+
+      // Mock successful POST
+      mockedAxios.post.mockResolvedValueOnce({ status: 200, data: { display_name: "Original" } });
+
+      const result = await authStore.updateDisplayName(null);
+
+      expect(result.success).toBe(true);
+      expect(authStore.user?.customName).toBeUndefined();
+      expect(authStore.userName).toBe("Original");
+    });
+
+    it("validateTokens restores customName from verify response", async () => {
+      sessionStorageMock.setItem("access_token", "token_with_custom");
+      sessionStorageMock.setItem("refresh_token", "refresh_custom");
+      sessionStorageMock.setItem(
+        "user",
+        JSON.stringify({ id: "u1", displayName: "Spotify Name", email: "e@test.com" })
+      );
+
+      // Mock verify returning custom_name
+      mockedAxios.get.mockResolvedValueOnce({
+        status: 200,
+        data: { user_id: "u1", display_name: "Custom Name", custom_name: "Custom Name" }
+      });
+
+      const authStore = useAuthStore();
+      await authStore.loadFromStorage();
+
+      expect(authStore.user?.customName).toBe("Custom Name");
+      expect(authStore.userName).toBe("Custom Name");
+    });
+  });
 });

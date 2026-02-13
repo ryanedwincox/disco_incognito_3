@@ -18,6 +18,8 @@ class AuthenticatedUser(BaseModel):
 
     user_id: str
     display_name: str
+    custom_name: str = ''
+    token: str = ''
 
 
 async def get_current_user(
@@ -61,11 +63,17 @@ async def get_current_user(
     if not session:
         raise HTTPException(status_code=401, detail='Invalid or expired access token')
 
-    # Extract user info from session
+    # Extract user info from session (custom_name overrides display_name when set)
     user_id = session.get('user_id')
-    display_name = session.get('display_name', 'Guest')
+    custom_name = session.get('custom_name')
+    display_name = custom_name or session.get('display_name', 'Guest')
 
     if not user_id:
         raise HTTPException(status_code=401, detail='Session missing user identity')
 
-    return AuthenticatedUser(user_id=user_id, display_name=display_name)
+    return AuthenticatedUser(
+        user_id=user_id,
+        display_name=display_name,
+        custom_name=custom_name or '',
+        token=token,
+    )

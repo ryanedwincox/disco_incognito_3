@@ -12,7 +12,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ...core.rate_limit import RATE_LIMITS, limiter
 from ...core.settings import settings
@@ -26,6 +26,23 @@ class ManualLoginRequest(BaseModel):
     """Request model for manual (non-Spotify) login."""
 
     display_name: str = Field(..., min_length=1, max_length=50, description='Display name for the user')
+
+
+class UpdateNameRequest(BaseModel):
+    """Request model for updating display name. Send null to clear and revert to original."""
+
+    custom_name: str | None = Field(None, max_length=50)
+
+    @field_validator('custom_name')
+    @classmethod
+    def strip_whitespace(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            return None  # Whitespace-only treated as clear
+        return stripped
+
 
 router = APIRouter(prefix='/auth', tags=['Authentication'])
 logger = logging.getLogger(__name__)
@@ -306,6 +323,57 @@ async def logout(request: Request) -> dict[str, str]:
     return {'message': 'Logged out successfully'}
 
 
+@router.post('/update-name', summary='Update custom display name')
+@limiter.limit(RATE_LIMITS['auth'])
+async def update_name(
+    request: Request,
+    body: UpdateNameRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    storage: StorageAdapter = Depends(get_storage_adapter),
+) -> dict[str, str]:
+    """
+    Set or clear a custom display name for the current user.
+
+    Send a custom_name string to override the original display name,
+    or null to clear it and revert to the original.
+
+    Args:
+        request: FastAPI request object (required for rate limiting)
+        body: UpdateNameRequest with optional custom_name
+        user: Authenticated user extracted from Authorization header
+        storage: Storage adapter for session lookup
+
+    Returns:
+        Dict containing the effective display_name after the update
+
+    Raises:
+        HTTPException 401: If authentication fails
+    """
+    try:
+        # Read-modify-write the session (preserves room_code, reconnect_token, etc.)
+        session = await storage.get_session(user.token)
+        if not session:
+            raise HTTPException(status_code=401, detail='Invalid or expired access token')
+
+        # Update session: set or clear custom_name
+        if body.custom_name:
+            session['custom_name'] = body.custom_name
+        else:
+            session.pop('custom_name', None)
+
+        await storage.set_session(user.token, session)
+
+        # Return the effective display name
+        effective_name = body.custom_name or session.get('display_name', 'Guest')
+        logger.info(f'Custom name updated for user {user.user_id}')
+        return {'display_name': effective_name}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f'Error updating custom name: {e}', exc_info=True)
+        raise HTTPException(status_code=500, detail='Failed to update display name')
+
+
 @router.get('/verify', summary='Verify access token')
 @limiter.limit(RATE_LIMITS['auth'])
 async def verify(
@@ -320,7 +388,7 @@ async def verify(
         user: Authenticated user extracted from Authorization header
 
     Returns:
-        Dict containing user_id and display_name if token is valid
+        Dict containing user_id, display_name, and custom_name if token is valid
 
     Raises:
         HTTPException 401: If token is missing, invalid, or expired
@@ -329,4 +397,5 @@ async def verify(
     return {
         'user_id': user.user_id,
         'display_name': user.display_name,
+        'custom_name': user.custom_name,
     }

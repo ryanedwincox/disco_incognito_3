@@ -215,8 +215,9 @@ async def join_room(
     # Check if player already in room
     existing_player = next((p for p in room.players if p.id == body.player_id), None)
     if existing_player:
-        # Update connection status if rejoining
+        # Update connection status and display name if rejoining (name may have changed)
         existing_player.is_connected = True
+        existing_player.display_name = body.display_name
     else:
         # Add new player
         new_player = Player(
