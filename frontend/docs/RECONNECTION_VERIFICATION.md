@@ -40,7 +40,7 @@ currentView computed → renders     ◀── src/components/AppOrchestrator.vu
 |---|----------|---------------|-----------|
 | 1 | Refresh at lobby | `RoomLobbyView` | `client_state.phase="lobby"` → `roomStore.status="lobby"` → `appPhase="lobby"` → `phaseToViewMap.lobby` |
 | 2 | Refresh at song_selection | `SongAssignmentWrapper` | `client_state.phase="song_selection"` → `roomStore.status="song_selection"` → `appPhase="song_selection"` → `phaseToViewMap.song_selection` |
-| 3 | Refresh at playing | `GameView` | `client_state.phase="playing"` + `playback_start_time` → `roomStore.status="playing"` + `gameStore.playbackStartTime` → `appPhase="playing"` → `phaseToViewMap.playing` |
+| 3 | Refresh at playing | `GameView` | `client_state.phase="playing"` → `roomStore.status="playing"` → `appPhase="playing"` → `phaseToViewMap.playing` |
 | 4 | Refresh at guessing | `GuessingView` | `client_state.phase="guessing"` → `roomStore.status="guessing"` → `appPhase="guessing"` → `phaseToViewMap.guessing` |
 | 5 | Refresh at results | `ResultsView` | `client_state.phase="results"` → `roomStore.status="results"` → `appPhase="results"` → `phaseToViewMap.results` |
 | 6 | Disconnect in lobby, game advances, reconnect | Current phase view | On reconnect: `client_state` contains current server phase (e.g., `playing`). `handleClientState()` updates stores. `appPhase` recomputes to server's current phase. View renders accordingly. |
@@ -82,8 +82,7 @@ const phaseToViewMap: Record<string, Component> = {
   room_data?: {
     players: Array<{ id, display_name, is_host, is_connected }>,
     song_count?: number,
-    assigned_song?: { id, title, artist },
-    playback_start_time?: string  // ISO timestamp
+    assigned_song?: { id, title, artist }
   }
 }
 ```
