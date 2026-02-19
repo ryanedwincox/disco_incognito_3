@@ -44,7 +44,6 @@ start_containers() {
     export PORT=$backend_port
     export VITE_PORT=$frontend_port
     export VITE_API_URL="http://localhost:$backend_port"
-    export SPOTIFY_REDIRECT_URI="http://localhost:$backend_port/api/auth/callback"
 
     local branch
     branch=$(get_current_branch)

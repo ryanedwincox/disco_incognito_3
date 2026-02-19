@@ -10,9 +10,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    env:
-      SPOTIFY_MODE: test
-
     steps:
       - uses: actions/checkout@v4
 

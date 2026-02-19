@@ -14,12 +14,7 @@ services:
       - ./backend:/app
       - ./data:/app/data
     environment:
-      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
-      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
-      - SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI:-http://127.0.0.1:8000/api/auth/callback}
       - PORT=${PORT:-8000}
-      - SPOTIFY_MODE=${SPOTIFY_MODE:-test}
-      - MUSIC_SERVICE=spotify
       - SESSION_STORAGE=json_file
       - SESSION_STORAGE_FILE=/app/data/disco_incognito.json
       - DEBUG=true

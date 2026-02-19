@@ -29,5 +29,5 @@ steps:
       - "3600"
       - "--add-volume=name=data-vol,type=cloud-storage,bucket=$_BUCKET_NAME"
       - "--add-volume-mount=volume=data-vol,mount-path=/app/data"
-      - "--set-secrets=SPOTIFY_CLIENT_ID=spotify-client-id:latest,SPOTIFY_CLIENT_SECRET=spotify-client-secret:latest,JWT_SECRET_KEY=jwt-secret-key:latest,SESSION_SECRET=session-secret:latest"
-      - "--set-env-vars=SPOTIFY_MODE=live,DEBUG=false,SESSION_STORAGE=json_file,SESSION_STORAGE_FILE=/app/data/disco_incognito.json,ALLOWED_ORIGINS=https://www.discoincognito.com,BACKEND_URL=https://www.discoincognito.com,FRONTEND_URL=https://www.discoincognito.com,SPOTIFY_REDIRECT_URI=https://www.discoincognito.com/api/auth/callback"
+      - "--set-secrets=JWT_SECRET_KEY=jwt-secret-key:latest,SESSION_SECRET=session-secret:latest"
+      - "--set-env-vars=DEBUG=false,SESSION_STORAGE=json_file,SESSION_STORAGE_FILE=/app/data/disco_incognito.json,ALLOWED_ORIGINS=https://www.discoincognito.com,BACKEND_URL=https://www.discoincognito.com,FRONTEND_URL=https://www.discoincognito.com"

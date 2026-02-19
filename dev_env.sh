@@ -60,7 +60,6 @@ if [ ! -f "backend/.env" ] || [ ! -f "frontend/.env" ]; then
         cat > backend/.env << EOF
 # Backend environment variables
 PORT=$DEV_BACKEND_PORT
-SPOTIFY_MODE=test
 EOF
         echo "Created backend/.env (port $DEV_BACKEND_PORT)"
     fi
