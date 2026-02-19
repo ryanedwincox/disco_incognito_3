@@ -54,19 +54,17 @@ async def login(
     Create a user session with the provided display name.
 
     Returns:
-        Dict containing access_token, refresh_token, user_id, and display_name
+        Dict containing access_token, user_id, and display_name
     """
     try:
         user_id = f'guest_{uuid.uuid4().hex[:12]}'
         access_token = f'token_{secrets.token_urlsafe(32)}'
-        refresh_token = f'refresh_{secrets.token_urlsafe(32)}'
 
         await storage.set_session(
             access_token,
             {
                 'user_id': user_id,
                 'display_name': body.display_name,
-                'email': '',
             },
         )
 
@@ -74,11 +72,8 @@ async def login(
 
         return {
             'access_token': access_token,
-            'refresh_token': refresh_token,
-            'expires_in': '3600',
             'user_id': user_id,
             'display_name': body.display_name,
-            'email': '',
         }
     except Exception as e:
         logger.error(f'Error in login: {e}', exc_info=True)

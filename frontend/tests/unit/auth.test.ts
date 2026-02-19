@@ -51,12 +51,11 @@ describe("Auth Store - Token Validation", () => {
 
   describe("loadFromStorage", () => {
     it("clears tokens when validateTokens returns 401", async () => {
-      // Setup: Tokens in localStorage
+      // Setup: Token in sessionStorage
       sessionStorageMock.setItem("access_token", "test_token_123");
-      sessionStorageMock.setItem("refresh_token", "test_refresh_123");
       sessionStorageMock.setItem(
         "user",
-        JSON.stringify({ id: "user1", displayName: "Test User", email: "test@example.com" })
+        JSON.stringify({ id: "user1", displayName: "Test User" })
       );
 
       // Mock 401 response from /auth/verify
@@ -69,20 +68,17 @@ describe("Auth Store - Token Validation", () => {
 
       // Tokens should be cleared
       expect(authStore.accessToken).toBeNull();
-      expect(authStore.refreshToken).toBeNull();
       expect(authStore.user).toBeNull();
       expect(sessionStorageMock.removeItem).toHaveBeenCalledWith("access_token");
-      expect(sessionStorageMock.removeItem).toHaveBeenCalledWith("refresh_token");
       expect(sessionStorageMock.removeItem).toHaveBeenCalledWith("user");
     });
 
     it("preserves tokens on network error (offline mode)", async () => {
-      // Setup: Tokens in localStorage
+      // Setup: Token in sessionStorage
       sessionStorageMock.setItem("access_token", "test_token_456");
-      sessionStorageMock.setItem("refresh_token", "test_refresh_456");
       sessionStorageMock.setItem(
         "user",
-        JSON.stringify({ id: "user2", displayName: "Offline User", email: "offline@example.com" })
+        JSON.stringify({ id: "user2", displayName: "Offline User" })
       );
 
       // Mock network error (no response object)
@@ -93,23 +89,20 @@ describe("Auth Store - Token Validation", () => {
 
       // Tokens should be preserved
       expect(authStore.accessToken).toBe("test_token_456");
-      expect(authStore.refreshToken).toBe("test_refresh_456");
       expect(authStore.user).toEqual({
         id: "user2",
         displayName: "Offline User",
-        email: "offline@example.com"
       });
       // removeItem should NOT have been called for tokens
       expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith("access_token");
     });
 
     it("preserves tokens on 500 server error", async () => {
-      // Setup: Tokens in localStorage
+      // Setup: Token in sessionStorage
       sessionStorageMock.setItem("access_token", "test_token_789");
-      sessionStorageMock.setItem("refresh_token", "test_refresh_789");
       sessionStorageMock.setItem(
         "user",
-        JSON.stringify({ id: "user3", displayName: "Server Error User", email: "error@example.com" })
+        JSON.stringify({ id: "user3", displayName: "Server Error User" })
       );
 
       // Mock 500 server error
@@ -122,12 +115,11 @@ describe("Auth Store - Token Validation", () => {
 
       // Tokens should be preserved (not a 401)
       expect(authStore.accessToken).toBe("test_token_789");
-      expect(authStore.refreshToken).toBe("test_refresh_789");
       expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith("access_token");
     });
 
     it("does not call validateTokens when no token in storage", async () => {
-      // No tokens in localStorage
+      // No tokens in sessionStorage
       const authStore = useAuthStore();
       await authStore.loadFromStorage();
 
@@ -137,12 +129,11 @@ describe("Auth Store - Token Validation", () => {
     });
 
     it("keeps tokens when validateTokens returns 200", async () => {
-      // Setup: Tokens in localStorage
+      // Setup: Token in sessionStorage
       sessionStorageMock.setItem("access_token", "valid_token");
-      sessionStorageMock.setItem("refresh_token", "valid_refresh");
       sessionStorageMock.setItem(
         "user",
-        JSON.stringify({ id: "valid_user", displayName: "Valid User", email: "valid@example.com" })
+        JSON.stringify({ id: "valid_user", displayName: "Valid User" })
       );
 
       // Mock 200 response from /auth/verify
@@ -156,11 +147,9 @@ describe("Auth Store - Token Validation", () => {
 
       // Tokens should remain
       expect(authStore.accessToken).toBe("valid_token");
-      expect(authStore.refreshToken).toBe("valid_refresh");
       expect(authStore.user).toEqual({
         id: "valid_user",
         displayName: "Valid User",
-        email: "valid@example.com"
       });
       expect(sessionStorageMock.removeItem).not.toHaveBeenCalledWith("access_token");
     });
@@ -169,7 +158,6 @@ describe("Auth Store - Token Validation", () => {
   describe("validateTokens", () => {
     it("calls /api/auth/verify with Bearer token", async () => {
       sessionStorageMock.setItem("access_token", "my_token");
-      sessionStorageMock.setItem("refresh_token", "my_refresh");
 
       mockedAxios.get.mockResolvedValueOnce({ status: 200, data: {} });
 
@@ -196,14 +184,14 @@ describe("Auth Store - Token Validation", () => {
   describe("Custom Name", () => {
     it("userName getter prefers customName over displayName", () => {
       const authStore = useAuthStore();
-      authStore.user = { id: "u1", displayName: "Original Name", email: "e@test.com", customName: "My Custom" };
+      authStore.user = { id: "u1", displayName: "Original Name", customName: "My Custom" };
 
       expect(authStore.userName).toBe("My Custom");
     });
 
     it("userName getter falls back to displayName when no customName", () => {
       const authStore = useAuthStore();
-      authStore.user = { id: "u1", displayName: "Original Name", email: "e@test.com" };
+      authStore.user = { id: "u1", displayName: "Original Name" };
 
       expect(authStore.userName).toBe("Original Name");
     });
@@ -211,7 +199,7 @@ describe("Auth Store - Token Validation", () => {
     it("updateDisplayName persists customName to store and sessionStorage", async () => {
       const authStore = useAuthStore();
       authStore.accessToken = "test_token";
-      authStore.user = { id: "u1", displayName: "Original", email: "e@test.com" };
+      authStore.user = { id: "u1", displayName: "Original" };
 
       // Mock successful POST
       mockedAxios.post.mockResolvedValueOnce({ status: 200, data: { display_name: "New Name" } });
@@ -230,7 +218,7 @@ describe("Auth Store - Token Validation", () => {
     it("updateDisplayName with null clears customName", async () => {
       const authStore = useAuthStore();
       authStore.accessToken = "test_token";
-      authStore.user = { id: "u1", displayName: "Original", email: "e@test.com", customName: "Custom" };
+      authStore.user = { id: "u1", displayName: "Original", customName: "Custom" };
 
       // Mock successful POST
       mockedAxios.post.mockResolvedValueOnce({ status: 200, data: { display_name: "Original" } });
@@ -244,10 +232,9 @@ describe("Auth Store - Token Validation", () => {
 
     it("validateTokens restores customName from verify response", async () => {
       sessionStorageMock.setItem("access_token", "token_with_custom");
-      sessionStorageMock.setItem("refresh_token", "refresh_custom");
       sessionStorageMock.setItem(
         "user",
-        JSON.stringify({ id: "u1", displayName: "Original Name", email: "e@test.com" })
+        JSON.stringify({ id: "u1", displayName: "Original Name" })
       );
 
       // Mock verify returning custom_name

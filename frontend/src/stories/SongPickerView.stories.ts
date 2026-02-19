@@ -17,7 +17,7 @@ const meta: Meta<typeof SongPickerView> = {
       const roomStore = useRoomStore();
       authStore.$patch({
         accessToken: 'test-token',
-        user: { id: 'user-1', displayName: 'Test User', email: '' },
+        user: { id: 'user-1', displayName: 'Test User' },
       });
       roomStore.$patch({
         code: '456',

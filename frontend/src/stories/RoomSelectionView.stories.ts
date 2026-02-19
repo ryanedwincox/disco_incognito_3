@@ -15,7 +15,7 @@ const meta: Meta<typeof RoomSelectionView> = {
       const authStore = useAuthStore();
       authStore.$patch({
         accessToken: 'test-token',
-        user: { id: 'user-1', displayName: 'Test User', email: '' },
+        user: { id: 'user-1', displayName: 'Test User' },
       });
       return { components: { story }, template: '<story />' };
     },

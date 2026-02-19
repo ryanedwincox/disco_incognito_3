@@ -27,12 +27,10 @@ def mock_storage():
         'test-token-1': {
             'user_id': 'test-user-1',
             'display_name': 'Funky Dancer',
-            'email': 'funky@disco.test',
         },
         'test-token-2': {
             'user_id': 'test-user-2',
             'display_name': 'Groovy Star',
-            'email': 'groovy@disco.test',
         },
     }
     return storage

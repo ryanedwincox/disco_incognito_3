@@ -99,7 +99,7 @@ async def cleanup_expired_rooms() -> None:
 async def _build_room_state_for_user(room_code: str, user_id: str) -> dict[str, Any]:
     """Build a per-user tailored room_state message.
 
-    Returns dict with: type, phase, players[], host_id, song_pair_count, assigned_song (for this user).
+    Returns dict with: type, phase, players[], host_id, song_count, assigned_song (for this user).
     """
     storage = get_storage_adapter()
     room_data = await storage.get_room(room_code)
@@ -110,7 +110,7 @@ async def _build_room_state_for_user(room_code: str, user_id: str) -> dict[str, 
             'phase': 'lobby',
             'players': [],
             'host_id': None,
-            'song_pair_count': 0,
+            'song_count': 0,
         }
 
     room = RoomState(**room_data)
@@ -123,7 +123,7 @@ async def _build_room_state_for_user(room_code: str, user_id: str) -> dict[str, 
         'phase': phase,
         'players': [p.model_dump() for p in room.players],
         'host_id': room.host_id,
-        'song_pair_count': len(room.songs),
+        'song_count': len(room.songs),
     }
 
     # Include assigned song for THIS user only (if in active round)

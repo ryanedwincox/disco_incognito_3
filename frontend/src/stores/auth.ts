@@ -6,7 +6,6 @@ import { API_URL } from "../config/api";
 interface UserInfo {
   id: string;
   displayName: string;
-  email: string;
   customName?: string;
 }
 
@@ -17,19 +16,13 @@ interface AxiosErrorShape {
 
 interface AuthState {
   accessToken: string | null;
-  refreshToken: string | null;
   user: UserInfo | null;
-  isSpoofedMode: boolean;
-  isTestMode: boolean;
 }
 
 export const useAuthStore = defineStore("auth", {
   state: (): AuthState => ({
     accessToken: null,
-    refreshToken: null,
     user: null,
-    isSpoofedMode: import.meta.env.VITE_UI_MODE === "minimal",
-    isTestMode: import.meta.env.VITE_TEST_MODE === "true"
   }),
 
   getters: {
@@ -38,12 +31,9 @@ export const useAuthStore = defineStore("auth", {
   },
 
   actions: {
-    setTokens(accessToken: string, refreshToken: string) {
+    setToken(accessToken: string) {
       this.accessToken = accessToken;
-      this.refreshToken = refreshToken;
-
       sessionStorage.setItem("access_token", accessToken);
-      sessionStorage.setItem("refresh_token", refreshToken);
     },
 
     setUser(user: UserInfo) {
@@ -53,11 +43,9 @@ export const useAuthStore = defineStore("auth", {
 
     clearTokens() {
       this.accessToken = null;
-      this.refreshToken = null;
       this.user = null;
 
       sessionStorage.removeItem("access_token");
-      sessionStorage.removeItem("refresh_token");
       sessionStorage.removeItem("user");
     },
 
@@ -68,12 +56,11 @@ export const useAuthStore = defineStore("auth", {
         });
         const data = response.data;
 
-        this.setTokens(data.access_token, data.refresh_token);
+        this.setToken(data.access_token);
 
         this.setUser({
           id: data.user_id,
           displayName: data.display_name,
-          email: data.email
         });
 
         console.log(`✅ Guest user created: ${data.display_name}`);
@@ -118,12 +105,10 @@ export const useAuthStore = defineStore("auth", {
 
     async loadFromStorage(): Promise<void> {
       const accessToken = sessionStorage.getItem("access_token");
-      const refreshToken = sessionStorage.getItem("refresh_token");
       const userJson = sessionStorage.getItem("user");
 
-      if (accessToken && refreshToken) {
+      if (accessToken) {
         this.accessToken = accessToken;
-        this.refreshToken = refreshToken;
       }
 
       if (userJson) {

@@ -7,18 +7,12 @@ const mockSong: TrackInfo = {
   id: 'track-1',
   name: "Stayin' Alive",
   artist: 'Bee Gees',
-  album: 'Saturday Night Fever',
-  durationMs: 285000,
-  albumArt: 'https://placehold.co/300x300/1a1a2e/e94560?text=SNF',
 };
 
 const mockIncognitoSong: TrackInfo = {
   id: 'track-2',
   name: 'September',
   artist: 'Earth, Wind & Fire',
-  album: 'The Best of Earth, Wind & Fire, Vol. 1',
-  durationMs: 214000,
-  albumArt: 'https://placehold.co/300x300/16213e/0f3460?text=EWF',
 };
 
 const meta: Meta<typeof SongAssignmentView> = {
@@ -66,19 +60,6 @@ export const IncognitoPlayer: Story = {
   },
 };
 
-// Song without album art falls back to emoji
-export const NoAlbumArt: Story = {
-  name: 'No Album Art',
-  args: {
-    song: {
-      ...mockSong,
-      albumArt: undefined,
-    },
-    isIncognito: false,
-    showReadyButton: false,
-  },
-};
-
 // Minimal song info
 export const MinimalSongInfo: Story = {
   name: 'Minimal Song Info',
@@ -87,8 +68,6 @@ export const MinimalSongInfo: Story = {
       id: 'track-3',
       name: 'Unknown Track',
       artist: 'Unknown Artist',
-      album: '',
-      durationMs: 0,
     },
     isIncognito: false,
     showReadyButton: false,

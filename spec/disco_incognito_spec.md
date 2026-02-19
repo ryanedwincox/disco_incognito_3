@@ -1,27 +1,27 @@
 # Disco Incognito - Multiplayer Music Guessing Game Specification
 
+> **NOTE**: Spotify integration has been removed. The app now uses guest login (display name only) and manual song entry (title + artist text fields). All Spotify OAuth, adapter, and playback sections below are historical and do not reflect the current implementation.
+
 ## Process
 
 - When building the app follow the steps in order and check them off as you go
 - commit to git after each phase
 - Add comments so a new developer can understand the code. If the code is referencing other parts of the code base tell the new developer where to find those files
 - At the end of every phase, run the automated test suite and use Puppeteer to capture and review screenshots before moving forward
-- Keep development in Spotify test mode (spoofed adapter) until the final integration phase
 - After every checklist item, make a local commit documenting progress (do not push until the end of the project)
 
 ## Project Overview
 
-🎧 **Disco Incognito** is a multiplayer web game powered by Spotify where players must guess which player is hearing a different song than everyone else. One player becomes the "Dancer Incognito" and hears a different track while all other players hear the same song. After 90 seconds of listening, players vote on who they think the Dancer Incognito is.
+🎧 **Disco Incognito** is a multiplayer web game where players must guess which player has a different song than everyone else. One player becomes the "Dancer Incognito" and is assigned a different track while all other players get the same song. Players listen on their own, then vote on who they think the Dancer Incognito is.
 
 ## Technology Stack
 
-- **Backend**: FastAPI (Python) + Spotipy + WebSockets
+- **Backend**: FastAPI (Python) + WebSockets
 - **Frontend**: Vue3 + Vite + Tailwind CSS + Pinia
 - **Real-time**: WebSockets for multiplayer communication
 - **Storage**: JSON file–backed room and session storage via swappable adapter pattern
-- **API**: Spotify Web API (via Spotipy)
 - **Testing & Verification**: Pytest / Vitest (as appropriate) plus Puppeteer-driven screenshot review workflow
-- **Authentication**: OAuth 2.0 (Spotify) with comprehensive token management
+- **Authentication**: Guest login (display name only) with token-based sessions
 - **Deployment**: Docker + Docker Compose
 
 ---

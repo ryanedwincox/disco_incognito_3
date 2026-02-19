@@ -1,15 +1,14 @@
 # 🎧 Disco Incognito – Game Flow Spec
 
-A multiplayer web game powered by Spotify. Guess who's hearing something different.
+A multiplayer web game. Guess who's hearing something different.
 
 ## 🟣 Overview
 
-Disco Incognito is a social listening game where one player hears a different song than everyone else — and the group must figure out who it is. The game uses the Spotify Web API and requires users to log in with their Spotify account.
+Disco Incognito is a social listening game where one player hears a different song than everyone else — and the group must figure out who it is. Players log in with a display name (guest login) and manually enter song titles/artists.
 
 ### Workflow Notes
 
 - Keep designs minimal: dark background, pink accents, and no extra chrome beyond the described controls.
-- Stay in Spotify test mode (`SPOTIFY_MODE=test`) while building these flows.
 - After finishing each section below, run the automated test suite, capture Puppeteer screenshots, and make a local git commit (no pushing yet).
 - Room and game data persist to a shared JSON file (`disco_incognito.json`); ensure updates are atomic to avoid corruption.
 
@@ -17,7 +16,7 @@ Disco Incognito is a social listening game where one player hears a different so
 
 - Fullscreen dark background
 - App logo/title: DISCO INCOGNITO
-- "Log in with Spotify" pink button
+- Display name input + "Enter" pink button (guest login)
 - On successful login → redirect to room screen
 
 ## 🏠 2. Room Selection Page
@@ -51,10 +50,10 @@ Song pairs:
 
 ## 🎶 4. Song Picker Page
 
-- Search bar with live Spotify search results
-- Users must select 2 different tracks to form a valid pair
+- Manual entry: two title + artist text fields
+- Users enter 2 different songs to form a valid pair
 - Each user can contribute multiple pairs
-- After selecting, the pair is saved to the shared room pool
+- After submitting, the pair is saved to the shared room pool
 - Song names are not visible anywhere until revealed during gameplay
 
 ## 🕹️ 5. Starting the Game
@@ -64,23 +63,21 @@ Host clicks "Start Game":
 - Randomly selects a song pair from the pool
 - Randomly selects one player to be the Dancer Incognito
 - Assigns one song to the Dancer Incognito and the other to everyone else
-- Countdown appears: 1.5 minutes of listening
-- Songs start playing on each user's Spotify account simultaneously
+- Players see their assigned song (title + artist)
+- Players mark "I'm Ready!", host clicks "Start Round"
+- Host clicks "End Listening" when done
 - Record start/end timestamps in the JSON file so reconnecting clients can recover
 
 ## 🔊 6. In-Game UI
 
-Music Player Bar (always visible):
+Song assignment display:
 
-- Bottom left: Now playing (shows title only during playback)
-- Bottom center: Play/Pause button
-  - Disabled during the game round
-  - Enabled when picking songs
-- Bottom right: Device status and selector
+- Shows song title and artist
+- No playback controls (no Spotify integration)
 
 ## ❓ 7. Guessing Phase
 
-After 90 seconds, music stops automatically
+Host ends listening → guessing begins
 
 Players see:
 
@@ -121,11 +118,6 @@ If a user disconnects:
 - Can rejoin the same room if it's still active
 - On reconnect, reload state from the shared JSON file before resuming playback
 
-If Spotify playback fails:
-
-- Show error and allow retry or device switch
-- Capture a screenshot of the error state for QA before committing
-
 If no song pairs are left:
 
 - Disable "Start Game" and prompt users to add more songs
@@ -144,8 +136,4 @@ Clean sans-serif fonts
 
 Minimalist layout optimized for desktop & mobile
 
-Play bar on the bottom with:
-
-- Current song on the left
-- Play button in the middle
-- Device connected status/list on the right
+Song assignment card showing title + artist

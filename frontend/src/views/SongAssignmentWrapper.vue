@@ -47,8 +47,6 @@ const playerSong = computed<TrackInfo | null>(() => {
     id: assigned.id,
     name: assigned.title,
     artist: assigned.artist,
-    album: '',
-    durationMs: 0,
   }
 })
 

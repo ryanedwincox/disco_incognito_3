@@ -20,7 +20,7 @@ const meta: Meta<typeof RoomLobbyView> = {
           { id: 'p2', name: 'Guest Player', isHost: false, isConnected: true },
         ],
         status: 'lobby',
-        songPairCount: 0,
+        songCount: 0,
       });
       return { components: { story }, template: '<story />' };
     },
@@ -45,7 +45,7 @@ export const EmptyLobby: Story = {
         code: '789',
         players: [],
         status: 'lobby',
-        songPairCount: 0,
+        songCount: 0,
       });
       return { components: { story }, template: '<story />' };
     },
@@ -66,7 +66,7 @@ export const WithDisconnectedPlayer: Story = {
           { id: 'p3', name: 'Active Player', isHost: false, isConnected: true },
         ],
         status: 'lobby',
-        songPairCount: 2,
+        songCount: 2,
       });
       return { components: { story }, template: '<story />' };
     },
@@ -85,7 +85,7 @@ export const ZeroSongsInQueue: Story = {
           { id: 'p1', name: 'DJ Host', isHost: true, isConnected: true },
         ],
         status: 'lobby',
-        songPairCount: 0,
+        songCount: 0,
       });
       return { components: { story }, template: '<story />' };
     },
@@ -104,7 +104,7 @@ export const OneSongInQueue: Story = {
           { id: 'p2', name: 'Guest Player', isHost: false, isConnected: true },
         ],
         status: 'lobby',
-        songPairCount: 1,
+        songCount: 1,
       });
       return { components: { story }, template: '<story />' };
     },
@@ -124,7 +124,7 @@ export const MultipleSongsInQueue: Story = {
           { id: 'p3', name: 'Another Guest', isHost: false, isConnected: true },
         ],
         status: 'lobby',
-        songPairCount: 5,
+        songCount: 5,
       });
       return { components: { story }, template: '<story />' };
     },

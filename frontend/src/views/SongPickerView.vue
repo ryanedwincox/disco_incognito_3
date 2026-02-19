@@ -15,6 +15,7 @@
             id="song1-title"
             v-model="song1Title"
             type="text"
+            maxlength="200"
             placeholder="Song title"
             class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
           />
@@ -25,6 +26,7 @@
             id="song1-artist"
             v-model="song1Artist"
             type="text"
+            maxlength="200"
             placeholder="Artist name"
             class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
           />
@@ -40,6 +42,7 @@
             id="song2-title"
             v-model="song2Title"
             type="text"
+            maxlength="200"
             placeholder="Song title"
             class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
           />
@@ -50,6 +53,7 @@
             id="song2-artist"
             v-model="song2Artist"
             type="text"
+            maxlength="200"
             placeholder="Artist name"
             class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
           />

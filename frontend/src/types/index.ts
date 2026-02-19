@@ -9,8 +9,8 @@ export interface PlayerSummary {
 
 export interface SongPairSummary {
   id: string;
-  trackA: string;
-  trackB: string;
+  songA: string;
+  songB: string;
   addedBy: string;
 }
 
@@ -20,7 +20,4 @@ export interface TrackInfo {
   id: string;
   name: string;
   artist: string;
-  album: string;
-  durationMs: number;
-  albumArt?: string;
 }

@@ -1,7 +1,7 @@
 /**
  * Room state store for multiplayer game lobby management.
  * Tracks room code, player list, game status (lobby/playing/guessing/reveal),
- * and song pair count. Provides actions for room state updates from WebSocket.
+ * and song count. Provides actions for room state updates from WebSocket.
  */
 import { defineStore } from "pinia";
 
@@ -22,7 +22,7 @@ interface RoomState {
   code: string | null;
   players: RoomPlayer[];
   status: "lobby" | "picking_songs" | "song_selection" | "playing" | "guessing" | "results";
-  songPairCount: number;
+  songCount: number;
   assignedSong: AssignedSong | null;
   readyPlayers: string[];
 }
@@ -32,7 +32,7 @@ export const useRoomStore = defineStore("room", {
     code: null,
     players: [],
     status: "lobby",
-    songPairCount: 0,
+    songCount: 0,
     assignedSong: null,
     readyPlayers: []
   }),
@@ -47,8 +47,8 @@ export const useRoomStore = defineStore("room", {
     setStatus(status: RoomState["status"]) {
       this.status = status;
     },
-    setSongPairCount(count: number) {
-      this.songPairCount = count;
+    setSongCount(count: number) {
+      this.songCount = count;
     },
     setAssignedSong(song: AssignedSong | null) {
       this.assignedSong = song;
@@ -60,7 +60,7 @@ export const useRoomStore = defineStore("room", {
       this.code = null;
       this.players = [];
       this.status = "lobby";
-      this.songPairCount = 0;
+      this.songCount = 0;
       this.assignedSong = null;
       this.readyPlayers = [];
       sessionStorage.removeItem('disco_room_code');

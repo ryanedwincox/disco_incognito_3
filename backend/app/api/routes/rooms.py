@@ -311,7 +311,7 @@ async def add_song(
         await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
         logger.info(f'Song {song_id} added to room {room_code} by player {body.player_id}')
-        song_pair_count = len(room.songs)
+        song_count = len(room.songs)
 
     # Broadcast song_added to all players in room (outside lock — network I/O)
     manager = get_connection_manager()
@@ -319,7 +319,7 @@ async def add_song(
         room_code,
         {
             'type': 'song_added',
-            'song_pair_count': song_pair_count,
+            'song_count': song_count,
         },
     )
 

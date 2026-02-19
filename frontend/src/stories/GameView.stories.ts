@@ -17,7 +17,7 @@ const meta: Meta<typeof GameView> = {
       const authStore = useAuthStore();
       authStore.$patch({
         accessToken: 'test-token',
-        user: { id: 'host-1', displayName: 'DJ Host', email: '' },
+        user: { id: 'host-1', displayName: 'DJ Host' },
       });
       roomStore.$patch({
         code: '456',

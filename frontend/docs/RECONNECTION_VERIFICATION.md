@@ -81,7 +81,7 @@ const phaseToViewMap: Record<string, Component> = {
   phase?: "lobby" | "picking_songs" | "song_selection" | "playing" | "guessing" | "results",
   room_data?: {
     players: Array<{ id, display_name, is_host, is_connected }>,
-    song_pair_count?: number,
+    song_count?: number,
     assigned_song?: { id, title, artist },
     playback_start_time?: string  // ISO timestamp
   }
