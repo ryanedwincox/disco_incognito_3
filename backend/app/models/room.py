@@ -1,7 +1,7 @@
-"""Pydantic models for game rooms, players, and song pairs.
+"""Pydantic models for game rooms, players, and songs.
 
 Defines the core domain models: RoomState for room metadata and game status, Player for
-user participation tracking, and SongPair for track submissions. These models are
+user participation tracking, and Song for manual song entries. These models are
 serialized for storage and WebSocket communication.
 """
 
@@ -31,7 +31,6 @@ class Song(BaseModel):
     """Individual song in the room's song pool."""
 
     id: str
-    track_uri: str
     title: str
     artist: str
     added_by: str
@@ -47,7 +46,6 @@ class CurrentRound(BaseModel):
     player_assignments: dict[str, SongInfo]  # player_id -> assigned song
     ready_players: list[str] = Field(default_factory=list)  # player_ids who clicked ready
     votes: dict[str, str] = Field(default_factory=dict)  # player_id -> guessed_player_id
-    playback_start_time: datetime | None = None  # When all clients should start audio playback
 
 
 class CurrentRoundResponse(BaseModel):

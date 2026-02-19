@@ -62,14 +62,14 @@ app.include_router(api_router)
 # NOTE: Cannot use app.mount("/", StaticFiles(...)) because it catches WebSocket
 # requests and crashes (StaticFiles asserts scope["type"] == "http").
 # Instead, mount assets at /assets and add a catch-all route for SPA index.html.
-static_dir = Path(__file__).parent.parent / "static"
+static_dir = Path(__file__).parent.parent / 'static'
 if static_dir.is_dir():
-    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="static-assets")
+    app.mount('/assets', StaticFiles(directory=str(static_dir / 'assets')), name='static-assets')
 
-    @app.get("/{full_path:path}")
+    @app.get('/{full_path:path}')
     async def serve_spa(full_path: str) -> FileResponse:
         """Serve index.html for all non-API routes (SPA client-side routing)."""
-        return FileResponse(str(static_dir / "index.html"))
+        return FileResponse(str(static_dir / 'index.html'))
 
 
 @app.on_event('startup')
@@ -131,8 +131,6 @@ async def _build_room_state_for_user(room_code: str, user_id: str) -> dict[str, 
         assigned_song = room.current_round.player_assignments.get(user_id)
         if assigned_song:
             result['assigned_song'] = assigned_song.model_dump()
-        if room.current_round.playback_start_time:
-            result['playback_start_time'] = room.current_round.playback_start_time.isoformat()
         result['ready_players'] = room.current_round.ready_players
 
     return result
@@ -174,28 +172,34 @@ async def room_websocket_endpoint(
 
         if not validation:
             await websocket.accept()
-            await websocket.send_json({
-                'type': 'reconnect_failed',
-                'reason': 'Invalid or expired reconnection token',
-            })
+            await websocket.send_json(
+                {
+                    'type': 'reconnect_failed',
+                    'reason': 'Invalid or expired reconnection token',
+                }
+            )
             await websocket.close()
             return
 
         if validation['user_id'] != user_id:
             await websocket.accept()
-            await websocket.send_json({
-                'type': 'reconnect_failed',
-                'reason': 'Reconnection token does not match user',
-            })
+            await websocket.send_json(
+                {
+                    'type': 'reconnect_failed',
+                    'reason': 'Reconnection token does not match user',
+                }
+            )
             await websocket.close()
             return
 
         if validation.get('room_code') != room_code:
             await websocket.accept()
-            await websocket.send_json({
-                'type': 'reconnect_failed',
-                'reason': 'Reconnection token does not match room',
-            })
+            await websocket.send_json(
+                {
+                    'type': 'reconnect_failed',
+                    'reason': 'Reconnection token does not match room',
+                }
+            )
             await websocket.close()
             return
 
@@ -207,10 +211,12 @@ async def room_websocket_endpoint(
     connection_info = await connection_manager.connect(room_code, user_id, websocket)
 
     # Send connected message with reconnect token
-    await websocket.send_json({
-        'type': 'connected',
-        'reconnect_token': connection_info['reconnect_token'],
-    })
+    await websocket.send_json(
+        {
+            'type': 'connected',
+            'reconnect_token': connection_info['reconnect_token'],
+        }
+    )
 
     # Send per-user room state
     room_state = await _build_room_state_for_user(room_code, user_id)

@@ -1,8 +1,8 @@
 """Application configuration via Pydantic Settings.
 
-Loads and validates configuration from environment variables including Spotify credentials,
-storage settings, CORS origins, and debug flags. Uses Pydantic Settings for automatic
-environment variable parsing and validation.
+Loads and validates configuration from environment variables including storage settings,
+CORS origins, and debug flags. Uses Pydantic Settings for automatic environment variable
+parsing and validation.
 """
 
 from __future__ import annotations
@@ -22,11 +22,6 @@ class Settings(BaseSettings):
 
     backend_url: AnyHttpUrl = Field('http://localhost:8000', alias='BACKEND_URL')
     frontend_url: AnyHttpUrl = Field('http://localhost:3000', alias='FRONTEND_URL')
-    spotify_client_id: str = Field('change-me', alias='SPOTIFY_CLIENT_ID')
-    spotify_client_secret: str = Field('change-me', alias='SPOTIFY_CLIENT_SECRET')
-    spotify_redirect_uri: AnyHttpUrl = Field('http://127.0.0.1:8000/api/auth/callback', alias='SPOTIFY_REDIRECT_URI')
-    spotify_mode: str = Field('test', alias='SPOTIFY_MODE')
-    music_service: str = Field('spotify', alias='MUSIC_SERVICE')
     session_storage: str = Field('json_file', alias='SESSION_STORAGE')
     session_storage_file: str = Field('./data/disco_incognito.json', alias='SESSION_STORAGE_FILE')
     allowed_origins: str = Field('http://localhost:3000', alias='ALLOWED_ORIGINS')

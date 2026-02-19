@@ -1,3 +1,1 @@
-"""
-Business logic services (Spotify, gameplay, etc.).
-"""
+"""Business logic services (WebSocket management, gameplay)."""

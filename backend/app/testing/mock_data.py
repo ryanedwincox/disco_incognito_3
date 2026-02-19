@@ -17,7 +17,7 @@ from ..models.room import Player, RoomState, Song
 
 logger = logging.getLogger(__name__)
 
-# Fun disco-themed names matching the test adapter
+# Fun disco-themed names for test players
 DISCO_NAMES = [
     'Groovy Dancer',
     'Funky Star',
@@ -71,9 +71,7 @@ def generate_test_player(name: str, is_host: bool = False, player_id: str | None
 def generate_song(player_id: str, title: str, artist: str) -> Song:
     """Generate a song for the pool."""
     song_id = f'song-{uuid.uuid4().hex[:8]}'
-    # Create a fake track URI from title
-    track_uri = f'spotify:track:{title.lower().replace(" ", "_")}'
-    return Song(id=song_id, track_uri=track_uri, title=title, artist=artist, added_by=player_id, created_at=datetime.utcnow())
+    return Song(id=song_id, title=title, artist=artist, added_by=player_id, created_at=datetime.utcnow())
 
 
 async def seed_room_lobby_empty() -> dict[str, str]:

@@ -1,7 +1,6 @@
-"""
-Testing routes for development and screenshot capture.
+"""Testing routes for development and screenshot capture.
 
-These routes are only available when the application is in test/debug mode.
+These routes are only available when the application is in debug mode.
 """
 
 from __future__ import annotations
@@ -11,16 +10,10 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from ...core.settings import settings
-from ...music.test_adapter import TestMusicAdapter
 from ...testing.mock_data import clear_test_data, seed_test_data
 
 router = APIRouter(prefix='/testing', tags=['Testing'])
 logger = logging.getLogger(__name__)
-
-
-def is_test_mode() -> bool:
-    """Check if the application is in test mode."""
-    return settings.spotify_mode.lower() == 'test' or settings.debug
 
 
 @router.post('/seed', summary='Seed test data')
@@ -39,10 +32,10 @@ async def seed_data() -> dict:
     Returns player IDs for each room to enable localStorage injection
     for dual-browser screenshot testing.
 
-    Only available in test/debug mode.
+    Only available in debug mode.
     """
-    if not is_test_mode():
-        raise HTTPException(status_code=403, detail='Test data seeding is only available in test/debug mode')
+    if not settings.debug:
+        raise HTTPException(status_code=403, detail='Test data seeding is only available in debug mode')
 
     try:
         player_ids = await seed_test_data()
@@ -62,10 +55,10 @@ async def clear_data() -> dict[str, str]:
     """
     Clear all test data from the database.
 
-    Only available in test/debug mode.
+    Only available in debug mode.
     """
-    if not is_test_mode():
-        raise HTTPException(status_code=403, detail='Test data clearing is only available in test/debug mode')
+    if not settings.debug:
+        raise HTTPException(status_code=403, detail='Test data clearing is only available in debug mode')
 
     try:
         await clear_test_data()
@@ -82,24 +75,6 @@ async def get_status() -> dict[str, bool]:
     Check if testing features are available.
 
     Returns:
-        Dict with test mode status
+        Dict with debug mode status
     """
-    return {'test_mode_enabled': is_test_mode(), 'spotify_mode': settings.spotify_mode, 'debug': settings.debug}
-
-
-@router.post('/reset-user-counter', summary='Reset test user counter')
-async def reset_user_counter() -> dict[str, str]:
-    """
-    Reset the TestMusicAdapter user counter for deterministic E2E tests.
-
-    This ensures each test run generates the same sequence of user names,
-    making screenshot comparisons reliable.
-
-    Only available in test/debug mode.
-    """
-    if not is_test_mode():
-        raise HTTPException(status_code=403, detail='Reset user counter is only available in test/debug mode')
-
-    TestMusicAdapter.reset_user_counter()
-    logger.info('Test user counter reset to 0')
-    return {'message': 'User counter reset to 0'}
+    return {'debug': settings.debug}

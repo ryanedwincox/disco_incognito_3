@@ -16,5 +16,4 @@ limiter = Limiter(key_func=get_remote_address, enabled=not settings.debug)
 RATE_LIMITS = {
     'auth': '10/minute',
     'rooms': '30/minute',
-    'spotify': '60/minute',
 }

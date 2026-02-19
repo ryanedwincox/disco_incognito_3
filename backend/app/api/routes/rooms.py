@@ -9,7 +9,7 @@ import logging
 import random
 import uuid
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -38,23 +38,22 @@ logger = logging.getLogger(__name__)
 _room_locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
-async def broadcast_phase_changed(room_code: str, phase: str, playback_start_time: str | None = None) -> None:
+async def broadcast_phase_changed(room_code: str, phase: str) -> None:
     """Broadcast phase change to all connected clients in a room.
 
     Args:
         room_code: The room code to broadcast to
         phase: The new phase (lobby, song_selection, playing, guessing, results)
-        playback_start_time: ISO timestamp when clients should start audio (for 'playing' phase)
     """
     manager = get_connection_manager()
-    message: dict = {
-        'type': 'phase_changed',
-        'phase': phase,
-        'room_code': room_code,
-    }
-    if playback_start_time is not None:
-        message['playback_start_time'] = playback_start_time
-    await manager.broadcast_to_room(room_code, message)
+    await manager.broadcast_to_room(
+        room_code,
+        {
+            'type': 'phase_changed',
+            'phase': phase,
+            'room_code': room_code,
+        },
+    )
 
 
 class CreateRoomRequest(BaseModel):
@@ -80,9 +79,8 @@ class AddSongRequest(BaseModel):
     """Request model for adding a song to a room."""
 
     player_id: str = Field(..., description='Player ID')
-    track_uri: str = Field(..., description='Spotify URI for track')
-    title: str = Field(..., description='Title of track')
-    artist: str = Field(..., description='Artist of track')
+    title: str = Field(..., min_length=1, max_length=200, description='Song title')
+    artist: str = Field(..., min_length=1, max_length=200, description='Song artist')
 
 
 class PlayerReadyRequest(BaseModel):
@@ -302,7 +300,6 @@ async def add_song(
         song_id = f'song-{uuid.uuid4().hex[:8]}'
         song = Song(
             id=song_id,
-            track_uri=body.track_uri,
             title=body.title,
             artist=body.artist,
             added_by=body.player_id,
@@ -366,8 +363,8 @@ async def start_game(
         if len(room.songs) < 2:
             raise HTTPException(status_code=400, detail='Need at least 2 songs to start the game')
 
-        # Pick two songs (deterministic in test mode for reproducible E2E tests)
-        if settings.spotify_mode.lower() == 'test':
+        # Pick two songs (deterministic in debug mode for reproducible E2E tests)
+        if settings.debug:
             selected_songs = room.songs[:2]  # Always first two songs
             incognito_player = room.players[0]  # Always first player (host)
             use_song_a_for_majority = True
@@ -378,12 +375,12 @@ async def start_game(
 
         # Create SongInfo objects for the two songs
         song_a = SongInfo(
-            id=selected_songs[0].track_uri,
+            id=selected_songs[0].id,
             title=selected_songs[0].title,
             artist=selected_songs[0].artist,
         )
         song_b = SongInfo(
-            id=selected_songs[1].track_uri,
+            id=selected_songs[1].id,
             title=selected_songs[1].title,
             artist=selected_songs[1].artist,
         )
@@ -493,11 +490,14 @@ async def mark_player_ready(
 
     # Broadcast player_ready to all clients so host can see real-time updates (outside lock — network I/O)
     manager = get_connection_manager()
-    await manager.broadcast_to_room(room_code, {
-        'type': 'player_ready',
-        'user_id': body.player_id,
-        'ready_players': ready_players_snapshot,
-    })
+    await manager.broadcast_to_room(
+        room_code,
+        {
+            'type': 'player_ready',
+            'user_id': body.player_id,
+            'ready_players': ready_players_snapshot,
+        },
+    )
 
     return RoomStateResponse.from_room_state(room)
 
@@ -549,9 +549,6 @@ async def force_start_round(
 
         # Transition to playing
         room.status = 'playing'
-        playback_start_time = datetime.now(timezone.utc) + timedelta(seconds=3)
-        room.current_round.playback_start_time = playback_start_time
-        playback_start_time_iso = playback_start_time.isoformat()
 
         # Update last_active_at and save
         room.last_active_at = datetime.utcnow()
@@ -560,7 +557,7 @@ async def force_start_round(
         logger.info(f'Round force-started in room {room_code} by host {body.player_id}')
 
     # Broadcast phase change (outside lock — network I/O)
-    await broadcast_phase_changed(room_code, 'playing', playback_start_time=playback_start_time_iso)
+    await broadcast_phase_changed(room_code, 'playing')
 
     return RoomStateResponse.from_room_state(room)
 
@@ -771,11 +768,7 @@ async def get_results(
 
     # Calculate correct guessers
     incognito_id = room.current_round.incognito_player_id
-    correct_guessers = [
-        voter_id
-        for voter_id, guessed_id in room.current_round.votes.items()
-        if guessed_id == incognito_id
-    ]
+    correct_guessers = [voter_id for voter_id, guessed_id in room.current_round.votes.items() if guessed_id == incognito_id]
 
     return RoundResultsResponse(
         incognito_player_id=incognito_id,
@@ -818,16 +811,13 @@ async def finish_round(
         if not room.current_round:
             raise HTTPException(status_code=400, detail='No active round to finish')
 
-        # Find and remove the used songs by matching their track URIs
-        used_track_ids = {
+        # Find and remove the used songs by matching their IDs
+        used_song_ids = {
             room.current_round.song_for_majority.id,
             room.current_round.song_for_incognito.id,
         }
         original_song_count = len(room.songs)
-        room.songs = [
-            song for song in room.songs
-            if song.track_uri not in used_track_ids
-        ]
+        room.songs = [song for song in room.songs if song.id not in used_song_ids]
 
         if len(room.songs) < original_song_count:
             logger.info(f'Removed used songs from room {room_code} ({original_song_count} -> {len(room.songs)} songs)')
@@ -929,7 +919,7 @@ async def leave_room(
             'type': 'player_left',
             'user_id': body.player_id,
             'new_host_id': room.host_id if was_host else None,
-        }
+        },
     )
 
     return LeaveRoomResponse(room_deleted=False, room=RoomStateResponse.from_room_state(room))
