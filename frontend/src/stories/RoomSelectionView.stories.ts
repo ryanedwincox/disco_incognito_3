@@ -12,12 +12,10 @@ const meta: Meta<typeof RoomSelectionView> = {
   },
   decorators: [
     (story) => {
-      // Setup auth store state before rendering
       const authStore = useAuthStore();
       authStore.$patch({
         accessToken: 'test-token',
-        user: { id: 'user-1', displayName: 'Test User', email: 'test@example.com' },
-        isSpotifyUser: true,
+        user: { id: 'user-1', displayName: 'Test User', email: '' },
       });
       return { components: { story }, template: '<story />' };
     },
@@ -27,23 +25,7 @@ const meta: Meta<typeof RoomSelectionView> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Default view with Spotify user (shows Test Playback button)
-export const SpotifyUser: Story = {
-  name: 'Spotify User',
-};
-
-// Guest user variant (no Test Playback button)
-export const GuestUser: Story = {
-  name: 'Guest User',
-  decorators: [
-    (story) => {
-      const authStore = useAuthStore();
-      authStore.$patch({
-        accessToken: 'test-token',
-        user: { id: 'user-1', displayName: 'Guest', email: '' },
-        isSpotifyUser: false,
-      });
-      return { components: { story }, template: '<story />' };
-    },
-  ],
+// Default view with Create Room and Join Room options
+export const Default: Story = {
+  name: 'Default',
 };

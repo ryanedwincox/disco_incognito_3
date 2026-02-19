@@ -196,16 +196,16 @@ describe("Auth Store - Token Validation", () => {
   describe("Custom Name", () => {
     it("userName getter prefers customName over displayName", () => {
       const authStore = useAuthStore();
-      authStore.user = { id: "u1", displayName: "Spotify Name", email: "e@test.com", customName: "My Custom" };
+      authStore.user = { id: "u1", displayName: "Original Name", email: "e@test.com", customName: "My Custom" };
 
       expect(authStore.userName).toBe("My Custom");
     });
 
     it("userName getter falls back to displayName when no customName", () => {
       const authStore = useAuthStore();
-      authStore.user = { id: "u1", displayName: "Spotify Name", email: "e@test.com" };
+      authStore.user = { id: "u1", displayName: "Original Name", email: "e@test.com" };
 
-      expect(authStore.userName).toBe("Spotify Name");
+      expect(authStore.userName).toBe("Original Name");
     });
 
     it("updateDisplayName persists customName to store and sessionStorage", async () => {
@@ -247,7 +247,7 @@ describe("Auth Store - Token Validation", () => {
       sessionStorageMock.setItem("refresh_token", "refresh_custom");
       sessionStorageMock.setItem(
         "user",
-        JSON.stringify({ id: "u1", displayName: "Spotify Name", email: "e@test.com" })
+        JSON.stringify({ id: "u1", displayName: "Original Name", email: "e@test.com" })
       );
 
       // Mock verify returning custom_name

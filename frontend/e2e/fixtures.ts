@@ -128,7 +128,6 @@ export const test = base.extend<TestFixtures>({
           env: {
             ...process.env,
             SESSION_STORAGE_FILE: testStorageFile,
-            SPOTIFY_MODE: 'test',
             DEBUG: 'true',
             PYTHONPATH: BACKEND_DIR,
           },

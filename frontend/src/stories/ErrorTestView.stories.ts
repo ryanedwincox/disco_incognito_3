@@ -63,8 +63,8 @@ export const WithNotifications: Story = {
       });
       notificationStore.$patch({
         notifications: [
-          { id: 'n1', type: 'error', title: 'Connection Failed', message: 'Unable to connect to Spotify API', timestamp: Date.now(), dismissible: true, persistent: false },
-          { id: 'n2', type: 'warning', title: 'Premium Required', message: 'Some features may be limited', timestamp: Date.now(), dismissible: true, persistent: true },
+          { id: 'n1', type: 'error', title: 'Connection Failed', message: 'Unable to connect to server', timestamp: Date.now(), dismissible: true, persistent: false },
+          { id: 'n2', type: 'warning', title: 'Slow Connection', message: 'Some features may be limited', timestamp: Date.now(), dismissible: true, persistent: true },
         ],
       });
       return { components: { story }, template: '<story />' };

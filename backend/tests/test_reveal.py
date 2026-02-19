@@ -14,8 +14,8 @@ from app.models.room import CurrentRound, Player, RoomState, SongInfo
 
 def _make_guessing_room(votes: dict[str, str] | None = None) -> dict:
     """Build a room dict in 'guessing' status with 3 players and a current round."""
-    song_a = SongInfo(id='spotify:track:aaa', title='Song A', artist='Artist A')
-    song_b = SongInfo(id='spotify:track:bbb', title='Song B', artist='Artist B')
+    song_a = SongInfo(id='song-aaa', title='Song A', artist='Artist A')
+    song_b = SongInfo(id='song-bbb', title='Song B', artist='Artist B')
 
     players = [
         Player(id='host-user', display_name='Host', is_host=True),

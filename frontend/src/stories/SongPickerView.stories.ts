@@ -1,6 +1,7 @@
-// Story: SongPickerView - Song pair selection interface with test mode and Spotify user states
+// Story: SongPickerView - Manual song entry with title and artist fields
 import type { Meta, StoryObj } from '@storybook/vue3';
 import { useAuthStore } from '../stores/auth';
+import { useRoomStore } from '../stores/room';
 import SongPickerView from '../views/SongPickerView.vue';
 
 const meta: Meta<typeof SongPickerView> = {
@@ -13,10 +14,14 @@ const meta: Meta<typeof SongPickerView> = {
   decorators: [
     (story) => {
       const authStore = useAuthStore();
+      const roomStore = useRoomStore();
       authStore.$patch({
         accessToken: 'test-token',
-        user: { id: 'user-1', displayName: 'Test User', email: 'test@example.com' },
-        isSpotifyUser: true,
+        user: { id: 'user-1', displayName: 'Test User', email: '' },
+      });
+      roomStore.$patch({
+        code: '456',
+        status: 'song_selection',
       });
       return { components: { story }, template: '<story />' };
     },
@@ -26,23 +31,7 @@ const meta: Meta<typeof SongPickerView> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Spotify user can pick songs
-export const SpotifyUser: Story = {
-  name: 'Spotify User',
-};
-
-// Guest user sees spectator message
-export const GuestUser: Story = {
-  name: 'Guest User (Spectator)',
-  decorators: [
-    (story) => {
-      const authStore = useAuthStore();
-      authStore.$patch({
-        accessToken: 'test-token',
-        user: { id: 'guest-1', displayName: 'Guest', email: '' },
-        isSpotifyUser: false,
-      });
-      return { components: { story }, template: '<story />' };
-    },
-  ],
+// Empty form with title and artist fields for two songs
+export const EmptyForm: Story = {
+  name: 'Empty Form',
 };

@@ -1,16 +1,15 @@
-// Story: SongAssignmentView - Song assignment before playback with regular and incognito player states
+// Story: SongAssignmentView - Song assignment before round with regular and incognito player states
 import type { Meta, StoryObj } from '@storybook/vue3';
 import SongAssignmentView from '../views/SongAssignmentView.vue';
-import type { TrackInfo } from '../stores/music';
+import type { TrackInfo } from '../types';
 
 const mockSong: TrackInfo = {
   id: 'track-1',
   name: "Stayin' Alive",
   artist: 'Bee Gees',
   album: 'Saturday Night Fever',
-  duration: 285000,
-  albumArt: 'https://i.scdn.co/image/ab67616d0000b273f34e8811a138e97e8c57f863',
-  uri: 'spotify:track:1234567890',
+  durationMs: 285000,
+  albumArt: 'https://placehold.co/300x300/1a1a2e/e94560?text=SNF',
 };
 
 const mockIncognitoSong: TrackInfo = {
@@ -18,9 +17,8 @@ const mockIncognitoSong: TrackInfo = {
   name: 'September',
   artist: 'Earth, Wind & Fire',
   album: 'The Best of Earth, Wind & Fire, Vol. 1',
-  duration: 214000,
-  albumArt: 'https://i.scdn.co/image/ab67616d0000b273ed3b0d34557d2cc51f76d5f0',
-  uri: 'spotify:track:0987654321',
+  durationMs: 214000,
+  albumArt: 'https://placehold.co/300x300/16213e/0f3460?text=EWF',
 };
 
 const meta: Meta<typeof SongAssignmentView> = {
@@ -90,8 +88,7 @@ export const MinimalSongInfo: Story = {
       name: 'Unknown Track',
       artist: 'Unknown Artist',
       album: '',
-      duration: 0,
-      uri: 'spotify:track:unknown',
+      durationMs: 0,
     },
     isIncognito: false,
     showReadyButton: false,

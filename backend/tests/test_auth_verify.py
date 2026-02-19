@@ -20,8 +20,11 @@ def client():
 
 @pytest.fixture
 def authenticated_user(client):
-    """Create a test user and return token + user info."""
-    response = client.post('/api/auth/test-login')
+    """Create a test user via guest login and return token + user info."""
+    response = client.post(
+        '/api/auth/login',
+        json={'display_name': 'Test Dancer'},
+    )
     assert response.status_code == 200
     return response.json()
 
@@ -95,14 +98,14 @@ class TestVerifyEndpoint:
         assert 'detail' in response.json()
 
 
-class TestVerifyEndpointWithManualLogin:
-    """Tests for /auth/verify with manual (guest) login tokens."""
+class TestVerifyEndpointWithGuestLogin:
+    """Tests for /auth/verify with guest login tokens."""
 
-    def test_manual_login_token_valid(self, client):
-        """Manual login tokens are also valid for verify."""
+    def test_guest_login_token_valid(self, client):
+        """Guest login tokens are valid for verify."""
         # Create guest user
         response = client.post(
-            '/api/auth/manual-login',
+            '/api/auth/login',
             json={'display_name': 'Test Guest'},
         )
         assert response.status_code == 200

@@ -19,13 +19,16 @@ const FRONTEND_URL = `http://localhost:${FRONTEND_PORT}`;
 async function loadLandingPage(page: Page): Promise<void> {
   await page.goto(FRONTEND_URL);
   await page.waitForLoadState('networkidle');
-  const loginButton = page.getByRole('button', { name: 'Login with Spotify' });
+  const loginButton = page.getByRole('button', { name: 'Login' });
   await expect(loginButton).toBeVisible({ timeout: 10000 });
 }
 
-/** Login with Spotify (test mode) via UI. */
-async function loginWithSpotify(page: Page): Promise<void> {
-  const loginButton = page.getByRole('button', { name: 'Login with Spotify' });
+/** Login with a display name via UI. Fills name input, clicks Login. */
+async function loginWithName(page: Page, name: string): Promise<void> {
+  const nameInput = page.locator('#displayName');
+  await expect(nameInput).toBeVisible();
+  await nameInput.fill(name);
+  const loginButton = page.getByRole('button', { name: 'Login' });
   await expect(loginButton).toBeEnabled();
   await loginButton.click();
   const createRoomButton = page.getByRole('button', { name: 'Create Room' });
@@ -84,13 +87,13 @@ test.describe('Page Refresh Reconnect', () => {
     try {
       // Host creates room
       await loadLandingPage(hostPage);
-      await loginWithSpotify(hostPage);
+      await loginWithName(hostPage, 'DJ Host');
       const roomCode = await createRoom(hostPage);
       console.log(`✅ Host created room: ${roomCode}`);
 
       // Player joins room
       await loadLandingPage(playerPage);
-      await loginWithSpotify(playerPage);
+      await loginWithName(playerPage, 'Funky Player');
       await joinRoomViaUI(playerPage, roomCode);
       console.log('✅ Player joined room');
 

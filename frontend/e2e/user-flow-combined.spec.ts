@@ -15,12 +15,11 @@
  *   i. At least 3 browser contexts: host, player, guest
  *   j. Full game cycle through all phases
  *   k. Host transfer on host leave
- *   l. Song adding by spotify user
- *   m. Guest login flow
+ *   l. Song adding by user
+ *   m. Guest login flow (now the only login flow)
  */
-import { test, expect, getArtifactsPath, getBaselinePath } from './fixtures';
+import { test, expect } from './fixtures';
 import type { Browser, Page, BrowserContext } from '@playwright/test';
-import * as fs from 'fs';
 
 const FRONTEND_PORT = process.env.VITE_PORT || '9100';
 const FRONTEND_URL = `http://localhost:${FRONTEND_PORT}`;
@@ -33,31 +32,18 @@ const FRONTEND_URL = `http://localhost:${FRONTEND_PORT}`;
 async function loadLandingPage(page: Page): Promise<void> {
   await page.goto(FRONTEND_URL);
   await page.waitForLoadState('networkidle');
-  const loginButton = page.getByRole('button', { name: 'Login with Spotify' });
+  const loginButton = page.getByRole('button', { name: 'Login' });
   await expect(loginButton).toBeVisible({ timeout: 10000 });
 }
 
-/** Login with Spotify (test mode) via UI. */
-async function loginWithSpotify(page: Page): Promise<void> {
-  const loginButton = page.getByRole('button', { name: 'Login with Spotify' });
-  await expect(loginButton).toBeEnabled();
-  await loginButton.click();
-  // Wait for RoomSelectionView
-  const createRoomButton = page.getByRole('button', { name: 'Create Room' });
-  await expect(createRoomButton).toBeVisible({ timeout: 10000 });
-}
-
-/** Login as guest via UI. Coverage req (m): Guest login flow. */
-async function loginAsGuest(page: Page, displayName: string): Promise<void> {
-  const guestButton = page.getByRole('button', { name: 'Continue as Guest' });
-  await expect(guestButton).toBeEnabled();
-  await guestButton.click();
+/** Login with a display name via UI. Fills name input, clicks Login. */
+async function loginWithName(page: Page, name: string): Promise<void> {
   const nameInput = page.locator('#displayName');
   await expect(nameInput).toBeVisible();
-  await nameInput.fill(displayName);
-  const joinButton = page.getByRole('button', { name: 'Join as Guest' });
-  await expect(joinButton).toBeEnabled();
-  await joinButton.click();
+  await nameInput.fill(name);
+  const loginButton = page.getByRole('button', { name: 'Login' });
+  await expect(loginButton).toBeEnabled();
+  await loginButton.click();
   // Wait for RoomSelectionView
   const createRoomButton = page.getByRole('button', { name: 'Create Room' });
   await expect(createRoomButton).toBeVisible({ timeout: 10000 });
@@ -96,49 +82,34 @@ async function joinRoomViaUI(page: Page, roomCode: string): Promise<void> {
 }
 
 /**
- * Add songs via UI (search + select 2 + add pair + back to lobby).
- * Coverage req (l): Song adding by spotify user.
+ * Add songs via UI (manual title+artist entry for 2 songs + click Add Song Pair + back to lobby).
+ * Coverage req (l): Song adding by user.
  */
 async function addSongs(page: Page): Promise<void> {
   const pickSongsButton = page.getByRole('button', { name: 'Pick Songs' });
   await expect(pickSongsButton).toBeVisible();
   await pickSongsButton.click();
 
-  // Wait for SongPickerView search input
-  const searchInput = page.locator('input[type="search"]');
-  await expect(searchInput).toBeVisible({ timeout: 10000 });
-  await searchInput.fill('chic');
+  // Wait for SongPickerView title/artist inputs
+  const song1Title = page.locator('#song1-title');
+  await expect(song1Title).toBeVisible({ timeout: 10000 });
 
-  // Wait for search results
-  const trackResults = page.locator('[data-testid="track-result"]');
-  await expect(trackResults.first()).toBeVisible({ timeout: 10000 });
+  // Fill Song 1
+  await song1Title.fill("Stayin' Alive");
+  await page.locator('#song1-artist').fill('Bee Gees');
 
-  // Select first track
-  await trackResults.nth(0).click();
-  await expect(page.locator('text=Selected Songs (1/2)')).toBeVisible({ timeout: 5000 });
-
-  // Select second track
-  await trackResults.nth(1).click();
-  await expect(page.locator('text=Selected Songs (2/2)')).toBeVisible({ timeout: 5000 });
+  // Fill Song 2
+  await page.locator('#song2-title').fill('September');
+  await page.locator('#song2-artist').fill('Earth, Wind & Fire');
 
   // Add song pair
   const addButton = page.getByRole('button', { name: 'Add Song Pair' });
   await expect(addButton).toBeEnabled();
   await addButton.click();
 
-  // Wait for success
-  const successMessage = page.locator('.bg-green-900\\/30');
-  await expect(successMessage).toBeVisible({ timeout: 5000 });
-  await expect(successMessage).toContainText('Added');
-
-  // Back to lobby
-  const backButton = page.getByRole('button', { name: 'Back to Lobby' });
-  await expect(backButton).toBeVisible();
-  await backButton.click();
-
-  // Wait for lobby
+  // Wait for navigation back to lobby (goBack is called on success)
   const roomCodeDisplay = page.locator('.text-4xl.font-bold');
-  await expect(roomCodeDisplay).toBeVisible({ timeout: 5000 });
+  await expect(roomCodeDisplay).toBeVisible({ timeout: 10000 });
 }
 
 /** Click "I'm Ready!" button on SongAssignmentView. */
@@ -187,7 +158,7 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
     try {
       // ======================================================================
       // PHASE 1: Host creates room and adds songs
-      // Coverage req (l): Song adding by spotify user
+      // Coverage req (l): Song adding by user
       // ======================================================================
       console.log('\n=== PHASE 1: Host creates room ===');
 
@@ -198,7 +169,7 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       let wsConnectionCount = 0;
       const wsListener = () => { wsConnectionCount++; };
       hostPage.on('websocket', wsListener);
-      await loginWithSpotify(hostPage);
+      await loginWithName(hostPage, 'DJ Host');
       await expect(hostPage.getByRole('button', { name: 'Create Room' })).toBeVisible();
       // Brief wait to catch any delayed WS connections
       await hostPage.waitForTimeout(1000);
@@ -222,7 +193,7 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       console.log('\n=== PHASE 2: Player joins room ===');
 
       await loadLandingPage(playerPage);
-      await loginWithSpotify(playerPage);
+      await loginWithName(playerPage, 'Funky Player');
       await joinRoomViaUI(playerPage, roomCode);
       console.log('✅ Player joined room via UI');
 
@@ -239,9 +210,9 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       console.log('\n=== PHASE 2b: Guest joins room ===');
 
       await loadLandingPage(guestPage);
-      // Coverage req (m): Guest login flow
-      await loginAsGuest(guestPage, 'Guest Player');
-      console.log('✅ Coverage (m): Guest logged in via guest flow');
+      // Coverage req (m): Guest login flow (same as all login flows now)
+      await loginWithName(guestPage, 'Guest Player');
+      console.log('✅ Coverage (m): Guest logged in via login flow');
 
       await joinRoomViaUI(guestPage, roomCode);
       console.log('✅ Guest joined room via UI');
@@ -251,13 +222,6 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       const playerPlayerList = playerPage.locator('ul.space-y-3 li');
       await expect(playerPlayerList).toHaveCount(3, { timeout: 10000 });
       console.log('✅ All players see 3 players in lobby without reload');
-
-      // Verify guest does NOT see Pick Songs button
-      await expect(guestPage.getByRole('button', { name: 'Pick Songs' })).not.toBeVisible();
-      console.log('✅ Guest does NOT see Pick Songs button (non-Spotify user)');
-
-      // Verify guest does NOT see Start Game button
-      await expect(guestPage.getByRole('button', { name: 'Start Game' })).not.toBeVisible();
 
       // ======================================================================
       // PHASE 4: Host starts game, all auto-navigate to song assignment
@@ -306,7 +270,7 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       console.log(`✅ Coverage (e): Guest assigned song: ${guestSong}`);
 
       // ======================================================================
-      // PHASE 5: All click ready → host clicks Start Round → countdown → playing
+      // PHASE 5: All click ready → host clicks Start Round → playing
       // Coverage req (f): song_selection -> playing transition
       // ======================================================================
       console.log('\n=== PHASE 5: All players ready + host starts round ===');
@@ -321,20 +285,7 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       await startRoundButton.click();
       console.log('✅ Host clicked Start Round');
 
-      // All players should see the countdown overlay ("Get Ready!")
-      const hostCountdown = hostPage.locator('h1:has-text("Get Ready!")');
-      await expect(hostCountdown).toBeVisible({ timeout: 10000 });
-      console.log('✅ Host sees countdown');
-
-      const playerCountdown = playerPage.locator('h1:has-text("Get Ready!")');
-      await expect(playerCountdown).toBeVisible({ timeout: 10000 });
-      console.log('✅ Player sees countdown');
-
-      const guestCountdown = guestPage.locator('h1:has-text("Get Ready!")');
-      await expect(guestCountdown).toBeVisible({ timeout: 10000 });
-      console.log('✅ Guest sees countdown');
-
-      // After countdown, all should transition to GameView ("Round In Progress")
+      // All players should see GameView ("Round In Progress")
       const hostRoundHeader = hostPage.locator('h1:has-text("Round In Progress")');
       await expect(hostRoundHeader).toBeVisible({ timeout: 15000 });
       console.log('✅ Host sees Round In Progress');
@@ -347,11 +298,8 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       await expect(guestRoundHeader).toBeVisible({ timeout: 15000 });
       console.log('✅ Guest sees Round In Progress');
 
-      // Verify timer display
-      const hostTimer = hostPage.locator('p.text-6xl.font-bold');
-      await expect(hostTimer).toBeVisible();
-      const hostTimerText = await hostTimer.textContent();
-      expect(hostTimerText).toMatch(/\d{2}:\d{2}/);
+      // Host should see End Listening button
+      await expect(hostPage.getByRole('button', { name: 'End Listening' })).toBeVisible();
       console.log(`✅ Coverage (f): song_selection -> playing transition complete for all`);
 
       // ======================================================================
@@ -502,16 +450,16 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       console.log('\n=== SETUP: Room with 3 players ===');
 
       await loadLandingPage(hostPage);
-      await loginWithSpotify(hostPage);
+      await loginWithName(hostPage, 'DJ Host');
       const roomCode = await createRoom(hostPage);
       console.log(`✅ Host created room: ${roomCode}`);
 
       await loadLandingPage(playerPage);
-      await loginWithSpotify(playerPage);
+      await loginWithName(playerPage, 'Funky Player');
       await joinRoomViaUI(playerPage, roomCode);
 
       await loadLandingPage(guestPage);
-      await loginAsGuest(guestPage, 'Guest Player');
+      await loginWithName(guestPage, 'Guest Player');
       await joinRoomViaUI(guestPage, roomCode);
 
       // Wait for all to see 3 players
@@ -591,15 +539,15 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       console.log('\n=== SETUP: Room with 3 players ===');
 
       await loadLandingPage(hostPage);
-      await loginWithSpotify(hostPage);
+      await loginWithName(hostPage, 'DJ Host');
       const roomCode = await createRoom(hostPage);
 
       await loadLandingPage(playerPage);
-      await loginWithSpotify(playerPage);
+      await loginWithName(playerPage, 'Funky Player');
       await joinRoomViaUI(playerPage, roomCode);
 
       await loadLandingPage(guestPage);
-      await loginAsGuest(guestPage, 'Guest Player');
+      await loginWithName(guestPage, 'Guest Player');
       await joinRoomViaUI(guestPage, roomCode);
 
       // All see 3 players
@@ -657,65 +605,6 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       await hostContext.close();
       await playerContext.close();
       await guestContext.close();
-    }
-  });
-
-  test('test playback page renders and navigates back', async ({
-    browser,
-    serverContext,
-  }: {
-    browser: Browser;
-    serverContext: { backendProcess: unknown; frontendProcess: unknown };
-  }) => {
-    void serverContext;
-
-    const context: BrowserContext = await browser.newContext();
-    const page: Page = await context.newPage();
-
-    try {
-      // Login with Spotify (test mode)
-      await loadLandingPage(page);
-      await loginWithSpotify(page);
-
-      // Click "Test Playback" button (visible only for Spotify users)
-      const testPlaybackButton = page.getByRole('button', { name: 'Test Playback' });
-      await expect(testPlaybackButton).toBeVisible({ timeout: 5000 });
-      await testPlaybackButton.click();
-
-      // Assert TestPlaybackView renders
-      const header = page.locator('h1:has-text("Playback Test")');
-      await expect(header).toBeVisible({ timeout: 10000 });
-      const searchInput = page.locator('input[type="search"]');
-      await expect(searchInput).toBeVisible();
-      console.log('✅ TestPlaybackView rendered with header and search input');
-
-      // Take screenshot and save as baseline
-      const TEST_NAME = 'user-flow-combined';
-      const screenshotFilename = 'test-playback-01-page.png';
-      const artifactPath = getArtifactsPath(TEST_NAME, screenshotFilename);
-      await page.screenshot({ path: artifactPath, fullPage: true });
-
-      // Copy to baselines directory
-      const baselinePath = getBaselinePath(TEST_NAME, screenshotFilename);
-      const baselineDir = baselinePath.substring(0, baselinePath.lastIndexOf('/'));
-      if (!fs.existsSync(baselineDir)) {
-        fs.mkdirSync(baselineDir, { recursive: true });
-      }
-      fs.copyFileSync(artifactPath, baselinePath);
-      console.log(`✅ Screenshot saved: ${screenshotFilename}`);
-
-      // Click "Back to Room Selection"
-      const backButton = page.getByRole('button', { name: 'Back to Room Selection' });
-      await expect(backButton).toBeVisible();
-      await backButton.click();
-
-      // Assert return to RoomSelectionView
-      const createRoomButton = page.getByRole('button', { name: 'Create Room' });
-      await expect(createRoomButton).toBeVisible({ timeout: 10000 });
-      console.log('✅ Returned to RoomSelectionView after clicking Back');
-
-    } finally {
-      await context.close();
     }
   });
 });

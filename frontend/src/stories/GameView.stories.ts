@@ -1,6 +1,7 @@
-// Story: GameView - Active game round with countdown timer and music player
+// Story: GameView - Active game round with host-controlled listening phase
 import type { Meta, StoryObj } from '@storybook/vue3';
-import { useMusicStore } from '../stores/music';
+import { useRoomStore } from '../stores/room';
+import { useAuthStore } from '../stores/auth';
 import GameView from '../views/GameView.vue';
 
 const meta: Meta<typeof GameView> = {
@@ -12,27 +13,20 @@ const meta: Meta<typeof GameView> = {
   },
   decorators: [
     (story) => {
-      const musicStore = useMusicStore();
-      musicStore.$patch({
-        currentTrackTitle: "Stayin' Alive",
-        devices: [{ id: 'dev-1', name: 'MacBook Pro', type: 'Computer', isActive: true, volumePercent: 80 }],
-        activeDeviceId: 'dev-1',
-        playbackState: {
-          isPlaying: true,
-          track: {
-            id: 'track-1',
-            name: "Stayin' Alive",
-            artist: 'Bee Gees',
-            album: 'Saturday Night Fever',
-            duration: 285000,
-            uri: 'spotify:track:abc123',
-          },
-          deviceId: 'dev-1',
-          progressMs: 45000,
-          durationMs: 285000,
-        },
-        selectedTrack: null,
-        error: null,
+      const roomStore = useRoomStore();
+      const authStore = useAuthStore();
+      authStore.$patch({
+        accessToken: 'test-token',
+        user: { id: 'host-1', displayName: 'DJ Host', email: '' },
+      });
+      roomStore.$patch({
+        code: '456',
+        status: 'playing',
+        assignedSong: { id: 'song-1', title: "Stayin' Alive", artist: 'Bee Gees' },
+        players: [
+          { id: 'host-1', name: 'DJ Host', isHost: true, isConnected: true },
+          { id: 'player-1', name: 'Funky Player', isHost: false, isConnected: true },
+        ],
       });
       return { components: { story }, template: '<story />' };
     },
@@ -42,32 +36,7 @@ const meta: Meta<typeof GameView> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Round in progress with music playing
+// Round in progress — host sees End Listening button
 export const RoundInProgress: Story = {
   name: 'Round In Progress',
-};
-
-// Round with no track playing
-export const NoTrackPlaying: Story = {
-  name: 'No Track Playing',
-  decorators: [
-    (story) => {
-      const musicStore = useMusicStore();
-      musicStore.$patch({
-        currentTrackTitle: null,
-        devices: [],
-        activeDeviceId: null,
-        playbackState: {
-          isPlaying: false,
-          track: null,
-          deviceId: null,
-          progressMs: 0,
-          durationMs: 0,
-        },
-        selectedTrack: null,
-        error: null,
-      });
-      return { components: { story }, template: '<story />' };
-    },
-  ],
 };

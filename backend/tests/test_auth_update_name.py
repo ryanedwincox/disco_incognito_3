@@ -21,16 +21,16 @@ from tests.conftest import MockStorage, auth_header
 
 @pytest.fixture
 def mock_storage():
-    """Create a fresh mock storage with pre-populated Spotify user sessions."""
+    """Create a fresh mock storage with pre-populated user sessions."""
     storage = MockStorage()
     storage.sessions = {
-        'spotify-token-1': {
-            'user_id': 'spotify-user-1',
+        'test-token-1': {
+            'user_id': 'test-user-1',
             'display_name': 'Funky Dancer',
             'email': 'funky@disco.test',
         },
-        'spotify-token-2': {
-            'user_id': 'spotify-user-2',
+        'test-token-2': {
+            'user_id': 'test-user-2',
             'display_name': 'Groovy Star',
             'email': 'groovy@disco.test',
         },
@@ -54,7 +54,7 @@ class TestUpdateNameEndpoint:
         response = client.post(
             '/api/auth/update-name',
             json={'custom_name': 'Cool Cat'},
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         assert response.status_code == 200
@@ -66,13 +66,13 @@ class TestUpdateNameEndpoint:
         client.post(
             '/api/auth/update-name',
             json={'custom_name': 'DJ Sparkle'},
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         # Verify returns custom_name
         response = client.get(
             '/api/auth/verify',
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         assert response.status_code == 200
@@ -86,14 +86,14 @@ class TestUpdateNameEndpoint:
         client.post(
             '/api/auth/update-name',
             json={'custom_name': 'Party Boss'},
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         # Create room
         response = client.post(
             '/api/rooms',
             json={'room_code': '123'},
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         assert response.status_code == 200
@@ -101,19 +101,19 @@ class TestUpdateNameEndpoint:
         assert data['players'][0]['display_name'] == 'Party Boss'
 
     def test_clear_custom_name_reverts_to_original(self, client):
-        """Sending null clears custom_name and reverts to original Spotify name."""
+        """Sending null clears custom_name and reverts to original name."""
         # Set custom name first
         client.post(
             '/api/auth/update-name',
             json={'custom_name': 'Temp Name'},
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         # Clear it
         response = client.post(
             '/api/auth/update-name',
             json={'custom_name': None},
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         assert response.status_code == 200
@@ -122,7 +122,7 @@ class TestUpdateNameEndpoint:
         # Verify also shows original name
         verify = client.get(
             '/api/auth/verify',
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
         assert verify.json()['display_name'] == 'Funky Dancer'
         assert verify.json()['custom_name'] == ''
@@ -132,7 +132,7 @@ class TestUpdateNameEndpoint:
         response = client.post(
             '/api/auth/update-name',
             json={'custom_name': '  Trimmed Name  '},
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         assert response.status_code == 200
@@ -144,14 +144,14 @@ class TestUpdateNameEndpoint:
         client.post(
             '/api/auth/update-name',
             json={'custom_name': 'Will Be Cleared'},
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         # Send whitespace-only
         response = client.post(
             '/api/auth/update-name',
             json={'custom_name': '   '},
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         assert response.status_code == 200
@@ -176,29 +176,29 @@ class TestRejoinUpdatesDisplayName:
         client.post(
             '/api/rooms',
             json={'room_code': '456'},
-            headers=auth_header('spotify-token-1'),
+            headers=auth_header('test-token-1'),
         )
 
         # User 2 joins
         client.post(
             '/api/rooms/456/join',
-            json={'player_id': 'spotify-user-2', 'display_name': 'Groovy Star'},
+            json={'player_id': 'test-user-2', 'display_name': 'Groovy Star'},
         )
 
         # User 2 sets a custom name (session-level)
         client.post(
             '/api/auth/update-name',
             json={'custom_name': 'New Groovy'},
-            headers=auth_header('spotify-token-2'),
+            headers=auth_header('test-token-2'),
         )
 
         # User 2 rejoins with the new name
         response = client.post(
             '/api/rooms/456/join',
-            json={'player_id': 'spotify-user-2', 'display_name': 'New Groovy'},
+            json={'player_id': 'test-user-2', 'display_name': 'New Groovy'},
         )
 
         assert response.status_code == 200
         players = response.json()['players']
-        user2 = next(p for p in players if p['id'] == 'spotify-user-2')
+        user2 = next(p for p in players if p['id'] == 'test-user-2')
         assert user2['display_name'] == 'New Groovy'

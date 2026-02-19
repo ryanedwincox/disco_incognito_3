@@ -31,7 +31,7 @@ const PrimaryButtonDisplay = defineComponent({
               class: 'w-64 bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold px-8 py-3 rounded-full transition-colors shadow-lg',
               type: 'button',
             },
-            'Login with Spotify'
+            'Login'
           ),
         ]),
       ]);
@@ -56,7 +56,7 @@ const SecondaryButtonDisplay = defineComponent({
               class: 'w-64 bg-zinc-700 hover:bg-zinc-600 text-white font-semibold px-8 py-3 rounded-full transition-colors border border-zinc-500',
               type: 'button',
             },
-            'Continue as Guest'
+            'Back to Lobby'
           ),
           h(
             'button',
@@ -117,7 +117,7 @@ const CombinedSchemeDisplay = defineComponent({
                 class: 'w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold px-8 py-3 rounded-full transition-colors shadow-lg',
                 type: 'button',
               },
-              'Login with Spotify'
+              'Login'
             ),
             h(
               'button',
@@ -140,7 +140,7 @@ const CombinedSchemeDisplay = defineComponent({
                 class: 'w-full bg-zinc-700 hover:bg-zinc-600 text-white font-semibold px-8 py-3 rounded-full transition-colors border border-zinc-500',
                 type: 'button',
               },
-              'Continue as Guest'
+              'Back to Lobby'
             ),
             h(
               'button',
