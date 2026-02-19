@@ -5,7 +5,6 @@
  */
 
 import { useGameStore } from "../stores/game";
-import { useMusicStore } from "../stores/music";
 import { useRoomStore } from "../stores/room";
 import { useWebSocketStore } from "../stores/websocket";
 import { API_URL } from "../config/api";
@@ -19,8 +18,6 @@ export interface WebSocketMessage {
   reason?: string;
   phase?: string;
   room_code?: string;
-  playback_start_time?: string;
-  // room_state fields
   players?: Array<{
     id: string;
     display_name: string;
@@ -31,18 +28,10 @@ export interface WebSocketMessage {
   song_pair_count?: number;
   assigned_song?: { id: string; title: string; artist: string };
   ready_players?: string[];
-  // player_joined fields
-  // player_left fields
   new_host_id?: string | null;
 }
 
 const RECONNECT_TOKEN_KEY = "disco_reconnect_token";
-
-/**
- * Minimum ms remaining before playback to show the countdown overlay.
- * Below this threshold the countdown would flash too briefly to be useful.
- */
-const COUNTDOWN_THRESHOLD_MS = 500;
 
 export class WebSocketService {
   private socket: WebSocket | null = null;
@@ -291,11 +280,10 @@ export class WebSocketService {
   private handleRoomState(message: WebSocketMessage): void {
     console.log("Received room_state:", message);
     const roomStore = useRoomStore();
-    const gameStore = useGameStore();
 
     // Populate all data BEFORE setting status. The status change triggers
     // AppOrchestrator's currentView computation — all dependent data must
-    // already be in place to prevent the countdown gate from being missed.
+    // already be in place.
 
     if (message.players && Array.isArray(message.players)) {
       roomStore.setPlayers(
@@ -318,13 +306,6 @@ export class WebSocketService {
         title: message.assigned_song.title,
         artist: message.assigned_song.artist,
       });
-    }
-
-    if (typeof message.playback_start_time === "string") {
-      gameStore.setPlaybackStartTime(message.playback_start_time);
-      if (message.phase === "playing") {
-        this.signalCountdownIfNeeded(message.playback_start_time);
-      }
     }
 
     if (Array.isArray(message.ready_players)) {
@@ -456,11 +437,9 @@ export class WebSocketService {
    * Handle phase_changed event - updates stores only.
    * Navigation is handled by AppOrchestrator based on store state.
    */
-  private async handlePhaseChanged(message: WebSocketMessage): Promise<void> {
-    const { phase, room_code, playback_start_time, assigned_song } = message;
-    console.log(`Phase changed to: ${phase} in room ${room_code}`, {
-      playback_start_time,
-    });
+  private handlePhaseChanged(message: WebSocketMessage): void {
+    const { phase, room_code, assigned_song } = message;
+    console.log(`Phase changed to: ${phase} in room ${room_code}`);
 
     if (!phase || !room_code) {
       console.warn("phase_changed event missing phase or room_code");
@@ -469,7 +448,6 @@ export class WebSocketService {
 
     const roomStore = useRoomStore();
     const gameStore = useGameStore();
-    const musicStore = useMusicStore();
 
     // Set assigned_song if present in phase_changed (per-player delivery)
     if (assigned_song) {
@@ -481,24 +459,14 @@ export class WebSocketService {
     }
 
     // Populate phase-specific data BEFORE setting status. The status change
-    // triggers AppOrchestrator's currentView computation — all dependent data
-    // (countdown, playbackStartTime, etc.) must already be in place.
+    // triggers AppOrchestrator's currentView computation.
     switch (phase) {
       case "playing":
-        if (playback_start_time) {
-          gameStore.setPlaybackStartTime(playback_start_time);
-          this.signalCountdownIfNeeded(playback_start_time);
-          console.log(`[phase_changed→playing] countdownSecondsLeft=${gameStore.countdownSecondsLeft}, playbackStartTime=${playback_start_time}`);
-        } else {
-          console.warn("[phase_changed→playing] missing playback_start_time — countdown won't trigger");
-        }
         gameStore.setPlaying(true);
         break;
 
       case "lobby":
         gameStore.setPlaying(false);
-        gameStore.setPlaybackStartTime(null);
-        gameStore.setCountdownSecondsLeft(null);
         roomStore.setReadyPlayers([]);
         break;
 
@@ -507,11 +475,6 @@ export class WebSocketService {
 
       case "guessing":
         gameStore.setPlaying(false);
-        try {
-          await musicStore.pausePlayback();
-        } catch (error) {
-          console.error("Failed to pause playback on phase change to guessing:", error);
-        }
         break;
 
       case "results":
@@ -540,19 +503,6 @@ export class WebSocketService {
       const roomStore = useRoomStore();
       roomStore.setSongPairCount(message.song_pair_count);
       console.log(`Song pair count updated: ${message.song_pair_count}`);
-    }
-  }
-
-  /**
-   * Signal the pre-playback countdown if playback_start_time is far enough in the future.
-   * Shared between handleRoomState (reconnect) and handlePhaseChanged (live transition).
-   */
-  private signalCountdownIfNeeded(playbackStartTime: string): void {
-    const gameStore = useGameStore();
-    const msUntilPlayback =
-      new Date(playbackStartTime).getTime() - Date.now();
-    if (msUntilPlayback > COUNTDOWN_THRESHOLD_MS) {
-      gameStore.setCountdownSecondsLeft(Math.ceil(msUntilPlayback / 1000));
     }
   }
 

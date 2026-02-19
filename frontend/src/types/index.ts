@@ -1,3 +1,5 @@
+/** Shared TypeScript type definitions for the Disco Incognito frontend. */
+
 export interface PlayerSummary {
   id: string;
   displayName: string;
@@ -13,3 +15,12 @@ export interface SongPairSummary {
 }
 
 export type RoomStatus = "lobby" | "song_selection" | "playing" | "guessing" | "reveal";
+
+export interface TrackInfo {
+  id: string;
+  name: string;
+  artist: string;
+  album: string;
+  durationMs: number;
+  albumArt?: string;
+}
