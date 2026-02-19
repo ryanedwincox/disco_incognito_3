@@ -3,14 +3,12 @@
   <div class="min-h-screen bg-zinc-950 text-white flex flex-col">
     <header class="px-6 pt-12 pb-6 text-center space-y-2">
       <h1 class="text-2xl font-semibold uppercase tracking-widest">Round In Progress</h1>
-      <p class="text-4xl" aria-hidden="true">🎵</p>
     </header>
 
-    <main class="flex-1 flex items-center justify-center px-6">
+    <main class="flex-1 flex justify-center px-6">
       <div class="w-full max-w-md space-y-6">
         <!-- Assigned Song Info -->
         <div v-if="assignedSong" class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 text-center space-y-2">
-          <p class="text-sm uppercase text-zinc-400">Now Playing</p>
           <h3 class="text-2xl font-bold">{{ assignedSong.title }}</h3>
           <p class="text-lg text-zinc-400">{{ assignedSong.artist }}</p>
         </div>
