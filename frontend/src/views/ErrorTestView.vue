@@ -112,14 +112,14 @@ const serverDisconnected = ref(false)
 function showError() {
   notificationStore.error(
     'Connection Failed',
-    'Unable to connect to the Spotify API. Please check your credentials.'
+    'Unable to connect to the server. Please check your connection and try again.'
   )
 }
 
 function showWarning() {
   notificationStore.warning(
-    'Premium Required',
-    'Spotify Premium account required for playback. Some features may be limited.',
+    'Session Expiring',
+    'Your session is about to expire. Some features may be limited.',
     true // persistent
   )
 }

@@ -9,38 +9,41 @@
         class="w-full bg-disco-pink hover:bg-disco-pink-light text-black font-semibold px-8 py-3 rounded-full transition-colors shadow-lg"
         type="button"
       >
-        Log in with Spotify
-      </button>
-      <button
-        class="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-medium px-8 py-3 rounded-full transition-colors"
-        type="button"
-      >
-        Test Playback
+        Login
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+/** Demo view that displays error notifications on mount for screenshot capture. */
+import { onMounted, onUnmounted } from 'vue'
 import { useNotificationStore } from '@/stores/notifications'
 
 const notificationStore = useNotificationStore()
+
+let warningTimerId: ReturnType<typeof setTimeout> | undefined
 
 onMounted(() => {
   // Show error notification for screenshot
   notificationStore.error(
     'Connection Failed',
-    'Unable to connect to the Spotify API. Please check your credentials and try again.'
+    'Unable to connect to the server. Please check your connection and try again.'
   )
 
   // Also show a warning
-  setTimeout(() => {
+  warningTimerId = setTimeout(() => {
     notificationStore.warning(
-      'Premium Required',
-      'Spotify Premium account required for playback. Some features may be limited.',
+      'Session Expiring',
+      'Your session is about to expire. Some features may be limited.',
       true // persistent
     )
   }, 100)
+})
+
+onUnmounted(() => {
+  if (warningTimerId !== undefined) {
+    clearTimeout(warningTimerId)
+  }
 })
 </script>

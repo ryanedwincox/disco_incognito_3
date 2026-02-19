@@ -6,7 +6,6 @@
     - lobby → RoomLobbyView
     - picking_songs → SongPickerView
     - song_selection → SongAssignmentView
-    - playing (countdown active) → CountdownView
     - playing → GameView
     - guessing → GuessingView
     - results → ResultsView
@@ -15,13 +14,12 @@
   <div ref="viewContainer">
     <component v-if="isInitialized" :is="currentView" />
   </div>
-  <MusicPlayerBar v-if="isInitialized && showPlayerBar" />
 </template>
 
 <script setup lang="ts">
+/** AppOrchestrator: State-driven view selection based on Pinia store state. Routes to views by auth/room phase. */
 import { computed, nextTick, ref, watch, type Component } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { useGameStore } from '../stores/game'
 import { useRoomStore } from '../stores/room'
 import { websocketService } from '../services/websocket'
 import LoginView from '../views/LoginView.vue'
@@ -29,14 +27,11 @@ import RoomSelectionView from '../views/RoomSelectionView.vue'
 import RoomLobbyView from '../views/RoomLobbyView.vue'
 import SongPickerView from '../views/SongPickerView.vue'
 import SongAssignmentWrapper from '../views/SongAssignmentWrapper.vue'
-import MusicPlayerBar from './MusicPlayerBar.vue'
-import CountdownView from '../views/CountdownView.vue'
 import GameView from '../views/GameView.vue'
 import GuessingView from '../views/GuessingView.vue'
 import ResultsView from '../views/ResultsView.vue'
 
 const authStore = useAuthStore()
-const gameStore = useGameStore()
 const roomStore = useRoomStore()
 
 // Track initialization state - render nothing until auth validation completes
@@ -44,24 +39,6 @@ const isInitialized = ref(false)
 
 // Load and validate auth state from localStorage on app init
 ;(async () => {
-  // Process OAuth callback params before loadFromStorage so tokens are
-  // available for validation. Uses window.location.search directly to
-  // avoid depending on Vue Router's initial navigation timing.
-  const urlParams = new URLSearchParams(window.location.search)
-  if (urlParams.get('auth_success') === 'true' && urlParams.get('access_token')) {
-    authStore.setTokens(
-      urlParams.get('access_token')!,
-      urlParams.get('refresh_token') || ''
-    )
-    authStore.setUser({
-      id: urlParams.get('user_id') || '',
-      displayName: urlParams.get('display_name') || '',
-      email: ''
-    })
-    // Clean up URL so tokens aren't visible in the address bar
-    window.history.replaceState({}, '', '/')
-  }
-
   await authStore.loadFromStorage()
   isInitialized.value = true
 
@@ -97,11 +74,6 @@ const appPhase = computed<AppPhase>(() => {
   return roomStore.status as AppPhase
 })
 
-// Show MusicPlayerBar during active gameplay phases
-const showPlayerBar = computed(() =>
-  ['playing', 'guessing', 'results'].includes(appPhase.value)
-)
-
 // Computed view based on phase
 const currentView = computed<Component>(() => {
   if (appPhase.value === 'unauthenticated') {
@@ -109,9 +81,6 @@ const currentView = computed<Component>(() => {
   }
   if (appPhase.value === 'authenticated_no_room') {
     return RoomSelectionView
-  }
-  if (appPhase.value === 'playing' && gameStore.countdownSecondsLeft != null) {
-    return CountdownView
   }
   return phaseToViewMap[appPhase.value] || RoomLobbyView
 })

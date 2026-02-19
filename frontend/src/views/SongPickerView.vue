@@ -1,4 +1,4 @@
-<!-- Song selection interface for adding tracks to the game pool. Provides Spotify search with popover results and song preview playback via the Spotify play_track API. Handles song pair saving. -->
+<!-- SongPickerView: Manual song entry for adding a pair of songs to the game pool. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
     <header class="text-center mb-8">
@@ -6,321 +6,106 @@
     </header>
 
     <div class="max-w-lg mx-auto space-y-6">
-      <!-- Spectator mode message for non-Spotify users -->
-      <div v-if="!isSpotifyUser" class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 text-center space-y-4">
-        <div class="text-5xl mb-2" aria-hidden="true">🎵</div>
-        <h3 class="text-xl font-semibold">Spotify Login Required</h3>
-        <p class="text-zinc-400 text-sm max-w-md mx-auto">
-          You're logged in as a guest. To add songs to the game, you'll need to log in with Spotify.
-        </p>
+      <!-- Song 1 -->
+      <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5 space-y-3">
+        <h3 class="text-lg font-semibold">Song 1</h3>
+        <div>
+          <label for="song1-title" class="block text-sm text-zinc-400 mb-1">Title</label>
+          <input
+            id="song1-title"
+            v-model="song1Title"
+            type="text"
+            placeholder="Song title"
+            class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
+          />
+        </div>
+        <div>
+          <label for="song1-artist" class="block text-sm text-zinc-400 mb-1">Artist</label>
+          <input
+            id="song1-artist"
+            v-model="song1Artist"
+            type="text"
+            placeholder="Artist name"
+            class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
+          />
+        </div>
+      </div>
+
+      <!-- Song 2 -->
+      <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5 space-y-3">
+        <h3 class="text-lg font-semibold">Song 2</h3>
+        <div>
+          <label for="song2-title" class="block text-sm text-zinc-400 mb-1">Title</label>
+          <input
+            id="song2-title"
+            v-model="song2Title"
+            type="text"
+            placeholder="Song title"
+            class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
+          />
+        </div>
+        <div>
+          <label for="song2-artist" class="block text-sm text-zinc-400 mb-1">Artist</label>
+          <input
+            id="song2-artist"
+            v-model="song2Artist"
+            type="text"
+            placeholder="Artist name"
+            class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
+          />
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="space-y-3">
         <button
-          class="w-full max-w-xs mx-auto bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
+          class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
+          :disabled="!allFieldsFilled || isSaving"
+          @click="addSongPair"
+        >
+          {{ isSaving ? 'Adding...' : 'Add Song Pair' }}
+        </button>
+        <button
+          class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
           type="button"
           @click="goBack"
         >
           Back to Lobby
         </button>
       </div>
-
-      <!-- Song picker for Spotify users -->
-      <template v-else>
-        <!-- Search container with popover -->
-        <div class="relative" ref="searchContainerRef">
-          <input
-            v-model="searchQuery"
-            class="w-full rounded-full bg-zinc-900 px-6 py-4 text-lg"
-            placeholder="Search for songs..."
-            aria-label="Search for songs"
-            type="search"
-            @input="handleSearchInput"
-            @focus="isSearchOpen = true"
-          />
-
-          <!-- Popover search results -->
-          <div
-            v-if="showSearchResults"
-            class="absolute top-full left-0 right-0 mt-2 z-50 bg-zinc-900 rounded-3xl border border-zinc-500 p-5 shadow-2xl"
-          >
-            <h3 class="text-lg font-semibold mb-3">Search Results</h3>
-            <div v-if="isSearching" class="text-zinc-500 text-center py-4">
-              Searching...
-            </div>
-            <div v-else-if="searchResults.length > 0" class="space-y-2 max-h-80 overflow-y-auto -mx-1 px-1">
-              <div
-                v-for="track in searchResults"
-                :key="track.id"
-                data-testid="track-result"
-                role="button"
-                tabindex="0"
-                class="w-full text-left bg-zinc-800 hover:bg-zinc-700 rounded-xl p-3 transition-colors cursor-pointer"
-                :class="{ 'ring-2 ring-disco-pink': isSelected(track) }"
-                @click="selectTrack(track)"
-                @keydown.enter="selectTrack(track)"
-                @keydown.space.prevent="selectTrack(track)"
-              >
-                <div class="flex items-center gap-3">
-                  <img
-                    :src="track.albumArt"
-                    :alt="track.album"
-                    class="w-12 h-12 rounded-lg object-cover"
-                  />
-                  <div class="flex-1 min-w-0">
-                    <p class="font-medium truncate">{{ track.name }}</p>
-                    <p class="text-sm text-zinc-400 truncate">{{ track.artist }}</p>
-                  </div>
-                  <!-- Preview play/pause button -->
-                  <button
-                    type="button"
-                    class="w-8 h-8 flex-shrink-0 rounded-full bg-zinc-600 hover:bg-zinc-500 flex items-center justify-center transition-colors"
-                    :aria-label="currentPreviewTrackId === track.id && isPreviewPlaying ? `Pause preview of ${track.name}` : `Play preview of ${track.name}`"
-                    @click.stop="togglePreview(track)"
-                  >
-                    <!-- Pause icon -->
-                    <svg v-if="currentPreviewTrackId === track.id && isPreviewPlaying" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-                      <rect x="6" y="4" width="4" height="16" rx="1" />
-                      <rect x="14" y="4" width="4" height="16" rx="1" />
-                    </svg>
-                    <!-- Play icon -->
-                    <svg v-else aria-hidden="true" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </button>
-                  <div v-if="isSelected(track)" class="text-disco-pink font-bold text-lg" aria-hidden="true">
-                    ✓
-                  </div>
-                </div>
-              </div>
-            </div>
-            <p v-else class="text-zinc-500">
-              No results found
-            </p>
-          </div>
-        </div>
-
-        <!-- Selected Songs & Actions (outside the relative container) -->
-        <div class="space-y-4">
-          <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-5">
-            <h3 class="text-lg font-semibold mb-3">Selected Songs ({{ selectedTracks.length }}/2)</h3>
-            <div class="space-y-2">
-              <!-- Slot 1 -->
-              <div v-if="selectedTracks[0]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
-                <img
-                  :src="selectedTracks[0].albumArt"
-                  :alt="selectedTracks[0].album"
-                  class="w-10 h-10 rounded-lg object-cover"
-                />
-                <div class="flex-1 min-w-0">
-                  <p class="font-medium truncate">{{ selectedTracks[0].name }}</p>
-                  <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[0].artist }}</p>
-                </div>
-                <button
-                  type="button"
-                  class="text-zinc-400 hover:text-white p-1"
-                  :aria-label="`Remove ${selectedTracks[0].name}`"
-                  @click="clearSelection(0)"
-                >
-                  <span aria-hidden="true">✕</span>
-                </button>
-              </div>
-              <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
-                Select first song
-              </div>
-
-              <!-- Slot 2 -->
-              <div v-if="selectedTracks[1]" class="bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
-                <img
-                  :src="selectedTracks[1].albumArt"
-                  :alt="selectedTracks[1].album"
-                  class="w-10 h-10 rounded-lg object-cover"
-                />
-                <div class="flex-1 min-w-0">
-                  <p class="font-medium truncate">{{ selectedTracks[1].name }}</p>
-                  <p class="text-sm text-zinc-400 truncate">{{ selectedTracks[1].artist }}</p>
-                </div>
-                <button
-                  type="button"
-                  class="text-zinc-400 hover:text-white p-1"
-                  :aria-label="`Remove ${selectedTracks[1].name}`"
-                  @click="clearSelection(1)"
-                >
-                  <span aria-hidden="true">✕</span>
-                </button>
-              </div>
-              <div v-else class="bg-zinc-800/50 rounded-xl p-3 text-zinc-500 text-center">
-                Select second song
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-3">
-            <button
-              class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              type="button"
-              :disabled="selectedTracks.length !== 2 || isSaving"
-              @click="addSongPair"
-            >
-              {{ isSaving ? 'Adding...' : 'Add Song Pair' }}
-            </button>
-            <button
-              class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium py-3 rounded-full transition-colors"
-              type="button"
-              @click="goBack"
-            >
-              Back to Lobby
-            </button>
-          </div>
-        </div>
-
-      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+/** Manual song entry for adding a pair of songs to the game pool. Two title+artist fields submitted via POST to the room songs endpoint. */
+import { ref, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useRoomStore } from '../stores/room'
-import { useMusicStore } from '../stores/music'
-import type { TrackInfo } from '../stores/music'
 import { useNotificationStore } from '../stores/notifications'
 import { useRoomApi } from '../composables/useRoomApi'
 
 const authStore = useAuthStore()
 const roomStore = useRoomStore()
-const musicStore = useMusicStore()
 const notificationStore = useNotificationStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
 
-const isSpotifyUser = computed(() => authStore.isSpotifyUser)
-
-const selectedTracks = ref<TrackInfo[]>([])
+const song1Title = ref('')
+const song1Artist = ref('')
+const song2Title = ref('')
+const song2Artist = ref('')
 const isSaving = ref(false)
-const searchQuery = ref('')
-const searchResults = ref<TrackInfo[]>([])
-const isSearching = ref(false)
-const isSearchOpen = ref(true)
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
-// Search popover refs
-const searchContainerRef = ref<HTMLElement | null>(null)
-const showSearchResults = computed(() =>
-  isSearchOpen.value && searchQuery.value.trim().length > 0
+const allFieldsFilled = computed(() =>
+  song1Title.value.trim() !== '' &&
+  song1Artist.value.trim() !== '' &&
+  song2Title.value.trim() !== '' &&
+  song2Artist.value.trim() !== ''
 )
 
-// Audio preview state
-const currentPreviewTrackId = ref<string | null>(null)
-const isPreviewPlaying = ref(false)
-
-// Click-outside handler
-function handleClickOutside(event: MouseEvent) {
-  if (
-    searchContainerRef.value &&
-    !searchContainerRef.value.contains(event.target as Node)
-  ) {
-    isSearchOpen.value = false
-    stopPreview()
-  }
-}
-
-onMounted(async () => {
-  document.addEventListener('click', handleClickOutside)
-  await musicStore.getDevices()
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside)
-  stopPreview()
-})
-
-// Debounced search handler
-function handleSearchInput() {
-  isSearchOpen.value = true
-  if (searchTimeout) {
-    clearTimeout(searchTimeout)
-  }
-  searchTimeout = setTimeout(() => {
-    performSearch()
-  }, 300)
-}
-
-async function performSearch() {
-  const query = searchQuery.value.trim()
-  if (!query) {
-    searchResults.value = []
-    return
-  }
-
-  await stopPreview()
-  isSearching.value = true
-  try {
-    searchResults.value = await musicStore.searchTracks(query)
-  } catch (error) {
-    console.error('Search error:', error)
-    searchResults.value = []
-  } finally {
-    isSearching.value = false
-  }
-}
-
-// Audio preview controls
-async function togglePreview(track: TrackInfo) {
-  if (currentPreviewTrackId.value === track.id && isPreviewPlaying.value) {
-    // Pause current preview
-    await musicStore.pausePlayback(musicStore.activeDeviceId ?? undefined)
-    isPreviewPlaying.value = false
-    return
-  }
-
-  // Stop any existing preview
-  await stopPreview()
-
-  // Start new preview via Spotify API
-  currentPreviewTrackId.value = track.id
-  const success = await musicStore.playTrack(track.uri, musicStore.activeDeviceId ?? undefined)
-  if (success) {
-    isPreviewPlaying.value = true
-  } else {
-    currentPreviewTrackId.value = null
-    isPreviewPlaying.value = false
-  }
-}
-
-async function stopPreview() {
-  if (isPreviewPlaying.value) {
-    await musicStore.pausePlayback(musicStore.activeDeviceId ?? undefined)
-  }
-  currentPreviewTrackId.value = null
-  isPreviewPlaying.value = false
-}
-
-function isSelected(track: TrackInfo): boolean {
-  return selectedTracks.value.some(t => t.id === track.id)
-}
-
-function selectTrack(track: TrackInfo) {
-  const index = selectedTracks.value.findIndex(t => t.id === track.id)
-  if (index !== -1) {
-    // Clicking selected track deselects it
-    selectedTracks.value.splice(index, 1)
-  } else if (selectedTracks.value.length < 2) {
-    // Add track if under max (2)
-    selectedTracks.value.push(track)
-  }
-  // If already at max 2, clicking unselected track does nothing
-}
-
-function clearSelection(index?: number) {
-  if (index !== undefined) {
-    selectedTracks.value.splice(index, 1)
-  } else {
-    selectedTracks.value = []
-  }
-}
-
 async function addSongPair() {
-  if (selectedTracks.value.length !== 2) {
-    return
-  }
+  if (!allFieldsFilled.value) return
 
   const userId = authStore.user?.id
   if (!userId) {
@@ -331,23 +116,22 @@ async function addSongPair() {
   isSaving.value = true
   try {
     const roomCode = roomStore.code
+    const songs = [
+      { title: song1Title.value.trim(), artist: song1Artist.value.trim() },
+      { title: song2Title.value.trim(), artist: song2Artist.value.trim() },
+    ]
 
-    // Send two sequential POSTs for the song pair
-    for (const track of selectedTracks.value) {
+    for (const song of songs) {
       const response = await fetch(`${API_URL}/api/rooms/${roomCode}/songs`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           player_id: userId,
-          track_uri: track.uri,
-          title: track.name,
-          artist: track.artist,
+          title: song.title,
+          artist: song.artist,
         }),
       })
 
-      // Handle expired room (404)
       if (await handleRoomResponse(response)) {
         return
       }
@@ -358,12 +142,8 @@ async function addSongPair() {
       }
     }
 
-    console.log('Added song pair to room:', roomCode)
-    const songNames = selectedTracks.value.map(t => t.name).join('" and "')
-    selectedTracks.value = []
-    // Toast persists across navigation (Pinia store is global, NotificationToast mounted in App.vue)
-    notificationStore.success('Songs Added', `Added "${songNames}" to the room!`)
-    await goBack()
+    notificationStore.success('Songs Added', `Added "${songs[0].title}" and "${songs[1].title}" to the room!`)
+    goBack()
   } catch (error: unknown) {
     console.error('Failed to add song pair:', error)
     notificationStore.error('Error', 'Failed to add song pair')
@@ -372,9 +152,7 @@ async function addSongPair() {
   }
 }
 
-async function goBack() {
-  await stopPreview()
-  // Go back to lobby - AppOrchestrator will switch to RoomLobbyView
+function goBack() {
   roomStore.setStatus('lobby')
 }
 </script>

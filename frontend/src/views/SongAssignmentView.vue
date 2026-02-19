@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import type { TrackInfo } from '../stores/music'
+import type { TrackInfo } from '../types'
 
 interface RoomPlayer {
   id: string

@@ -1,10 +1,10 @@
-<!-- Room selection hub for creating or joining game rooms. Provides Create Room button to generate random 3-digit codes, and Join Room form for entering existing codes. Also includes navigation to playback test page. -->
+<!-- RoomSelectionView: Room selection hub for creating or joining game rooms. -->
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center bg-zinc-950 text-white px-6 py-10">
     <h1 class="text-3xl font-semibold uppercase tracking-wide mb-10">Choose Your Room</h1>
 
-    <!-- Custom name editor (Spotify users only) -->
-    <div v-if="authStore.isSpotifyUser" class="w-full max-w-md mb-8">
+    <!-- Display name editor -->
+    <div class="w-full max-w-md mb-8">
       <div v-if="!isEditingName" class="flex items-center justify-center gap-3">
         <span class="text-zinc-300 text-lg">{{ authStore.userName }}</span>
         <button
@@ -43,15 +43,6 @@
             Cancel
           </button>
         </div>
-        <button
-          v-if="authStore.user?.customName"
-          class="w-full text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
-          type="button"
-          :disabled="isSavingName"
-          @click="resetToSpotifyName"
-        >
-          Reset to Spotify name
-        </button>
       </div>
     </div>
 
@@ -82,27 +73,19 @@
         </button>
       </div>
       <button
-        v-if="authStore.isSpotifyUser"
-        class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 font-medium px-8 py-3 rounded-full transition-colors"
-        type="button"
-        @click="goToTest"
-      >
-        Test Playback
-      </button>
-      <button
         class="w-full text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
         type="button"
         @click="logout"
       >
-        {{ authStore.isSpotifyUser ? 'Log out of Spotify' : 'Log out' }}
+        Log out
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+/** Room selection hub for creating or joining game rooms. Includes display name editing. */
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
 import { useNotificationStore } from '@/stores/notifications'
@@ -110,7 +93,6 @@ import { API_URL } from '@/config/api'
 import { websocketService } from '@/services/websocket'
 import axios from 'axios'
 
-const router = useRouter()
 const authStore = useAuthStore()
 const roomStore = useRoomStore()
 const notificationStore = useNotificationStore()
@@ -144,18 +126,6 @@ async function saveName() {
     isEditingName.value = false
   } else {
     notificationStore.error('Update Failed', result.error || 'Failed to update name')
-  }
-}
-
-async function resetToSpotifyName() {
-  isSavingName.value = true
-  const result = await authStore.updateDisplayName(null)
-  isSavingName.value = false
-
-  if (result.success) {
-    isEditingName.value = false
-  } else {
-    notificationStore.error('Reset Failed', result.error || 'Failed to reset name')
   }
 }
 
@@ -237,10 +207,6 @@ async function joinRoom() {
       notificationStore.error('Join Room Failed', errorMessage)
     }
   }
-}
-
-function goToTest() {
-  router.push('/test')
 }
 
 function logout() {

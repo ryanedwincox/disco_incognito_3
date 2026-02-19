@@ -1,59 +1,58 @@
-<!-- Active game round view with countdown timer. Shows remaining time during the 90-second listening phase. Coordinates synchronized audio playback using playback_start_time from server. -->
+<!-- GameView: Active game round view with host-controlled listening phase. -->
 <template>
-  <div class="min-h-screen bg-zinc-950 text-white flex flex-col pb-28">
+  <div class="min-h-screen bg-zinc-950 text-white flex flex-col">
     <header class="px-6 pt-12 pb-6 text-center space-y-2">
       <h1 class="text-2xl font-semibold uppercase tracking-widest">Round In Progress</h1>
-      <p class="text-zinc-400 text-sm">Music plays for 90 seconds. Keep listening and watch other players.</p>
+      <p class="text-4xl" aria-hidden="true">🎵</p>
     </header>
 
-    <main class="flex-1 flex items-center justify-center">
-      <div class="text-center space-y-4">
-        <p class="text-sm uppercase text-zinc-400">
-          {{ waitingForSync ? 'Syncing...' : 'Time Remaining' }}
+    <main class="flex-1 flex items-center justify-center px-6">
+      <div class="w-full max-w-md space-y-6">
+        <!-- Assigned Song Info -->
+        <div v-if="assignedSong" class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 text-center space-y-2">
+          <p class="text-sm uppercase text-zinc-400">Now Playing</p>
+          <h3 class="text-2xl font-bold">{{ assignedSong.title }}</h3>
+          <p class="text-lg text-zinc-400">{{ assignedSong.artist }}</p>
+        </div>
+
+        <!-- Host controls -->
+        <div v-if="isHost" class="text-center space-y-4">
+          <button
+            class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors"
+            type="button"
+            @click="endListening"
+          >
+            End Listening
+          </button>
+        </div>
+
+        <!-- Non-host waiting message -->
+        <p v-else class="text-center text-zinc-400">
+          Waiting for host to end listening...
         </p>
-        <p class="text-6xl font-bold text-disco-pink" role="timer" aria-live="polite" aria-label="Time remaining">{{ formattedCountdown }}</p>
       </div>
     </main>
-
-    <div v-if="isHost" class="px-6 pb-6 flex justify-center">
-      <button
-        class="px-6 py-3 rounded-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold transition-colors"
-        type="button"
-        @click="endListening"
-      >
-        End Listening
-      </button>
-    </div>
-
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useGameStore } from '@/stores/game'
-import { useMusicStore } from '@/stores/music'
+/** Active game round view with host-controlled listening phase. Shows assigned song and provides host end-listening control. */
+import { computed } from 'vue'
 import { useRoomStore } from '@/stores/room'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomApi } from '@/composables/useRoomApi'
 
-const gameStore = useGameStore()
-const musicStore = useMusicStore()
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
-const { API_URL } = useRoomApi()
+const { handleRoomResponse, API_URL } = useRoomApi()
+
+const assignedSong = computed(() => roomStore.assignedSong)
 
 const isHost = computed(() => {
   const currentUserId = authStore.user?.id
   if (!currentUserId) return false
   const currentPlayer = roomStore.players.find(p => p.id === currentUserId)
   return currentPlayer?.isHost ?? false
-})
-
-const formattedCountdown = computed(() => {
-  const total = gameStore.countdown
-  const mins = Math.floor(total / 60)
-  const secs = total % 60
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
 })
 
 async function endListening() {
@@ -68,13 +67,11 @@ async function endListening() {
       body: JSON.stringify({ player_id: playerId }),
     })
 
+    if (await handleRoomResponse(response)) return
+
     if (response.ok) {
       const data = await response.json()
       roomStore.setStatus(data.status)
-      // Pause host's own Spotify immediately (non-host clients pause via WebSocket handler)
-      musicStore.pausePlayback().catch((err: unknown) => {
-        console.error('Failed to pause playback after ending listening:', err)
-      })
     } else {
       const error = await response.json()
       console.error('Failed to end listening:', error.detail)
@@ -83,117 +80,4 @@ async function endListening() {
     console.error('Error ending listening:', error)
   }
 }
-
-const waitingForSync = ref(false)
-let playbackTimer: number | null = null
-let countdownInterval: number | null = null
-
-function initializeTrackFromAssignment() {
-  const assigned = roomStore.assignedSong
-  if (!assigned) return
-  musicStore.setSelectedTrack({
-    id: assigned.id,
-    name: assigned.title,
-    artist: assigned.artist,
-    album: '',
-    duration: 0,
-    uri: assigned.id, // assigned.id IS "spotify:track:xyz"
-  })
-}
-
-function startCountdown() {
-  if (countdownInterval !== null) return
-  countdownInterval = window.setInterval(() => {
-    if (gameStore.countdown > 0) {
-      gameStore.setCountdown(gameStore.countdown - 1)
-    } else {
-      if (countdownInterval !== null) {
-        clearInterval(countdownInterval)
-        countdownInterval = null
-      }
-      if (isHost.value) {
-        endListening()
-      }
-    }
-  }, 1000)
-}
-
-/**
- * Schedule audio playback for the synchronized start time.
- * If the start time has already passed, starts immediately.
- */
-function schedulePlayback() {
-  const startTimeStr = gameStore.playbackStartTime
-  if (!startTimeStr) {
-    console.log('No playback_start_time set, skipping sync')
-    triggerPlayback()
-    return
-  }
-
-  const startTime = new Date(startTimeStr).getTime()
-  const now = Date.now()
-  const delayMs = startTime - now
-
-  console.log('Playback sync:', {
-    server_start_time: startTimeStr,
-    client_now: new Date().toISOString(),
-    delay_ms: delayMs
-  })
-
-  if (delayMs <= 0) {
-    console.log(`Start time passed ${-delayMs}ms ago, starting playback immediately`)
-    triggerPlayback()
-  } else {
-    waitingForSync.value = true
-    console.log(`Waiting ${delayMs}ms until synchronized playback start`)
-    playbackTimer = window.setTimeout(() => {
-      waitingForSync.value = false
-      triggerPlayback()
-    }, delayMs)
-  }
-}
-
-/**
- * Trigger audio playback using the assigned song URI directly.
- */
-function triggerPlayback() {
-  const actualStartTime = Date.now()
-  const expectedStartTime = gameStore.playbackStartTime
-    ? new Date(gameStore.playbackStartTime).getTime()
-    : actualStartTime
-  const driftMs = actualStartTime - expectedStartTime
-
-  console.log('Triggering playback:', {
-    actual_start: new Date(actualStartTime).toISOString(),
-    expected_start: gameStore.playbackStartTime,
-    drift_ms: driftMs
-  })
-
-  const assignedSong = roomStore.assignedSong
-  if (assignedSong) {
-    musicStore.playTrack(assignedSong.id, musicStore.activeDeviceId || undefined)
-    startCountdown()
-  } else {
-    console.log('No assigned song available for playback')
-  }
-}
-
-onMounted(async () => {
-  initializeTrackFromAssignment()
-  if (!musicStore.activeDeviceId) {
-    await musicStore.getDevices()
-  }
-  schedulePlayback()
-})
-
-onUnmounted(() => {
-  if (playbackTimer !== null) {
-    clearTimeout(playbackTimer)
-    playbackTimer = null
-  }
-  if (countdownInterval !== null) {
-    clearInterval(countdownInterval)
-    countdownInterval = null
-  }
-})
 </script>

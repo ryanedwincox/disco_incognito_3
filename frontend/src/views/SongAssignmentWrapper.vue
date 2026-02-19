@@ -1,9 +1,8 @@
-<!-- Wrapper for SongAssignmentView that fetches room state and determines player's song assignment. Extracts song from room.current_round.player_assignments and determines if player is incognito. Includes MusicPlayerBar at bottom for playback controls. -->
+<!-- SongAssignmentWrapper: Wrapper for SongAssignmentView that fetches room state and determines song assignment. -->
 <template>
   <div class="min-h-screen">
     <SongAssignmentView
       :song="playerSong"
-      :is-incognito="false"
       :show-ready-button="!isReady"
       :is-host="isHost"
       :players="roomStore.players"
@@ -11,26 +10,21 @@
       @ready="handleReady"
       @force-start="handleForceStart"
     />
-    <!-- Music Player Bar (Fixed Bottom) -->
-    <div class="fixed bottom-0 left-0 right-0">
-      <MusicPlayerBar />
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+/** Wrapper for SongAssignmentView that fetches room state and determines player's song assignment. */
 import { computed, onMounted, ref } from 'vue'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
-import { useMusicStore, type TrackInfo } from '../stores/music'
 import { useRoomApi } from '../composables/useRoomApi'
 import { useWebSocketStore } from '../stores/websocket'
+import type { TrackInfo } from '../types'
 import SongAssignmentView from './SongAssignmentView.vue'
-import MusicPlayerBar from '../components/MusicPlayerBar.vue'
 
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
-const musicStore = useMusicStore()
 const wsStore = useWebSocketStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
 
@@ -54,8 +48,7 @@ const playerSong = computed<TrackInfo | null>(() => {
     name: assigned.title,
     artist: assigned.artist,
     album: '',
-    duration: 0,
-    uri: ''
+    durationMs: 0,
   }
 })
 
@@ -63,12 +56,6 @@ const playerSong = computed<TrackInfo | null>(() => {
 onMounted(async () => {
   // Load auth state from sessionStorage (in case of page refresh)
   authStore.loadFromStorage()
-
-  // Fetch music player state (devices and playback) for MusicPlayerBar
-  if (authStore.isAuthenticated) {
-    await musicStore.getDevices()
-    await musicStore.getPlaybackState()
-  }
 
   // If assignedSong is not set (page refresh), fetch room data to get it
   if (!roomStore.assignedSong && currentUserId.value && roomCode.value) {
@@ -182,9 +169,6 @@ async function handleForceStart() {
     } else {
       console.log('[force-start] success — waiting for WebSocket phase_changed')
     }
-    // Don't set status here — the WebSocket phase_changed handler sets
-    // both status and countdownSecondsLeft atomically, which is required
-    // for AppOrchestrator to route to CountdownView before GameView.
   } catch (error) {
     console.error('[force-start] network error:', error)
   }
