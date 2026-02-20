@@ -1,4 +1,4 @@
-<!-- Song reveal view showing the player's assigned song before playback. Displays song title and artist. Props-driven for Storybook demonstration. -->
+<!-- SongAssignmentView: Song reveal view showing the player's assigned song before playback. Displays song title and artist. Props-driven for Storybook demonstration. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12" style="padding-bottom: 6rem;">
     <header class="text-center mb-8 space-y-2">
@@ -21,11 +21,12 @@
       <!-- Ready Button -->
       <button
         v-if="showReadyButton"
-        class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors"
+        class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         type="button"
+        :disabled="isReadying"
         @click="$emit('ready')"
       >
-        I'm Ready!
+        {{ isReadying ? 'Readying...' : "I'm Ready!" }}
       </button>
 
       <!-- Host: Player Ready Status Panel -->
@@ -53,11 +54,12 @@
       <!-- Host: Force Start Button -->
       <button
         v-if="isHost"
-        class="w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-3 rounded-full transition-colors"
+        class="w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         type="button"
+        :disabled="isForceStarting"
         @click="$emit('force-start')"
       >
-        Start Round
+        {{ isForceStarting ? 'Starting...' : 'Start Round' }}
       </button>
     </section>
   </div>
@@ -79,6 +81,8 @@ interface Props {
   isHost?: boolean
   players?: RoomPlayer[]
   readyPlayers?: string[]
+  isReadying?: boolean
+  isForceStarting?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
@@ -86,6 +90,8 @@ withDefaults(defineProps<Props>(), {
   isHost: false,
   players: () => [],
   readyPlayers: () => [],
+  isReadying: false,
+  isForceStarting: false,
 })
 
 defineEmits<{

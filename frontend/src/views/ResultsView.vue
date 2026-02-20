@@ -1,4 +1,4 @@
-<!-- Round reveal view showing the true Odd Duck and voting results. Displays who the Odd Duck was, how each player voted, and who guessed correctly. Provides Finish Round button for the host. -->
+<!-- ResultsView: Round reveal view showing the true Odd Duck and voting results. Displays who the Odd Duck was, how each player voted, and who guessed correctly. Provides Finish Round button for the host. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-28">
     <header class="text-center mb-10 space-y-2">
@@ -45,11 +45,12 @@
       <!-- Host-only Finish Round button -->
       <button
         v-if="isHost"
-        class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors"
+        class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         type="button"
+        :disabled="isFinishing"
         @click="finishRound"
       >
-        Finish Round
+        {{ isFinishing ? 'Finishing...' : 'Finish Round' }}
       </button>
     </section>
   </div>
@@ -98,6 +99,7 @@ const roomStore = useRoomStore();
 
 const loading = ref(true);
 const error = ref<string | null>(null);
+const isFinishing = ref(false);
 const players = ref<RoomPlayer[]>([]);
 const hostId = ref<string | null>(null);
 const incognitoPlayerId = ref<string | null>(null);
@@ -176,6 +178,7 @@ async function fetchResults() {
 }
 
 async function finishRound() {
+  isFinishing.value = true;
   try {
     const currentUserId = authStore.user?.id ?? playerStore.id;
 
@@ -203,6 +206,8 @@ async function finishRound() {
   } catch (err) {
     console.error('Failed to finish round:', err);
     error.value = 'Failed to finish round. Please try again.';
+  } finally {
+    isFinishing.value = false;
   }
 }
 

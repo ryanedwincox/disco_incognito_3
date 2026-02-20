@@ -1,4 +1,4 @@
-<!-- Server disconnection banner shown when WebSocket connection is lost. Displays at screen bottom with reconnection status and retry button. Watches WebSocket store status and shows appropriate messaging. -->
+<!-- ServerDisconnectedBanner: Server disconnection banner shown when WebSocket connection is lost. Displays at screen bottom with reconnection status and retry button. Watches WebSocket store status and shows appropriate messaging. -->
 <template>
   <Transition name="slide">
     <div
@@ -31,8 +31,9 @@
         <!-- Retry Button -->
         <button
           v-if="!reconnecting"
-          class="flex-shrink-0 bg-red-700 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-full text-sm transition-colors"
+          class="flex-shrink-0 bg-red-700 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-full text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
+          :disabled="reconnecting"
           @click="retry"
         >
           Retry

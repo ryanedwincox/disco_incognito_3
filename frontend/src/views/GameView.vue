@@ -16,11 +16,12 @@
         <!-- Host controls -->
         <div v-if="isHost" class="text-center space-y-4">
           <button
-            class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors"
+            class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             type="button"
+            :disabled="isEnding"
             @click="endListening"
           >
-            End Listening
+            {{ isEnding ? 'Ending...' : 'End Listening' }}
           </button>
         </div>
 
@@ -34,8 +35,7 @@
 </template>
 
 <script setup lang="ts">
-/** Active game round view with host-controlled listening phase. Shows assigned song and provides host end-listening control. */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoomStore } from '@/stores/room'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomApi } from '@/composables/useRoomApi'
@@ -53,11 +53,14 @@ const isHost = computed(() => {
   return currentPlayer?.isHost ?? false
 })
 
+const isEnding = ref(false)
+
 async function endListening() {
   const playerId = authStore.user?.id
   const roomCode = roomStore.code
   if (!playerId || !roomCode) return
 
+  isEnding.value = true
   try {
     const response = await fetch(`${API_URL}/api/rooms/${roomCode}/end-listening`, {
       method: 'POST',
@@ -76,6 +79,8 @@ async function endListening() {
     }
   } catch (error) {
     console.error('Error ending listening:', error)
+  } finally {
+    isEnding.value = false
   }
 }
 </script>

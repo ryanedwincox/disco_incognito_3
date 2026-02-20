@@ -1,4 +1,4 @@
-<!-- Room lobby showing players and song pairs before game starts. Displays room code, player list with host indicator, and song pair section. Provides navigation to song picker and option to leave room. -->
+<!-- RoomLobbyView: Room lobby showing players and song pairs before game starts. Displays room code, player list with host indicator, and song pair section. Provides navigation to song picker and option to leave room. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-10">
     <div class="max-w-lg mx-auto">
@@ -11,11 +11,12 @@
       </div>
       <div class="flex flex-col space-y-3">
         <button
-          class="w-full px-6 py-3 rounded-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 transition-colors"
+          class="w-full px-6 py-3 rounded-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
+          :disabled="isLeaving"
           @click="leaveRoom"
         >
-          Leave
+          {{ isLeaving ? 'Leaving...' : 'Leave' }}
         </button>
         <button
           class="w-full px-6 py-3 rounded-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold transition-colors"
@@ -26,7 +27,7 @@
         </button>
         <button
           v-if="isHost"
-          class="w-full px-6 py-3 rounded-full bg-green-600 text-white font-semibold hover:bg-green-500 transition-colors"
+          class="w-full px-6 py-3 rounded-full bg-green-600 text-white font-semibold hover:bg-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
           :disabled="isStarting"
           @click="startGame"
@@ -99,6 +100,7 @@ const isHost = computed(() => {
   return currentPlayer?.isHost ?? false
 })
 const isStarting = ref(false)
+const isLeaving = ref(false)
 
 onMounted(async () => {
   // Load auth state from sessionStorage (in case of page refresh)
@@ -189,27 +191,32 @@ async function leaveRoom() {
   console.log('Leaving room:', roomCode.value)
   const userId = authStore.user?.id
 
-  // Disconnect WS before HTTP leave call
-  websocketService.disconnect()
+  isLeaving.value = true
+  try {
+    // Disconnect WS before HTTP leave call
+    websocketService.disconnect()
 
-  // Call API to leave room
-  if (userId && roomCode.value) {
-    try {
-      await fetch(`${API_URL}/api/rooms/${roomCode.value}/leave`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player_id: userId }),
-      })
-    } catch (error) {
-      console.log('Could not leave room via API:', error)
+    // Call API to leave room
+    if (userId && roomCode.value) {
+      try {
+        await fetch(`${API_URL}/api/rooms/${roomCode.value}/leave`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ player_id: userId }),
+        })
+      } catch (error) {
+        console.log('Could not leave room via API:', error)
+      }
     }
+
+    // Clear reconnect token explicitly (sessionStorage, not localStorage)
+    sessionStorage.removeItem('disco_reconnect_token')
+
+    // Reset room state - AppOrchestrator will switch to RoomSelectionView
+    roomStore.reset()
+  } finally {
+    isLeaving.value = false
   }
-
-  // Clear reconnect token explicitly (sessionStorage, not localStorage)
-  sessionStorage.removeItem('disco_reconnect_token')
-
-  // Reset room state - AppOrchestrator will switch to RoomSelectionView
-  roomStore.reset()
 }
 
 function pickSongs() {

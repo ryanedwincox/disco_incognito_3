@@ -48,11 +48,12 @@
 
     <div class="w-full max-w-md space-y-6">
       <button
-        class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors"
+        class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         type="button"
+        :disabled="isCreating"
         @click="createRoom"
       >
-        Create Room
+        {{ isCreating ? 'Creating...' : 'Create Room' }}
       </button>
       <div class="bg-zinc-900/70 p-5 rounded-3xl border border-zinc-500 space-y-3">
         <label class="block text-sm font-medium text-zinc-400" for="room-code">Enter Room Code</label>
@@ -65,11 +66,12 @@
           @keyup.enter="joinRoom"
         />
         <button
-          class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 py-3 rounded-full transition-colors"
+          class="w-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
+          :disabled="isJoining"
           @click="joinRoom"
         >
-          Join Room
+          {{ isJoining ? 'Joining...' : 'Join Room' }}
         </button>
       </div>
       <button
@@ -84,7 +86,6 @@
 </template>
 
 <script setup lang="ts">
-/** Room selection hub for creating or joining game rooms. Includes display name editing. */
 import { ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRoomStore } from '@/stores/room'
@@ -100,6 +101,8 @@ const roomCode = ref('')
 const isEditingName = ref(false)
 const editNameInput = ref('')
 const isSavingName = ref(false)
+const isCreating = ref(false)
+const isJoining = ref(false)
 
 // Load auth state from sessionStorage on component mount
 authStore.loadFromStorage()
@@ -119,13 +122,16 @@ async function saveName() {
   if (!trimmed) return
 
   isSavingName.value = true
-  const result = await authStore.updateDisplayName(trimmed)
-  isSavingName.value = false
+  try {
+    const result = await authStore.updateDisplayName(trimmed)
 
-  if (result.success) {
-    isEditingName.value = false
-  } else {
-    notificationStore.error('Update Failed', result.error || 'Failed to update name')
+    if (result.success) {
+      isEditingName.value = false
+    } else {
+      notificationStore.error('Update Failed', result.error || 'Failed to update name')
+    }
+  } finally {
+    isSavingName.value = false
   }
 }
 
@@ -134,6 +140,7 @@ async function createRoom() {
   const code = Math.floor(100 + Math.random() * 900).toString()
   console.log('Creating room with code:', code)
 
+  isCreating.value = true
   try {
     // POST to create room on backend
     await axios.post(
@@ -160,6 +167,8 @@ async function createRoom() {
     const axiosError = error as { response?: { data?: { detail?: string } }; message?: string }
     const errorMessage = axiosError.response?.data?.detail || axiosError.message || 'Failed to create room'
     notificationStore.error('Room Creation Failed', errorMessage)
+  } finally {
+    isCreating.value = false
   }
 }
 
@@ -172,6 +181,7 @@ async function joinRoom() {
   const code = roomCode.value
   console.log('Joining room:', code)
 
+  isJoining.value = true
   try {
     // Check if room exists first
     const checkResponse = await axios.get(`${API_URL}/api/rooms/${code}`)
@@ -206,6 +216,8 @@ async function joinRoom() {
       const errorMessage = axiosError.response?.data?.detail || axiosError.message || 'Failed to join room'
       notificationStore.error('Join Room Failed', errorMessage)
     }
+  } finally {
+    isJoining.value = false
   }
 }
 

@@ -7,6 +7,8 @@
       :is-host="isHost"
       :players="roomStore.players"
       :ready-players="roomStore.readyPlayers"
+      :is-readying="isReadying"
+      :is-force-starting="isForceStarting"
       @ready="handleReady"
       @force-start="handleForceStart"
     />
@@ -14,7 +16,6 @@
 </template>
 
 <script setup lang="ts">
-/** Wrapper for SongAssignmentView that fetches room state and determines player's song assignment. */
 import { computed, onMounted, ref } from 'vue'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
@@ -31,10 +32,11 @@ const { handleRoomResponse, API_URL } = useRoomApi()
 const roomCode = computed(() => roomStore.code || '')
 const currentUserId = computed(() => authStore.user?.id ?? null)
 const isReady = ref(false)
-const players = computed(() => roomStore.players)
+const isReadying = ref(false)
+const isForceStarting = ref(false)
 const isHost = computed(() => {
   if (!currentUserId.value) return false
-  const currentPlayer = players.value.find(p => p.id === currentUserId.value)
+  const currentPlayer = roomStore.players.find(p => p.id === currentUserId.value)
   return currentPlayer?.isHost ?? false
 })
 
@@ -105,6 +107,7 @@ onMounted(async () => {
 async function handleReady() {
   if (!currentUserId.value || isReady.value) return
 
+  isReadying.value = true
   try {
     const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/ready`, {
       method: 'POST',
@@ -133,6 +136,8 @@ async function handleReady() {
     }
   } catch (error) {
     console.log('Could not mark ready:', error)
+  } finally {
+    isReadying.value = false
   }
 }
 
@@ -147,6 +152,7 @@ async function handleForceStart() {
     console.warn(`[force-start] WebSocket is ${wsStore.status} — force-start may succeed but phase_changed won't arrive`)
   }
 
+  isForceStarting.value = true
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -169,6 +175,8 @@ async function handleForceStart() {
     }
   } catch (error) {
     console.error('[force-start] network error:', error)
+  } finally {
+    isForceStarting.value = false
   }
 }
 
