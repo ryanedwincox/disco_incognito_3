@@ -16,6 +16,7 @@
             v-model="song1Title"
             type="text"
             maxlength="200"
+            autocomplete="off"
             placeholder="Song title"
             class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
           />
@@ -27,6 +28,7 @@
             v-model="song1Artist"
             type="text"
             maxlength="200"
+            autocomplete="off"
             placeholder="Artist name"
             class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
           />
@@ -43,6 +45,7 @@
             v-model="song2Title"
             type="text"
             maxlength="200"
+            autocomplete="off"
             placeholder="Song title"
             class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
           />
@@ -54,6 +57,7 @@
             v-model="song2Artist"
             type="text"
             maxlength="200"
+            autocomplete="off"
             placeholder="Artist name"
             class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
           />

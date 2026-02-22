@@ -14,6 +14,7 @@
           type="text"
           placeholder="Your name"
           maxlength="50"
+          autocomplete="off"
           class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
           @keyup.enter="handleLogin"
         />
