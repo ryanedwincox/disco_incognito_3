@@ -11,4 +11,12 @@
     outline: 2px solid theme('colors.disco-pink.DEFAULT');
     outline-offset: 2px;
   }
+
+  /* Suppress browser default focus ring on programmatically-focused elements.
+     tabindex="-1" elements are unreachable via Tab key, so suppressing the ring
+     here does NOT harm keyboard accessibility. This pattern is used by
+     AppOrchestrator.vue to focus headings for screen-reader/scroll anchoring. */
+  [tabindex="-1"]:focus {
+    outline: none;
+  }
 }
