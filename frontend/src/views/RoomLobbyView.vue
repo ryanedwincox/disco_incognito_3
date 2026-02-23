@@ -53,12 +53,6 @@
             >
               Host
             </span>
-            <span
-              v-else
-              class="text-xs uppercase tracking-wider text-zinc-400"
-            >
-              {{ player.isConnected ? 'Ready' : 'Disconnected' }}
-            </span>
           </li>
           <li v-if="players.length === 0" class="text-zinc-400 text-center py-4">
             No players yet
