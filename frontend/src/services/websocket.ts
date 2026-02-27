@@ -27,7 +27,6 @@ export interface WebSocketMessage {
   host_id?: string;
   pair_count?: number;
   assigned_song?: { id: string; title: string; artist: string };
-  ready_players?: string[];
   new_host_id?: string | null;
 }
 
@@ -232,12 +231,6 @@ export class WebSocketService {
           this.handlePlayerLeft(message, roomStore);
           break;
 
-        case "player_ready":
-          if (message.ready_players) {
-            roomStore.setReadyPlayers(message.ready_players);
-          }
-          break;
-
         case "phase_changed":
           this.handlePhaseChanged(message);
           break;
@@ -306,10 +299,6 @@ export class WebSocketService {
         title: message.assigned_song.title,
         artist: message.assigned_song.artist,
       });
-    }
-
-    if (Array.isArray(message.ready_players)) {
-      roomStore.setReadyPlayers(message.ready_players);
     }
 
     // Set status LAST so the view transition sees all data already populated
@@ -467,7 +456,6 @@ export class WebSocketService {
 
       case "lobby":
         gameStore.setPlaying(false);
-        roomStore.setReadyPlayers([]);
         break;
 
       case "song_selection":

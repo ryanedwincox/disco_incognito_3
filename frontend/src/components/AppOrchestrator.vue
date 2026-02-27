@@ -5,8 +5,8 @@
     - authenticated_no_room → RoomSelectionView
     - lobby → RoomLobbyView
     - picking_songs → SongPickerView
-    - song_selection → SongAssignmentView
-    - playing → GameView
+    - song_selection → SongAssignmentWrapper
+    - playing → SongAssignmentWrapper (same component, end-listening button visible to host)
     - guessing → GuessingView
     - results → ResultsView
 -->
@@ -28,7 +28,6 @@ import RoomSelectionView from '../views/RoomSelectionView.vue'
 import RoomLobbyView from '../views/RoomLobbyView.vue'
 import SongPickerView from '../views/SongPickerView.vue'
 import SongAssignmentWrapper from '../views/SongAssignmentWrapper.vue'
-import GameView from '../views/GameView.vue'
 import GuessingView from '../views/GuessingView.vue'
 import ResultsView from '../views/ResultsView.vue'
 
@@ -57,7 +56,7 @@ const phaseToViewMap: Record<string, Component> = {
   lobby: RoomLobbyView,
   picking_songs: SongPickerView,
   song_selection: SongAssignmentWrapper,
-  playing: GameView,
+  playing: SongAssignmentWrapper,
   guessing: GuessingView,
   results: ResultsView
 }

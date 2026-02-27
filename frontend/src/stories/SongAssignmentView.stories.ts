@@ -1,4 +1,4 @@
-// Story: SongAssignmentView - Song assignment before round with regular and incognito player states
+// Story: SongAssignmentView - Song assignment before and during round playback
 import type { Meta, StoryObj } from '@storybook/vue3';
 import SongAssignmentView from '../views/SongAssignmentView.vue';
 import type { TrackInfo } from '../types';
@@ -26,12 +26,16 @@ const meta: Meta<typeof SongAssignmentView> = {
     song: {
       description: 'The song assigned to the player',
     },
-    isIncognito: {
-      description: 'Whether this player is the Dancer Incognito',
+    isHost: {
+      description: 'Whether the current player is the host',
       control: 'boolean',
     },
-    showReadyButton: {
-      description: 'Show the ready button for player confirmation',
+    showEndListeningButton: {
+      description: 'Show the End Listening button (host-only, playing phase)',
+      control: 'boolean',
+    },
+    isPlayingPhase: {
+      description: 'Whether the round is currently in the playing phase',
       control: 'boolean',
     },
   },
@@ -40,23 +44,56 @@ const meta: Meta<typeof SongAssignmentView> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Regular player sees their assigned song
+// Regular player sees their assigned song (song_selection phase)
 export const RegularPlayer: Story = {
   name: 'Regular Player',
   args: {
     song: mockSong,
-    isIncognito: false,
-    showReadyButton: true,
+    isHost: false,
+    isPlayingPhase: false,
   },
 };
 
-// Incognito player sees their different song with special styling
+// Incognito player sees their different song
 export const IncognitoPlayer: Story = {
   name: 'Incognito Player (Dancer Incognito)',
   args: {
     song: mockIncognitoSong,
-    isIncognito: true,
-    showReadyButton: true,
+    isHost: false,
+    isPlayingPhase: false,
+  },
+};
+
+// Host view during song_selection phase (Start Round button visible)
+export const HostSongSelection: Story = {
+  name: 'Host - Song Selection Phase',
+  args: {
+    song: mockSong,
+    isHost: true,
+    isPlayingPhase: false,
+    showEndListeningButton: false,
+  },
+};
+
+// Host view during playing phase (End Listening button visible)
+export const HostPlaying: Story = {
+  name: 'Host - Playing Phase (End Listening)',
+  args: {
+    song: mockSong,
+    isHost: true,
+    isPlayingPhase: true,
+    showEndListeningButton: true,
+  },
+};
+
+// Non-host player during playing phase (waiting message visible)
+export const PlayerWaitingForHost: Story = {
+  name: 'Player - Waiting for Host to End Listening',
+  args: {
+    song: mockSong,
+    isHost: false,
+    isPlayingPhase: true,
+    showEndListeningButton: false,
   },
 };
 
@@ -69,7 +106,7 @@ export const MinimalSongInfo: Story = {
       name: 'Unknown Track',
       artist: 'Unknown Artist',
     },
-    isIncognito: false,
-    showReadyButton: false,
+    isHost: false,
+    isPlayingPhase: false,
   },
 };

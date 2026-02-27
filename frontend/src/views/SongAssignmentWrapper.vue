@@ -1,16 +1,15 @@
-<!-- SongAssignmentWrapper: Wrapper for SongAssignmentView that fetches room state and determines song assignment. -->
+<!-- SongAssignmentWrapper: Wrapper for SongAssignmentView that fetches room state and handles song assignment and listening phase controls. -->
 <template>
   <div class="min-h-screen">
     <SongAssignmentView
       :song="playerSong"
-      :show-ready-button="!isReady"
       :is-host="isHost"
-      :players="roomStore.players"
-      :ready-players="roomStore.readyPlayers"
-      :is-readying="isReadying"
       :is-force-starting="isForceStarting"
-      @ready="handleReady"
+      :show-end-listening-button="showEndListeningButton"
+      :is-ending="isEnding"
+      :is-playing-phase="isPlayingPhase"
       @force-start="handleForceStart"
+      @end-listening="handleEndListening"
     />
   </div>
 </template>
@@ -31,14 +30,18 @@ const { handleRoomResponse, API_URL } = useRoomApi()
 
 const roomCode = computed(() => roomStore.code || '')
 const currentUserId = computed(() => authStore.user?.id ?? null)
-const isReady = ref(false)
-const isReadying = ref(false)
 const isForceStarting = ref(false)
+const isEnding = ref(false)
+
 const isHost = computed(() => {
   if (!currentUserId.value) return false
   const currentPlayer = roomStore.players.find(p => p.id === currentUserId.value)
   return currentPlayer?.isHost ?? false
 })
+
+const isPlayingPhase = computed(() => roomStore.status === 'playing')
+
+const showEndListeningButton = computed(() => isHost.value && isPlayingPhase.value)
 
 // Convert roomStore.assignedSong to TrackInfo format expected by SongAssignmentView
 const playerSong = computed<TrackInfo | null>(() => {
@@ -87,14 +90,6 @@ onMounted(async () => {
           }
         }
 
-        // Track ready players
-        if (data.current_round?.ready_players) {
-          roomStore.setReadyPlayers(data.current_round.ready_players)
-          if (currentUserId.value && data.current_round.ready_players.includes(currentUserId.value)) {
-            isReady.value = true
-          }
-        }
-
         // Status update will trigger AppOrchestrator to switch view if needed
       }
     } catch (error) {
@@ -103,41 +98,31 @@ onMounted(async () => {
   }
 })
 
-// Handle ready button click
-async function handleReady() {
-  if (!currentUserId.value || isReady.value) return
+// Handle end-listening button click (host only, playing phase)
+async function handleEndListening() {
+  if (!currentUserId.value || !isHost.value) return
 
-  isReadying.value = true
+  isEnding.value = true
   try {
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/ready`, {
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/end-listening`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ player_id: currentUserId.value })
+      body: JSON.stringify({ player_id: currentUserId.value }),
     })
 
-    // Handle expired room (404)
-    if (await handleRoomResponse(response)) {
-      return
-    }
+    if (await handleRoomResponse(response)) return
 
     if (response.ok) {
-      isReady.value = true
       const data = await response.json()
-
-      // Update ready players list
-      if (data.current_round?.ready_players) {
-        roomStore.setReadyPlayers(data.current_round.ready_players)
-      }
-
-      // Update room status - AppOrchestrator will switch view if 'playing'
-      if (data.status) {
-        roomStore.setStatus(data.status)
-      }
+      roomStore.setStatus(data.status)
+    } else {
+      const error = await response.json()
+      console.error('Failed to end listening:', error)
     }
   } catch (error) {
-    console.log('Could not mark ready:', error)
+    console.error('Error ending listening:', error)
   } finally {
-    isReadying.value = false
+    isEnding.value = false
   }
 }
 

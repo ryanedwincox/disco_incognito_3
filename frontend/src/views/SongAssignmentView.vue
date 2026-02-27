@@ -1,4 +1,4 @@
-<!-- SongAssignmentView: Song reveal view showing the player's assigned song before playback. Displays song title and artist. Props-driven for Storybook demonstration. -->
+<!-- SongAssignmentView: Song reveal view showing the player's assigned song before and during playback. Displays song title and artist. Props-driven for Storybook demonstration. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12" style="padding-bottom: 6rem;">
     <header class="text-center mb-8 space-y-2">
@@ -31,42 +31,25 @@
         </div>
       </div>
 
-      <!-- Ready Button -->
+      <!-- Host: End Listening Button (playing phase) -->
       <button
-        v-if="showReadyButton"
+        v-if="showEndListeningButton"
         class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         type="button"
-        :disabled="isReadying"
-        @click="$emit('ready')"
+        :disabled="isEnding"
+        @click="$emit('end-listening')"
       >
-        {{ isReadying ? 'Readying...' : "I'm Ready!" }}
+        {{ isEnding ? 'Ending...' : 'End Listening' }}
       </button>
 
-      <!-- Host: Player Ready Status Panel -->
-      <div v-if="isHost" class="bg-zinc-900 rounded-2xl border border-zinc-500 p-4 space-y-3">
-        <h4 class="text-sm font-semibold text-zinc-300 uppercase tracking-wide">Player Status</h4>
-        <ul class="space-y-2">
-          <li
-            v-for="player in players"
-            :key="player.id"
-            class="flex items-center justify-between text-sm"
-          >
-            <span class="text-white">{{ player.name }}</span>
-            <span
-              :class="readyPlayers.includes(player.id)
-                ? 'text-green-400'
-                : 'text-zinc-500'"
-              class="font-medium"
-            >
-              {{ readyPlayers.includes(player.id) ? 'Ready' : 'Waiting...' }}
-            </span>
-          </li>
-        </ul>
-      </div>
+      <!-- Non-host: Waiting message (playing phase) -->
+      <p v-else-if="isPlayingPhase" class="text-center text-zinc-400">
+        Waiting for host to end listening...
+      </p>
 
-      <!-- Host: Force Start Button -->
+      <!-- Host: Force Start Button (song_selection phase) -->
       <button
-        v-if="isHost"
+        v-if="isHost && !isPlayingPhase"
         class="w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         type="button"
         :disabled="isForceStarting"
@@ -82,35 +65,26 @@
 import { onUnmounted, ref } from 'vue'
 import type { TrackInfo } from '../types'
 
-interface RoomPlayer {
-  id: string
-  name: string
-  isHost: boolean
-  isConnected: boolean
-}
-
 interface Props {
   song: TrackInfo | null
-  showReadyButton?: boolean
   isHost?: boolean
-  players?: RoomPlayer[]
-  readyPlayers?: string[]
-  isReadying?: boolean
   isForceStarting?: boolean
+  showEndListeningButton?: boolean
+  isEnding?: boolean
+  isPlayingPhase?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  showReadyButton: false,
   isHost: false,
-  players: () => [],
-  readyPlayers: () => [],
-  isReadying: false,
   isForceStarting: false,
+  showEndListeningButton: false,
+  isEnding: false,
+  isPlayingPhase: false,
 })
 
 defineEmits<{
-  ready: []
   'force-start': []
+  'end-listening': []
 }>()
 
 const copied = ref(false)
