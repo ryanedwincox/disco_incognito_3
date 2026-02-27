@@ -88,22 +88,89 @@
 
 <script setup lang="ts">
 /** Manual song entry for adding a pair of songs to the game pool. Two title+artist fields submitted via POST to the room songs endpoint. */
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useRoomStore } from '../stores/room'
 import { useNotificationStore } from '../stores/notifications'
 import { useRoomApi } from '../composables/useRoomApi'
+import { STORAGE_KEYS } from '../config/storageKeys'
 
+interface SongPickerStoredState {
+  roomCode: string
+  song1Title: string
+  song1Artist: string
+  song2Title: string
+  song2Artist: string
+}
+
+// Store/service setup
 const authStore = useAuthStore()
 const roomStore = useRoomStore()
 const notificationStore = useNotificationStore()
 const { handleRoomResponse, API_URL } = useRoomApi()
 
+// Reactive refs — declared before functions that close over them
 const song1Title = ref('')
 const song1Artist = ref('')
 const song2Title = ref('')
 const song2Artist = ref('')
 const isSaving = ref(false)
+
+// Type guard for localStorage deserialization (DbC)
+function isSongPickerState(v: unknown): v is SongPickerStoredState {
+  if (typeof v !== 'object' || v === null) return false
+  const obj = v as Record<string, unknown>
+  return (
+    typeof obj.roomCode === 'string' &&
+    typeof obj.song1Title === 'string' &&
+    typeof obj.song1Artist === 'string' &&
+    typeof obj.song2Title === 'string' &&
+    typeof obj.song2Artist === 'string'
+  )
+}
+
+function saveSongPickerState() {
+  if (!roomStore.code) return
+  const state: SongPickerStoredState = {
+    roomCode: roomStore.code,
+    song1Title: song1Title.value,
+    song1Artist: song1Artist.value,
+    song2Title: song2Title.value,
+    song2Artist: song2Artist.value,
+  }
+  localStorage.setItem(STORAGE_KEYS.SONG_PICKER_STATE, JSON.stringify(state))
+}
+
+function clearSongPickerState() {
+  localStorage.removeItem(STORAGE_KEYS.SONG_PICKER_STATE)
+}
+
+// Guard flag: prevents onMounted ref-sets from triggering a redundant write-back
+let isRestoring = false
+
+onMounted(() => {
+  const raw = localStorage.getItem(STORAGE_KEYS.SONG_PICKER_STATE)
+  if (!raw) return
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!isSongPickerState(parsed)) return
+    if (parsed.roomCode !== roomStore.code) return
+    isRestoring = true
+    song1Title.value = parsed.song1Title
+    song1Artist.value = parsed.song1Artist
+    song2Title.value = parsed.song2Title
+    song2Artist.value = parsed.song2Artist
+    isRestoring = false
+  } catch {
+    isRestoring = false
+    // Malformed storage entry — ignore
+  }
+})
+
+watch([song1Title, song1Artist, song2Title, song2Artist], () => {
+  if (isRestoring) return
+  saveSongPickerState()
+})
 
 const allFieldsFilled = computed(() =>
   song1Title.value.trim() !== '' &&
@@ -150,6 +217,7 @@ async function addSongPair() {
       }
     }
 
+    clearSongPickerState()
     notificationStore.success('Songs Added', `Added "${songs[0].title}" and "${songs[1].title}" to the room!`)
     goBack()
   } catch (error: unknown) {
@@ -161,6 +229,7 @@ async function addSongPair() {
 }
 
 function goBack() {
+  clearSongPickerState()
   roomStore.setStatus('lobby')
 }
 </script>

@@ -22,6 +22,7 @@ import { computed, nextTick, ref, watch, type Component } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useRoomStore } from '../stores/room'
 import { websocketService } from '../services/websocket'
+import { STORAGE_KEYS } from '../config/storageKeys'
 import LoginView from '../views/LoginView.vue'
 import RoomSelectionView from '../views/RoomSelectionView.vue'
 import RoomLobbyView from '../views/RoomLobbyView.vue'
@@ -43,8 +44,8 @@ const isInitialized = ref(false)
   isInitialized.value = true
 
   // On init: if sessionStorage has roomCode AND reconnect_token, reconnect WS
-  const savedRoomCode = sessionStorage.getItem('disco_room_code')
-  const savedReconnectToken = sessionStorage.getItem('disco_reconnect_token')
+  const savedRoomCode = sessionStorage.getItem(STORAGE_KEYS.ROOM_CODE)
+  const savedReconnectToken = sessionStorage.getItem(STORAGE_KEYS.RECONNECT_TOKEN)
   if (savedRoomCode && savedReconnectToken && authStore.isAuthenticated && authStore.user?.id) {
     roomStore.setRoom(savedRoomCode)
     websocketService.connectToRoom(authStore.user.id, savedRoomCode)
@@ -92,6 +93,28 @@ watch(
     if (!isAuthenticated && wasAuthenticated) {
       websocketService.disconnect()
       roomStore.reset()
+    }
+  }
+)
+
+// On reconnect: if server sends lobby status but player was on song picker page,
+// restore the song picker view so they don't lose their progress.
+// Watches BOTH status and code: handles the case where status is already "lobby"
+// when the room code is set (same-value watcher skip would otherwise miss it).
+watch(
+  [() => roomStore.status, () => roomStore.code],
+  ([status, code]) => {
+    if (status !== 'lobby') return
+    if (!code) return
+    const raw = localStorage.getItem(STORAGE_KEYS.SONG_PICKER_STATE)
+    if (!raw) return
+    try {
+      const saved = JSON.parse(raw) as { roomCode?: string }
+      if (typeof saved.roomCode === 'string' && saved.roomCode === code) {
+        roomStore.setStatus('picking_songs')
+      }
+    } catch {
+      // Malformed storage entry — ignore
     }
   }
 )

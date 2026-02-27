@@ -4,6 +4,7 @@
  * and song count. Provides actions for room state updates from WebSocket.
  */
 import { defineStore } from "pinia";
+import { STORAGE_KEYS } from "../config/storageKeys";
 
 interface RoomPlayer {
   id: string;
@@ -39,7 +40,7 @@ export const useRoomStore = defineStore("room", {
   actions: {
     setRoom(code: string) {
       this.code = code;
-      sessionStorage.setItem('disco_room_code', code);
+      sessionStorage.setItem(STORAGE_KEYS.ROOM_CODE, code);
     },
     setPlayers(players: RoomPlayer[]) {
       this.players = players;
@@ -63,7 +64,8 @@ export const useRoomStore = defineStore("room", {
       this.songCount = 0;
       this.assignedSong = null;
       this.readyPlayers = [];
-      sessionStorage.removeItem('disco_room_code');
+      sessionStorage.removeItem(STORAGE_KEYS.ROOM_CODE);
+      localStorage.removeItem(STORAGE_KEYS.SONG_PICKER_STATE);
     }
   }
 });
