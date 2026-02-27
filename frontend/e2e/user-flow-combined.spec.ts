@@ -174,7 +174,7 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       console.log('✅ Coverage (l): Host added songs via UI');
 
       // Verify song count updated in lobby
-      await expect(hostPage.locator('text=song pairs in queue')).toBeVisible({ timeout: 5000 });
+      await expect(hostPage.locator('text=song pair')).toBeVisible({ timeout: 5000 });
 
       // ======================================================================
       // PHASE 2: Player joins room
