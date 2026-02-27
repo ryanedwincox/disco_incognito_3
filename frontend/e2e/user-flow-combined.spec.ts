@@ -9,7 +9,7 @@
  *   c. Host transfer visible to new host WITHOUT reload
  *   d. Game start auto-navigates non-host players to song assignment WITHOUT reload
  *   e. Each player sees their assigned song (received via WS per-user state)
- *   f. All phase transitions: lobby -> song_selection -> playing -> guessing -> results -> lobby
+ *   f. All phase transitions: lobby -> song_selection -> guessing -> results -> lobby
  *   g. (moved to reconnect.spec.ts)
  *   h. No WS on room selection: logged-in user on room selection has no active WS
  *   i. At least 3 browser contexts: host, player, guest
@@ -110,16 +110,6 @@ async function addSongs(page: Page): Promise<void> {
   // Wait for navigation back to lobby (goBack is called on success)
   const roomCodeDisplay = page.locator('.text-4xl.font-bold');
   await expect(roomCodeDisplay).toBeVisible({ timeout: 10000 });
-}
-
-/** Click "I'm Ready!" button on SongAssignmentView. */
-async function clickReady(page: Page, label: string): Promise<void> {
-  const readyButton = page.getByRole('button', { name: "I'm Ready!" });
-  await expect(readyButton).toBeVisible({ timeout: 10000 });
-  await readyButton.click();
-  // Ready button disappears after clicking
-  await expect(readyButton).not.toBeVisible({ timeout: 5000 });
-  console.log(`✅ ${label} clicked Ready`);
 }
 
 /** Leave room via UI Leave button. */
@@ -270,49 +260,17 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       console.log(`✅ Coverage (e): Guest assigned song: ${guestSong}`);
 
       // ======================================================================
-      // PHASE 5: All click ready → host clicks Start Round → playing
-      // Coverage req (f): song_selection -> playing transition
+      // PHASE 5: Host clicks End Round → guessing → all vote via UI → results
+      // Coverage req (f): song_selection -> guessing -> results transitions
       // ======================================================================
-      console.log('\n=== PHASE 5: All players ready + host starts round ===');
+      console.log('\n=== PHASE 5: Host ends round + voting phase ===');
 
-      await clickReady(hostPage, 'Host');
-      await clickReady(playerPage, 'Player');
-      await clickReady(guestPage, 'Guest');
-
-      // Host clicks "Start Round" to begin the round
-      const startRoundButton = hostPage.getByRole('button', { name: 'Start Round' });
-      await expect(startRoundButton).toBeVisible({ timeout: 5000 });
-      await startRoundButton.click();
-      console.log('✅ Host clicked Start Round');
-
-      // All players should see GameView ("Round In Progress")
-      const hostRoundHeader = hostPage.locator('h1:has-text("Round In Progress")');
-      await expect(hostRoundHeader).toBeVisible({ timeout: 15000 });
-      console.log('✅ Host sees Round In Progress');
-
-      const playerRoundHeader = playerPage.locator('h1:has-text("Round In Progress")');
-      await expect(playerRoundHeader).toBeVisible({ timeout: 15000 });
-      console.log('✅ Player sees Round In Progress');
-
-      const guestRoundHeader = guestPage.locator('h1:has-text("Round In Progress")');
-      await expect(guestRoundHeader).toBeVisible({ timeout: 15000 });
-      console.log('✅ Guest sees Round In Progress');
-
-      // Host should see End Listening button
-      await expect(hostPage.getByRole('button', { name: 'End Listening' })).toBeVisible();
-      console.log(`✅ Coverage (f): song_selection -> playing transition complete for all`);
-
-      // ======================================================================
-      // PHASE 6: Host ends listening → guessing → all vote via UI → results
-      // Coverage req (f): playing -> guessing -> results transitions
-      // ======================================================================
-      console.log('\n=== PHASE 6: End listening + voting phase ===');
-
-      // Host clicks "End Listening" button to transition playing→guessing
-      const endListeningButton = hostPage.getByRole('button', { name: 'End Listening' });
-      await expect(endListeningButton).toBeVisible({ timeout: 10000 });
-      await endListeningButton.click();
-      console.log('✅ Host clicked End Listening');
+      // Host clicks "End Round" button to transition song_selection→guessing
+      const endRoundButton = hostPage.getByRole('button', { name: 'End Round' });
+      await expect(endRoundButton).toBeVisible({ timeout: 10000 });
+      await endRoundButton.click();
+      console.log('✅ Host clicked End Round');
+      console.log('✅ Coverage (f): song_selection -> guessing transition');
 
       // All players should see GuessingView via WS phase_changed broadcast
       const hostGuessHeader = hostPage.locator('h1:has-text("Who Is The Dancer Incognito?")');
@@ -416,7 +374,7 @@ test.describe('Full Game Lifecycle: UI-Only Multi-User E2E', () => {
       await expect(guestLobbyCode).toContainText(roomCode);
       console.log('✅ Guest back in lobby (via WS)');
 
-      console.log('✅ Coverage (f): All phase transitions complete: lobby → song_selection → playing → guessing → results → lobby');
+      console.log('✅ Coverage (f): All phase transitions complete: lobby → song_selection → guessing → results → lobby');
       console.log('✅ Coverage (j): Full game cycle through all phases complete');
 
     } finally {

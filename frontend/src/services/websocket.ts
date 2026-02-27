@@ -4,7 +4,6 @@
  * State-driven navigation via AppOrchestrator - no router.push() calls.
  */
 
-import { useGameStore } from "../stores/game";
 import { useRoomStore } from "../stores/room";
 import { useWebSocketStore } from "../stores/websocket";
 import { API_URL } from "../config/api";
@@ -308,7 +307,6 @@ export class WebSocketService {
           | "lobby"
           | "picking_songs"
           | "song_selection"
-          | "playing"
           | "guessing"
           | "results"
       );
@@ -436,7 +434,6 @@ export class WebSocketService {
     }
 
     const roomStore = useRoomStore();
-    const gameStore = useGameStore();
 
     // Set assigned_song if present in phase_changed (per-player delivery)
     if (assigned_song) {
@@ -447,37 +444,11 @@ export class WebSocketService {
       });
     }
 
-    // Populate phase-specific data BEFORE setting status. The status change
-    // triggers AppOrchestrator's currentView computation.
-    switch (phase) {
-      case "playing":
-        gameStore.setPlaying(true);
-        break;
-
-      case "lobby":
-        gameStore.setPlaying(false);
-        break;
-
-      case "song_selection":
-        break;
-
-      case "guessing":
-        gameStore.setPlaying(false);
-        break;
-
-      case "results":
-        break;
-
-      default:
-        console.warn(`Unknown phase: ${phase}`);
-    }
-
     // Set status LAST so the view transition sees all data already populated
     roomStore.setStatus(
       phase as
         | "lobby"
         | "song_selection"
-        | "playing"
         | "guessing"
         | "results"
     );

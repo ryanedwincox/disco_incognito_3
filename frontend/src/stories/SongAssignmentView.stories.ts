@@ -1,4 +1,4 @@
-// Story: SongAssignmentView - Song assignment before and during round playback
+// Story: SongAssignmentView - Song assignment before round ends
 import type { Meta, StoryObj } from '@storybook/vue3';
 import SongAssignmentView from '../views/SongAssignmentView.vue';
 import type { TrackInfo } from '../types';
@@ -30,12 +30,8 @@ const meta: Meta<typeof SongAssignmentView> = {
       description: 'Whether the current player is the host',
       control: 'boolean',
     },
-    showEndListeningButton: {
-      description: 'Show the End Listening button (host-only, playing phase)',
-      control: 'boolean',
-    },
-    isPlayingPhase: {
-      description: 'Whether the round is currently in the playing phase',
+    isEndingRound: {
+      description: 'Whether the End Round request is in flight (host only)',
       control: 'boolean',
     },
   },
@@ -44,13 +40,12 @@ const meta: Meta<typeof SongAssignmentView> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-// Regular player sees their assigned song (song_selection phase)
+// Regular player sees their assigned song
 export const RegularPlayer: Story = {
   name: 'Regular Player',
   args: {
     song: mockSong,
     isHost: false,
-    isPlayingPhase: false,
   },
 };
 
@@ -60,40 +55,26 @@ export const IncognitoPlayer: Story = {
   args: {
     song: mockIncognitoSong,
     isHost: false,
-    isPlayingPhase: false,
   },
 };
 
-// Host view during song_selection phase (Start Round button visible)
-export const HostSongSelection: Story = {
-  name: 'Host - Song Selection Phase',
+// Host view — End Round button visible
+export const Host: Story = {
+  name: 'Host',
   args: {
     song: mockSong,
     isHost: true,
-    isPlayingPhase: false,
-    showEndListeningButton: false,
+    isEndingRound: false,
   },
 };
 
-// Host view during playing phase (End Listening button visible)
-export const HostPlaying: Story = {
-  name: 'Host - Playing Phase (End Listening)',
+// Host view — End Round in flight
+export const HostEndingRound: Story = {
+  name: 'Host - Ending Round',
   args: {
     song: mockSong,
     isHost: true,
-    isPlayingPhase: true,
-    showEndListeningButton: true,
-  },
-};
-
-// Non-host player during playing phase (waiting message visible)
-export const PlayerWaitingForHost: Story = {
-  name: 'Player - Waiting for Host to End Listening',
-  args: {
-    song: mockSong,
-    isHost: false,
-    isPlayingPhase: true,
-    showEndListeningButton: false,
+    isEndingRound: true,
   },
 };
 
@@ -107,6 +88,5 @@ export const MinimalSongInfo: Story = {
       artist: 'Unknown Artist',
     },
     isHost: false,
-    isPlayingPhase: false,
   },
 };

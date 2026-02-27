@@ -155,26 +155,6 @@ async def seed_room_lobby_ready() -> dict[str, str]:
     return {'host_id': host_id, 'player_id': player_id}
 
 
-async def seed_room_playing() -> None:
-    """Seed: Room in playing state with 7 players and 3 song pairs (room code: 111)."""
-    storage = get_storage_adapter()
-
-    names = random.sample(DISCO_NAMES, 7)
-    players = [generate_test_player(names[0], is_host=True)]
-    players.extend([generate_test_player(name) for name in names[1:]])
-
-    # Add 3 song pairs
-    song_pairs = _make_song_pairs(players)
-
-    # Pick a random player as the dancer incognito
-    dancer_incognito = random.choice(players)
-
-    room = RoomState(code='111', host_id=players[0].id, players=players, song_pairs=song_pairs, status='playing', dancer_incognito_player_ids=[dancer_incognito.id])
-
-    await storage.upsert_room('111', room.model_dump())
-    logger.info(f'Seeded room 111: playing with 7 players and 3 song pairs, dancer incognito is {dancer_incognito.display_name}')
-
-
 async def seed_room_guessing() -> None:
     """Seed: Room in guessing state (room code: 222)."""
     storage = get_storage_adapter()
@@ -243,7 +223,6 @@ async def seed_test_data() -> dict[str, dict[str, str]]:
     - 123: Empty lobby (1 player)
     - 456: Lobby with 7 players, no songs
     - 789: Lobby with 7 players and 3 song pairs
-    - 111: Playing state
     - 222: Guessing state
     - 333: Reveal state
     - 444: Lobby with 9 players and 3 song pairs (incognito dancers scenario)
@@ -257,7 +236,6 @@ async def seed_test_data() -> dict[str, dict[str, str]]:
     player_ids['123'] = await seed_room_lobby_empty()
     player_ids['456'] = await seed_room_lobby_with_players()
     player_ids['789'] = await seed_room_lobby_ready()
-    await seed_room_playing()
     await seed_room_guessing()
     await seed_room_reveal()
     player_ids['444'] = await seed_room_large_lobby()
@@ -269,7 +247,7 @@ async def seed_test_data() -> dict[str, dict[str, str]]:
 async def clear_test_data() -> None:
     """Clear all test data from storage."""
     storage = get_storage_adapter()
-    test_room_codes = ['123', '456', '789', '111', '222', '333', '444']
+    test_room_codes = ['123', '456', '789', '222', '333', '444']
 
     for code in test_room_codes:
         await storage.delete_room(code)

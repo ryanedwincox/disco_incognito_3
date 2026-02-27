@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Per-room asyncio locks to serialize read-modify-write cycles.
 # Prevents lost-update races when concurrent requests mutate the same room
-# (e.g. guest /ready + host /force-start overlapping at await boundaries).
+# (e.g. guest /ready + host /end-round overlapping at await boundaries).
 #
 # INTENTIONAL DEVIATION from python-standards asyncio.Lock guidance (-9 score):
 # Each endpoint has MULTIPLE await points within a single read-modify-write cycle
@@ -46,7 +46,7 @@ async def broadcast_phase_changed(room_code: str, phase: str) -> None:
 
     Args:
         room_code: The room code to broadcast to
-        phase: The new phase (lobby, song_selection, playing, guessing, results)
+        phase: The new phase (lobby, song_selection, guessing, results)
     """
     manager = get_connection_manager()
     await manager.broadcast_to_room(
@@ -94,8 +94,8 @@ class PlayerReadyRequest(BaseModel):
     player_id: str = Field(..., description='Player ID')
 
 
-class EndListeningRequest(BaseModel):
-    """Request model for ending the listening phase (host only)."""
+class EndRoundRequest(BaseModel):
+    """Request model for ending the round and transitioning to guessing (host only)."""
 
     player_id: str = Field(..., description='Player ID (must be host)')
 
@@ -474,10 +474,9 @@ async def mark_player_ready(
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> RoomStateResponse:
     """
-    Mark a player as ready to start playback.
+    Mark a player as ready.
 
-    Tracks ready state for host visibility. Round starts only when
-    host clicks 'Start Round' (force-start endpoint).
+    Tracks ready state for host visibility.
     Returns updated room state.
     """
     async with _room_locks[room_code]:
@@ -528,25 +527,18 @@ async def mark_player_ready(
     return RoomStateResponse.from_room_state(room)
 
 
-class ForceStartRequest(BaseModel):
-    """Request model for force-starting a round (host only)."""
-
-    player_id: str = Field(..., description='Player ID (must be host)')
-
-
-@router.post('/{room_code}/force-start', summary='Force start the round (host only)', response_model=RoomStateResponse)
+@router.post('/{room_code}/end-round', summary='End the round and transition to guessing (host only)', response_model=RoomStateResponse)
 @limiter.limit(RATE_LIMITS['rooms'])
-async def force_start_round(
+async def end_round(
     request: Request,
     room_code: str,
-    body: ForceStartRequest,
+    body: EndRoundRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> RoomStateResponse:
     """
-    Force start the round without waiting for all players to be ready (host only).
+    End the round and transition to guessing (host only).
 
-    Transitions room status from 'song_selection' to 'playing'.
-    Auto-adds host to ready_players if not already there.
+    Transitions room status from 'song_selection' to 'guessing'.
     Returns updated room state.
     """
     async with _room_locks[room_code]:
@@ -559,31 +551,27 @@ async def force_start_round(
 
         # Verify requester is host
         if room.host_id != body.player_id:
-            raise HTTPException(status_code=403, detail='Only the host can force start the round')
+            raise HTTPException(status_code=403, detail='Only the host can end the round')
 
         # Verify room is in song_selection state
         if room.status != 'song_selection':
-            raise HTTPException(status_code=400, detail=f'Cannot force start from {room.status} state')
+            raise HTTPException(status_code=400, detail=f'Cannot end round from {room.status} state')
 
         # Verify current_round exists
         if not room.current_round:
             raise HTTPException(status_code=400, detail='No active round')
 
-        # Auto-add host to ready_players if not already there
-        if body.player_id not in room.current_round.ready_players:
-            room.current_round.ready_players.append(body.player_id)
-
-        # Transition to playing
-        room.status = 'playing'
+        # Transition to guessing
+        room.status = 'guessing'
 
         # Update last_active_at and save
         room.last_active_at = datetime.utcnow()
         await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-        logger.info(f'Round force-started in room {room_code} by host {body.player_id}')
+        logger.info(f'Round ended in room {room_code} by host {body.player_id}, transitioning to guessing')
 
     # Broadcast phase change (outside lock — network I/O)
-    await broadcast_phase_changed(room_code, 'playing')
+    await broadcast_phase_changed(room_code, 'guessing')
 
     return RoomStateResponse.from_room_state(room)
 
@@ -611,8 +599,8 @@ async def cast_vote(
 
         room = RoomState(**room_data)
 
-        # Verify room is in playing or guessing state
-        if room.status not in ('playing', 'guessing'):
+        # Verify room is in guessing state
+        if room.status != 'guessing':
             raise HTTPException(status_code=400, detail=f'Cannot vote from {room.status} state')
 
         # Verify current_round exists
@@ -636,13 +624,6 @@ async def cast_vote(
         # Record the vote
         room.current_round.votes[body.player_id] = body.guessed_player_id
 
-        # Track if we need to broadcast guessing transition
-        was_playing = room.status == 'playing'
-
-        # Transition to guessing if still playing
-        if room.status == 'playing':
-            room.status = 'guessing'
-
         # Check if all players have voted
         all_player_ids = {p.id for p in room.players}
         voted_player_ids = set(room.current_round.votes.keys())
@@ -658,56 +639,9 @@ async def cast_vote(
 
         logger.info(f'Player {body.player_id} voted for {body.guessed_player_id} in room {room_code} ({len(voted_player_ids)}/{len(all_player_ids)} voted)')
 
-    # Broadcast phase changes (outside lock — network I/O)
-    if was_playing:
-        await broadcast_phase_changed(room_code, 'guessing')
+    # Broadcast phase change if all players voted (outside lock — network I/O)
     if all_voted:
         await broadcast_phase_changed(room_code, 'results')
-
-    return RoomStateResponse.from_room_state(room)
-
-
-@router.post('/{room_code}/end-listening', summary='End listening phase (host only)', response_model=RoomStateResponse)
-@limiter.limit(RATE_LIMITS['rooms'])
-async def end_listening(
-    request: Request,
-    room_code: str,
-    body: EndListeningRequest,
-    storage: StorageAdapter = Depends(get_storage_adapter),
-) -> RoomStateResponse:
-    """
-    End the listening phase and transition to guessing (host only).
-
-    Transitions room status from 'playing' to 'guessing'.
-    Returns updated room state.
-    """
-    async with _room_locks[room_code]:
-        room_data = await storage.get_room(room_code)
-
-        if not room_data:
-            raise HTTPException(status_code=404, detail=f'Room {room_code} not found')
-
-        room = RoomState(**room_data)
-
-        # Verify room is in playing state
-        if room.status != 'playing':
-            raise HTTPException(status_code=400, detail=f'Cannot end listening from {room.status} state')
-
-        # Verify requester is host
-        if room.host_id != body.player_id:
-            raise HTTPException(status_code=403, detail='Only the host can end the listening phase')
-
-        # Transition to guessing
-        room.status = 'guessing'
-
-        # Update last_active_at and save
-        room.last_active_at = datetime.utcnow()
-        await storage.upsert_room(room_code, room.model_dump(mode='json'))
-
-        logger.info(f'Listening ended in room {room_code} by host {body.player_id}, transitioning to guessing')
-
-    # Broadcast phase change (outside lock — network I/O)
-    await broadcast_phase_changed(room_code, 'guessing')
 
     return RoomStateResponse.from_room_state(room)
 

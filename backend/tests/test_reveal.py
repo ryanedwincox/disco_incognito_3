@@ -135,22 +135,6 @@ def test_reveal_rejects_wrong_status_lobby(client, reveal_storage):
     assert 'Cannot reveal from lobby' in response.json()['detail']
 
 
-def test_reveal_rejects_wrong_status_playing(client, reveal_storage):
-    """Test that reveal fails when room is in playing status."""
-    room_data = _make_guessing_room()
-    room_data['status'] = 'playing'
-    reveal_storage.rooms['999'] = room_data
-
-    response = client.post(
-        '/api/rooms/999/reveal',
-        json={'player_id': 'host-user'},
-        headers=auth_header('test-token-host'),
-    )
-
-    assert response.status_code == 400
-    assert 'Cannot reveal from playing' in response.json()['detail']
-
-
 def test_reveal_works_with_zero_votes(client, reveal_storage):
     """Test that reveal works when no votes have been cast."""
     reveal_storage.rooms['999'] = _make_guessing_room(votes={})

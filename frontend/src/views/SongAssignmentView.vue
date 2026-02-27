@@ -1,4 +1,4 @@
-<!-- SongAssignmentView: Song reveal view showing the player's assigned song before and during playback. Displays song title and artist. Props-driven for Storybook demonstration. -->
+<!-- SongAssignmentView: Song reveal view showing the player's assigned song before the round ends. Displays song title and artist. Props-driven for Storybook demonstration. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12" style="padding-bottom: 6rem;">
     <header class="text-center mb-8 space-y-2">
@@ -31,31 +31,15 @@
         </div>
       </div>
 
-      <!-- Host: End Listening Button (playing phase) -->
+      <!-- Host: End Round Button -->
       <button
-        v-if="showEndListeningButton"
+        v-if="isHost"
         class="w-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         type="button"
-        :disabled="isEnding"
-        @click="$emit('end-listening')"
+        :disabled="isEndingRound"
+        @click="$emit('end-round')"
       >
-        {{ isEnding ? 'Ending...' : 'End Listening' }}
-      </button>
-
-      <!-- Non-host: Waiting message (playing phase) -->
-      <p v-else-if="isPlayingPhase" class="text-center text-zinc-400">
-        Waiting for host to end listening...
-      </p>
-
-      <!-- Host: Force Start Button (song_selection phase) -->
-      <button
-        v-if="isHost && !isPlayingPhase"
-        class="w-full bg-green-600 hover:bg-green-500 text-white font-semibold py-3 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        type="button"
-        :disabled="isForceStarting"
-        @click="$emit('force-start')"
-      >
-        {{ isForceStarting ? 'Starting...' : 'Start Round' }}
+        {{ isEndingRound ? 'Ending...' : 'End Round' }}
       </button>
     </section>
   </div>
@@ -68,23 +52,16 @@ import type { TrackInfo } from '../types'
 interface Props {
   song: TrackInfo | null
   isHost?: boolean
-  isForceStarting?: boolean
-  showEndListeningButton?: boolean
-  isEnding?: boolean
-  isPlayingPhase?: boolean
+  isEndingRound?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isHost: false,
-  isForceStarting: false,
-  showEndListeningButton: false,
-  isEnding: false,
-  isPlayingPhase: false,
+  isEndingRound: false,
 })
 
 defineEmits<{
-  'force-start': []
-  'end-listening': []
+  'end-round': []
 }>()
 
 const copied = ref(false)

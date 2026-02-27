@@ -6,7 +6,6 @@
     - lobby → RoomLobbyView
     - picking_songs → SongPickerView
     - song_selection → SongAssignmentWrapper
-    - playing → SongAssignmentWrapper (same component, end-listening button visible to host)
     - guessing → GuessingView
     - results → ResultsView
 -->
@@ -56,13 +55,12 @@ const phaseToViewMap: Record<string, Component> = {
   lobby: RoomLobbyView,
   picking_songs: SongPickerView,
   song_selection: SongAssignmentWrapper,
-  playing: SongAssignmentWrapper,
   guessing: GuessingView,
   results: ResultsView
 }
 
 // Computed application phase
-type AppPhase = 'unauthenticated' | 'authenticated_no_room' | 'lobby' | 'picking_songs' | 'song_selection' | 'playing' | 'guessing' | 'results'
+type AppPhase = 'unauthenticated' | 'authenticated_no_room' | 'lobby' | 'picking_songs' | 'song_selection' | 'guessing' | 'results'
 
 const appPhase = computed<AppPhase>(() => {
   if (!authStore.isAuthenticated) {
