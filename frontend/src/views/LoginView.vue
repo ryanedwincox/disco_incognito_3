@@ -7,14 +7,14 @@
 
     <div class="w-full max-w-sm space-y-4">
       <div>
-        <label for="displayName" class="block text-sm text-zinc-400 mb-2">Enter your name</label>
+        <label for="guest-handle" class="block text-sm text-zinc-400 mb-2">Choose a handle</label>
         <input
-          id="displayName"
+          id="guest-handle"
           v-model="displayName"
           type="text"
-          placeholder="Your name"
+          placeholder="e.g. NightOwl42"
           maxlength="50"
-          autocomplete="off"
+          autocomplete="new-password"
           class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"
           @keyup.enter="handleLogin"
         />
@@ -47,7 +47,6 @@
 </template>
 
 <script setup lang="ts">
-/** Guest login view with display name input. Submits name to auth store for token-based session creation. */
 import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 
