@@ -38,7 +38,7 @@ async function loadLandingPage(page: Page): Promise<void> {
 
 /** Login with a display name via UI. Fills name input, clicks Login. */
 async function loginWithName(page: Page, name: string): Promise<void> {
-  const nameInput = page.locator('#displayName');
+  const nameInput = page.locator('#guest-handle');
   await expect(nameInput).toBeVisible();
   await nameInput.fill(name);
   const loginButton = page.getByRole('button', { name: 'Login' });
