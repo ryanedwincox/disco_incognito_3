@@ -4,7 +4,7 @@
     <header class="text-center mb-8 space-y-2">
       <h1 class="text-3xl font-semibold">Your Song</h1>
       <p class="text-zinc-400 text-sm max-w-md mx-auto">
-        Get ready to dance! This is the song you'll be playing.
+        Pull up this song on your device and don't show anyone.
       </p>
     </header>
 

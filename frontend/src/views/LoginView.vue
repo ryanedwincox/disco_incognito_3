@@ -7,12 +7,12 @@
 
     <div class="w-full max-w-sm space-y-4">
       <div>
-        <label for="guest-handle" class="block text-sm text-zinc-400 mb-2">Choose a handle</label>
+        <label for="guest-handle" class="block text-sm text-zinc-400 mb-2">Enter your name</label>
         <input
           id="guest-handle"
           v-model="displayName"
           type="text"
-          placeholder="e.g. NightOwl42"
+          placeholder="e.g. Ryan"
           maxlength="50"
           autocomplete="new-password"
           class="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-xl focus:border-disco-pink transition-colors"

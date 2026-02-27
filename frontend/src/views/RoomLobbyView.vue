@@ -23,7 +23,7 @@
           type="button"
           @click="pickSongs"
         >
-          Pick Songs
+          Add Songs
         </button>
         <button
           v-if="isHost"
