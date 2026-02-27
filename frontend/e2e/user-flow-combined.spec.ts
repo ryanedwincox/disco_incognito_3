@@ -86,7 +86,7 @@ async function joinRoomViaUI(page: Page, roomCode: string): Promise<void> {
  * Coverage req (l): Song adding by user.
  */
 async function addSongs(page: Page): Promise<void> {
-  const pickSongsButton = page.getByRole('button', { name: 'Pick Songs' });
+  const pickSongsButton = page.getByRole('button', { name: 'Add Songs' });
   await expect(pickSongsButton).toBeVisible();
   await pickSongsButton.click();
 
