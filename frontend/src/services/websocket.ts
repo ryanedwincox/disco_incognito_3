@@ -25,7 +25,7 @@ export interface WebSocketMessage {
     is_connected: boolean;
   }>;
   host_id?: string;
-  song_count?: number;
+  pair_count?: number;
   assigned_song?: { id: string; title: string; artist: string };
   ready_players?: string[];
   new_host_id?: string | null;
@@ -296,8 +296,8 @@ export class WebSocketService {
       );
     }
 
-    if (typeof message.song_count === "number") {
-      roomStore.setSongCount(message.song_count);
+    if (typeof message.pair_count === "number") {
+      roomStore.setSongCount(message.pair_count);
     }
 
     if (message.assigned_song) {
@@ -499,10 +499,10 @@ export class WebSocketService {
    * Handle song_added event - update song count.
    */
   private handleSongAdded(message: WebSocketMessage): void {
-    if (typeof message.song_count === "number") {
+    if (typeof message.pair_count === "number") {
       const roomStore = useRoomStore();
-      roomStore.setSongCount(message.song_count);
-      console.log(`Song count updated: ${message.song_count}`);
+      roomStore.setSongCount(message.pair_count);
+      console.log(`Pair count updated: ${message.pair_count}`);
     }
   }
 

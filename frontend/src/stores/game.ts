@@ -1,4 +1,4 @@
-/** Game state store for active gameplay. Tracks round, odd duck selection, and playing status. */
+// GameStore: manages active gameplay state (round, dancerIncognitoIds, isPlaying). NOT concerned with room state, player identity, or WebSocket connectivity.
 import { defineStore } from "pinia";
 
 interface GameState {

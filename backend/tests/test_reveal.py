@@ -4,12 +4,14 @@ Tests the host-only reveal results feature that bypasses the all-voted
 requirement during the guessing phase.
 """
 
+from datetime import datetime
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.dependencies.storage import get_storage_adapter
-from app.models.room import CurrentRound, Player, RoomState, SongInfo
+from app.models.room import CurrentRound, Player, RoomState, Song, SongInfo, SongPair
 
 
 def _make_guessing_room(votes: dict[str, str] | None = None) -> dict:
@@ -173,3 +175,118 @@ def test_reveal_room_not_found(client):
     )
 
     assert response.status_code == 404
+
+
+# ── Large-room helpers (>8 players → 2 incognito) ─────────────────────────────
+
+def _make_lobby_room_9_players() -> dict:
+    """Build a 9-player lobby room with 1 song pair (triggers 2-incognito logic on start)."""
+    now = datetime.utcnow()
+    song_a = Song(id='song-aaa', title='Song A', artist='Artist A', added_by='host-user', created_at=now)
+    song_b = Song(id='song-bbb', title='Song B', artist='Artist B', added_by='host-user', created_at=now)
+    pair = SongPair(id='pair-001', song_a=song_a, song_b=song_b, added_by='host-user', created_at=now)
+    players = [Player(id='host-user', display_name='Host', is_host=True)] + [
+        Player(id=f'player-{i}', display_name=f'Player {i}') for i in range(2, 10)
+    ]
+    room = RoomState(
+        code='999',
+        host_id='host-user',
+        players=players,
+        status='lobby',
+        song_pairs=[pair],
+    )
+    return room.model_dump(mode='json')
+
+
+def _make_results_room_two_incognito(votes: dict[str, str]) -> dict:
+    """Build a 9-player results room with 2 incognito players (player-2 and player-3).
+
+    Design note: votes is dict[str, str] — one guess per voter. In a 2-incognito round
+    a voter can name only one suspect. Correct means guessing *either* incognito player;
+    there is no requirement to name both. See get_results logic in rooms.py:
+    correct if guessed_id in incognito_player_ids.
+    """
+    song_a = SongInfo(id='song-aaa', title='Song A', artist='Artist A')
+    song_b = SongInfo(id='song-bbb', title='Song B', artist='Artist B')
+    players = [Player(id='host-user', display_name='Host', is_host=True)] + [
+        Player(id=f'player-{i}', display_name=f'Player {i}') for i in range(2, 10)
+    ]
+    incognito_ids = {'player-2', 'player-3'}
+    current_round = CurrentRound(
+        song_for_majority=song_a,
+        song_for_incognito=song_b,
+        incognito_player_ids=['player-2', 'player-3'],
+        player_assignments={p.id: (song_b if p.id in incognito_ids else song_a) for p in players},
+        votes=votes,
+    )
+    room = RoomState(
+        code='999',
+        host_id='host-user',
+        players=players,
+        status='results',
+        dancer_incognito_player_ids=['player-2', 'player-3'],
+        current_round=current_round,
+    )
+    return room.model_dump(mode='json')
+
+
+# ── 2-incognito tests ──────────────────────────────────────────────────────────
+
+def test_start_game_large_room_assigns_two_incognito(client, reveal_storage):
+    """start_game with >8 players assigns exactly 2 incognito players."""
+    reveal_storage.rooms['999'] = _make_lobby_room_9_players()
+
+    response = client.post('/api/rooms/999/start', json={'player_id': 'host-user'})
+
+    assert response.status_code == 200
+    stored = reveal_storage.rooms['999']
+    room_after = RoomState(**stored)
+    assert room_after.current_round is not None
+    assert len(room_after.current_round.incognito_player_ids) == 2
+    assert room_after.status == 'song_selection'
+
+
+def test_get_results_two_incognito_correct_guess(client, reveal_storage):
+    """Guessing either incognito player is correct in a 2-incognito round.
+
+    Correct = guessed_id in incognito_player_ids. Naming one of the two incognito
+    players is sufficient; the voter need not identify both.
+    """
+    reveal_storage.rooms['999'] = _make_results_room_two_incognito(
+        votes={'host-user': 'player-2'}  # player-2 IS incognito
+    )
+
+    response = client.get('/api/rooms/999/results')
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data['incognito_player_ids']) == 2
+    assert 'host-user' in data['correct_guessers']
+
+
+def test_get_results_two_incognito_wrong_guess(client, reveal_storage):
+    """Guessing a non-incognito player is incorrect in a 2-incognito round."""
+    reveal_storage.rooms['999'] = _make_results_room_two_incognito(
+        votes={'host-user': 'player-4'}  # player-4 is NOT incognito
+    )
+
+    response = client.get('/api/rooms/999/results')
+
+    assert response.status_code == 200
+    data = response.json()
+    assert 'host-user' not in data['correct_guessers']
+
+
+def test_finish_round_resets_dancer_incognito_ids(client, reveal_storage):
+    """finish_round resets dancer_incognito_player_ids to [] regardless of round size."""
+    reveal_storage.rooms['999'] = _make_results_room_two_incognito(
+        votes={'host-user': 'player-2'}
+    )
+
+    response = client.post('/api/rooms/999/finish-round', json={'player_id': 'host-user'})
+
+    assert response.status_code == 200
+    stored = reveal_storage.rooms['999']
+    assert stored['dancer_incognito_player_ids'] == []
+    assert stored['status'] == 'lobby'
+    assert stored['current_round'] is None

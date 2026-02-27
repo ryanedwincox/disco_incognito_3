@@ -340,7 +340,7 @@ async def add_song_pair(
         room_code,
         {
             'type': 'song_added',
-            'song_count': pair_count,
+            'pair_count': pair_count,
         },
     )
 
@@ -358,8 +358,8 @@ async def start_game(
     """
     Start the game (host only).
 
-    Picks one random song pair from the pool, assigns incognito player, and assigns songs to all players.
-    Majority players receive song_a (or song_b), incognito player receives the other song of the pair.
+    Picks one random song pair from the pool, assigns incognito player(s), and assigns songs to all players.
+    Majority players receive song_a (or song_b), incognito player(s) receive the other song of the pair.
     Transitions room status from 'lobby' to 'song_selection'.
     Returns updated room state.
     Security: Excludes incognito player identity from response. Players can only see
@@ -441,7 +441,7 @@ async def start_game(
         room.last_active_at = datetime.utcnow()
         await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-        logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {[p.id for p in incognito_players]}')
+        logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {list(incognito_ids_set)}')
 
     # Broadcast phase change to all connected clients (outside lock — network I/O)
     await broadcast_phase_changed(room_code, 'song_selection')

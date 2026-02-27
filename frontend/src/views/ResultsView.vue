@@ -24,11 +24,12 @@
           <span v-if="incognitoPlayerIds.length <= 1">Dancer Incognito</span>
           <span v-else>Dancers Incognito</span>
         </h3>
+        <p v-if="incognitoPlayerEntries.length === 0" class="text-2xl font-semibold text-zinc-400 italic">Revealing...</p>
         <p
-          v-for="name in incognitoPlayerNames"
-          :key="name"
+          v-for="entry in incognitoPlayerEntries"
+          :key="entry.id"
           class="text-2xl font-semibold text-disco-pink"
-        >{{ name }}</p>
+        >{{ entry.name }}</p>
       </div>
 
       <!-- Votes list -->
@@ -109,6 +110,10 @@ const error = ref<string | null>(null);
 const isFinishing = ref(false);
 const players = ref<RoomPlayer[]>([]);
 const hostId = ref<string | null>(null);
+// NOTE: incognitoPlayerIds is populated from the REST /results API response (post-round reveal
+// phase), intentionally separate from gameStore.dancerIncognitoIds which tracks incognito identity
+// via WebSocket events during active gameplay. Two distinct phases, two sources of truth:
+// store = real-time gameplay state; local ref = post-round reveal data from REST.
 const incognitoPlayerIds = ref<string[]>([]);
 const votes = ref<Record<string, string>>({});
 const correctGuessers = ref<string[]>([]);
@@ -120,11 +125,10 @@ const isHost = computed(() => {
   return currentUserId === hostId.value;
 });
 
-const incognitoPlayerNames = computed((): string[] => {
-  if (incognitoPlayerIds.value.length === 0) return ['Unknown'];
+const incognitoPlayerEntries = computed((): { id: string; name: string }[] => {
   return incognitoPlayerIds.value.map(id => {
     const player = players.value.find(p => p.id === id);
-    return player?.display_name ?? 'Unknown';
+    return { id, name: player?.display_name ?? 'Unknown' };
   });
 });
 
