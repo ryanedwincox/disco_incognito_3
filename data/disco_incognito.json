@@ -1,24 +1,5 @@
 {
-  "rooms": {
-    "452": {
-      "code": "452",
-      "created_at": "2026-02-02T03:39:57.961456",
-      "current_round": null,
-      "dancer_incognito_player_id": null,
-      "host_id": "ryanedwincox",
-      "last_active_at": "2026-02-02T03:39:57.961459",
-      "players": [
-        {
-          "display_name": "ryanedwincox",
-          "id": "ryanedwincox",
-          "is_connected": true,
-          "is_host": true
-        }
-      ],
-      "songs": [],
-      "status": "lobby"
-    }
-  },
+  "rooms": {},
   "sessions": {
     "BQDvcdnh_e10b0G-NRoXRJcTS-c43i-1j6IbceXV4f2ZbuAxlJSfraAmb2dnBTcRQxQsMYqcxsAKf54VhXWNjA9_xRIQLpFgeTs1UtS1TB4jQlOCLRYnkqN1UtUd0WkUIdoONSaLP_IsVmnomvBFcVY7SBvZDZIew8pKM17ofTDWaFJP8aDmekCSMkTGstcrHZWn9hgsAaFgytXjjknSoIHSqtKSIYgylgqABbqiHngLisvqenfoXbN4fg": {
       "disconnected_at": null,
@@ -190,6 +171,63 @@
       "display_name": "Boogie Bee",
       "email": "test-user-d77f8757@disco.test",
       "user_id": "test-user-d77f8757"
+    },
+    "token_1N67wkWUnT7mbEUK15-3UnR_ryfn3tA2q-phaWW5PRE": {
+      "display_name": "Test Dancer",
+      "user_id": "guest_0b3bbc71f459"
+    },
+    "token_2_0-TG72CxaY0ZsewnWKOJa3kMmNfaqAzcCEv_GKeUw": {
+      "display_name": "Test Guest",
+      "email": "",
+      "user_id": "guest_bb6d004344a3"
+    },
+    "token_3TranPCXgajN6Afh2z0ZvnWvj3NEN0RItWSWyv_4b_Y": {
+      "display_name": "Test Dancer",
+      "email": "",
+      "user_id": "guest_a565c79942ca"
+    },
+    "token_4sL8pzf9JeVtI6cIfE0qlPXY9fvGIgAsAVodiwGmt_o": {
+      "display_name": "Test Dancer",
+      "email": "",
+      "user_id": "guest_acb19200c829"
+    },
+    "token_F5l-3KWLTBUBnf0vw748lVpO9i90hWTKaYb1ihltuZs": {
+      "display_name": "Test Dancer",
+      "email": "",
+      "user_id": "guest_d015560648f5"
+    },
+    "token_P2ZcIcritVxorY9v7G2q-CkAUwwGzmn9K-SvnylVr1I": {
+      "display_name": "Test Guest",
+      "email": "",
+      "user_id": "guest_8058d273f7fa"
+    },
+    "token__rScNQHdjLBErtrrkR7jVV5odOe9IgcffZ1S_qQ2I5E": {
+      "display_name": "Test Guest",
+      "email": "",
+      "user_id": "guest_61f41e8de378"
+    },
+    "token_eDR4fpAVBlGFSNJTaWtpKr7woPOPzyw9mhF6Y2jWqgo": {
+      "display_name": "Test Dancer",
+      "user_id": "guest_c8b2f5d74a79"
+    },
+    "token_g3tu8oxBPXY6FRk1LOzTf5ARVne0XHbe0gHGTWYGCUk": {
+      "display_name": "Test Guest",
+      "user_id": "guest_f2df33a4909d"
+    },
+    "token_huyW2mlYDG8UPqgEj0NR-0JE_rl5JDcDoi6UiWbNiBw": {
+      "display_name": "Test Dancer",
+      "email": "",
+      "user_id": "guest_9dc106fb4f62"
+    },
+    "token_uyPYtryHLYXizDBT14ruMQAmAlHyFgnuri6iCAGKXBI": {
+      "display_name": "Test Dancer",
+      "email": "",
+      "user_id": "guest_fbd0f1cac09a"
+    },
+    "token_wo3_vJXg0lNF7D0giCgJBiqtVrvYusO8eDDSedl3-uM": {
+      "display_name": "Test Dancer",
+      "email": "",
+      "user_id": "guest_93b5de89e809"
     }
   }
 }

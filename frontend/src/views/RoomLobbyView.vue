@@ -85,8 +85,8 @@ const players = computed(() => roomStore.players)
 const currentUserId = computed(() => authStore.user?.id ?? null)
 const songCountText = computed(() => {
   const count = roomStore.songCount
-  if (count === 1) return '1 song in queue'
-  return `${count} songs in queue`
+  if (count === 1) return '1 song pair in queue'
+  return `${count} song pairs in queue`
 })
 const isHost = computed(() => {
   if (!currentUserId.value) return false
@@ -127,8 +127,8 @@ onMounted(async () => {
         )
 
         // Set song count from API response
-        if (Array.isArray(data.songs)) {
-          roomStore.setSongCount(data.songs.length)
+        if (Array.isArray(data.song_pairs)) {
+          roomStore.setSongCount(data.song_pairs.length)
         }
 
         // Auto-join if current user is not already in the room

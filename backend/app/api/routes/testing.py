@@ -28,6 +28,7 @@ async def seed_data() -> dict:
     - Room 111: Playing state
     - Room 222: Guessing state
     - Room 333: Reveal state
+    - Room 444: Lobby with 9 players and 3 song pairs (incognito dancers scenario)
 
     Returns player IDs for each room to enable localStorage injection
     for dual-browser screenshot testing.
@@ -42,7 +43,7 @@ async def seed_data() -> dict:
         logger.info('Test data seeded successfully')
         return {
             'message': 'Test data seeded successfully',
-            'rooms': ['123', '456', '789', '111', '222', '333'],
+            'rooms': ['123', '456', '789', '111', '222', '333', '444'],
             'player_ids': player_ids,
         }
     except Exception as e:

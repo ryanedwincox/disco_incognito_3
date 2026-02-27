@@ -3,19 +3,19 @@ import { defineStore } from "pinia";
 
 interface GameState {
   round: number;
-  dancerIncognitoId: string | null;
+  dancerIncognitoIds: string[];
   isPlaying: boolean;
 }
 
 export const useGameStore = defineStore("game", {
   state: (): GameState => ({
     round: 1,
-    dancerIncognitoId: null,
+    dancerIncognitoIds: [],
     isPlaying: false
   }),
   actions: {
-    setDancerIncognito(playerId: string | null) {
-      this.dancerIncognitoId = playerId;
+    setDancerIncognito(playerIds: string[]) {
+      this.dancerIncognitoIds = playerIds;
     },
     setPlaying(value: boolean) {
       this.isPlaying = value;

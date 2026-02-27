@@ -123,7 +123,7 @@ async def _build_room_state_for_user(room_code: str, user_id: str) -> dict[str, 
         'phase': phase,
         'players': [p.model_dump() for p in room.players],
         'host_id': room.host_id,
-        'song_count': len(room.songs),
+        'song_count': len(room.song_pairs),
     }
 
     # Include assigned song for THIS user only (if in active round)

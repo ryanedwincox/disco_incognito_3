@@ -191,34 +191,32 @@ async function addSongPair() {
   isSaving.value = true
   try {
     const roomCode = roomStore.code
-    const songs = [
-      { title: song1Title.value.trim(), artist: song1Artist.value.trim() },
-      { title: song2Title.value.trim(), artist: song2Artist.value.trim() },
-    ]
+    const response = await fetch(`${API_URL}/api/rooms/${roomCode}/song-pairs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        player_id: userId,
+        song_a_title: song1Title.value.trim(),
+        song_a_artist: song1Artist.value.trim(),
+        song_b_title: song2Title.value.trim(),
+        song_b_artist: song2Artist.value.trim(),
+      }),
+    })
 
-    for (const song of songs) {
-      const response = await fetch(`${API_URL}/api/rooms/${roomCode}/songs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          player_id: userId,
-          title: song.title,
-          artist: song.artist,
-        }),
-      })
-
-      if (await handleRoomResponse(response)) {
-        return
-      }
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.detail || 'Failed to add song')
-      }
+    if (await handleRoomResponse(response)) {
+      return
     }
 
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || 'Failed to add song pair')
+    }
+
+    // Capture titles before clearing
+    const titleA = song1Title.value.trim()
+    const titleB = song2Title.value.trim()
     clearSongPickerState()
-    notificationStore.success('Songs Added', `Added "${songs[0].title}" and "${songs[1].title}" to the room!`)
+    notificationStore.success('Songs Added', `Added "${titleA}" and "${titleB}" to the room!`)
     goBack()
   } catch (error: unknown) {
     console.error('Failed to add song pair:', error)

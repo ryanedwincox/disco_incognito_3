@@ -26,7 +26,7 @@ def _make_guessing_room(votes: dict[str, str] | None = None) -> dict:
     current_round = CurrentRound(
         song_for_majority=song_a,
         song_for_incognito=song_b,
-        incognito_player_id='player-2',
+        incognito_player_ids=['player-2'],
         player_assignments={
             'host-user': song_a,
             'player-2': song_b,
@@ -40,7 +40,7 @@ def _make_guessing_room(votes: dict[str, str] | None = None) -> dict:
         host_id='host-user',
         players=players,
         status='guessing',
-        dancer_incognito_player_id='player-2',
+        dancer_incognito_player_ids=['player-2'],
         current_round=current_round,
     )
     return room.model_dump(mode='json')

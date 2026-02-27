@@ -20,8 +20,15 @@
     <section v-else class="max-w-lg mx-auto bg-zinc-900/80 rounded-3xl border border-zinc-500 p-6 space-y-6">
       <!-- Dancer Incognito reveal with highlight -->
       <div class="bg-disco-pink/20 border-2 border-disco-pink rounded-2xl p-4 text-center">
-        <h3 class="text-sm uppercase text-disco-pink">Dancer Incognito</h3>
-        <p class="text-2xl font-semibold text-disco-pink">{{ incognitoPlayerName }}</p>
+        <h3 class="text-sm uppercase text-disco-pink">
+          <span v-if="incognitoPlayerIds.length <= 1">Dancer Incognito</span>
+          <span v-else>Dancers Incognito</span>
+        </h3>
+        <p
+          v-for="name in incognitoPlayerNames"
+          :key="name"
+          class="text-2xl font-semibold text-disco-pink"
+        >{{ name }}</p>
       </div>
 
       <!-- Votes list -->
@@ -80,7 +87,7 @@ interface RoomResponse {
 }
 
 interface ResultsResponse {
-  incognito_player_id: string;
+  incognito_player_ids: string[];
   votes: Record<string, string>;
   correct_guessers: string[];
 }
@@ -102,7 +109,7 @@ const error = ref<string | null>(null);
 const isFinishing = ref(false);
 const players = ref<RoomPlayer[]>([]);
 const hostId = ref<string | null>(null);
-const incognitoPlayerId = ref<string | null>(null);
+const incognitoPlayerIds = ref<string[]>([]);
 const votes = ref<Record<string, string>>({});
 const correctGuessers = ref<string[]>([]);
 
@@ -113,10 +120,12 @@ const isHost = computed(() => {
   return currentUserId === hostId.value;
 });
 
-const incognitoPlayerName = computed(() => {
-  if (!incognitoPlayerId.value) return 'Unknown';
-  const player = players.value.find(p => p.id === incognitoPlayerId.value);
-  return player?.display_name ?? 'Unknown';
+const incognitoPlayerNames = computed((): string[] => {
+  if (incognitoPlayerIds.value.length === 0) return ['Unknown'];
+  return incognitoPlayerIds.value.map(id => {
+    const player = players.value.find(p => p.id === id);
+    return player?.display_name ?? 'Unknown';
+  });
 });
 
 const voteResults = computed((): VoteResult[] => {
@@ -166,7 +175,7 @@ async function fetchResults() {
       throw new Error(`Failed to fetch results: ${resultsResponse.status}`);
     }
     const resultsData: ResultsResponse = await resultsResponse.json();
-    incognitoPlayerId.value = resultsData.incognito_player_id;
+    incognitoPlayerIds.value = resultsData.incognito_player_ids;
     votes.value = resultsData.votes;
     correctGuessers.value = resultsData.correct_guessers;
   } catch (err) {

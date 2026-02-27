@@ -18,7 +18,7 @@ from ...core.rate_limit import RATE_LIMITS, limiter
 from ...core.settings import settings
 from ...dependencies.auth import AuthenticatedUser, get_current_user
 from ...dependencies.storage import get_storage_adapter
-from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, RoundResultsResponse, Song, SongInfo
+from ...models.room import CurrentRound, Player, RoomState, RoomStateResponse, RoundResultsResponse, Song, SongInfo, SongPair
 from ...services.websocket_manager import get_connection_manager
 from ...storage.base import StorageAdapter
 
@@ -36,6 +36,9 @@ logger = logging.getLogger(__name__)
 # conditional writes or optimistic concurrency, so application-level locking is
 # the correct pragmatic solution to prevent lost updates.
 _room_locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+
+# Rooms with more than this many players get 2 incognito players instead of 1
+_LARGE_ROOM_PLAYER_THRESHOLD = 8
 
 
 async def broadcast_phase_changed(room_code: str, phase: str) -> None:
@@ -75,12 +78,14 @@ class StartGameRequest(BaseModel):
     player_id: str = Field(..., description='Player ID (must be host)')
 
 
-class AddSongRequest(BaseModel):
-    """Request model for adding a song to a room."""
+class AddSongPairRequest(BaseModel):
+    """Request model for adding a song pair to a room."""
 
     player_id: str = Field(..., description='Player ID')
-    title: str = Field(..., min_length=1, max_length=200, description='Song title')
-    artist: str = Field(..., min_length=1, max_length=200, description='Song artist')
+    song_a_title: str = Field(..., min_length=1, max_length=200, description='Song A title')
+    song_a_artist: str = Field(..., min_length=1, max_length=200, description='Song A artist')
+    song_b_title: str = Field(..., min_length=1, max_length=200, description='Song B title')
+    song_b_artist: str = Field(..., min_length=1, max_length=200, description='Song B artist')
 
 
 class PlayerReadyRequest(BaseModel):
@@ -268,18 +273,18 @@ async def join_room(
     return RoomStateResponse.from_room_state(room)
 
 
-@router.post('/{room_code}/songs', summary='Add a song to room', response_model=RoomStateResponse)
+@router.post('/{room_code}/song-pairs', summary='Add a song pair to room', response_model=RoomStateResponse)
 @limiter.limit(RATE_LIMITS['rooms'])
-async def add_song(
+async def add_song_pair(
     request: Request,
     room_code: str,
-    body: AddSongRequest,
+    body: AddSongPairRequest,
     storage: StorageAdapter = Depends(get_storage_adapter),
 ) -> RoomStateResponse:
     """
-    Add a song to the room's song pool.
+    Add a song pair to the room's song pool.
 
-    Creates a Song and adds it to the room's songs list.
+    Creates a SongPair (two linked songs) and adds it to the room's song_pairs list.
     Returns updated room state.
     Security: Excludes incognito player identity from response.
     """
@@ -296,22 +301,38 @@ async def add_song(
         if not player:
             raise HTTPException(status_code=403, detail='Player not in room')
 
-        # Create song
-        song_id = f'song-{uuid.uuid4().hex[:8]}'
-        song = Song(
-            id=song_id,
-            title=body.title,
-            artist=body.artist,
+        # Create song pair with linked song IDs derived from pair ID
+        pair_id = f'pair-{uuid.uuid4().hex[:8]}'
+        now = datetime.utcnow()
+        song_a = Song(
+            id=f'{pair_id}-a',
+            title=body.song_a_title,
+            artist=body.song_a_artist,
             added_by=body.player_id,
+            created_at=now,
         )
-        room.songs.append(song)
+        song_b = Song(
+            id=f'{pair_id}-b',
+            title=body.song_b_title,
+            artist=body.song_b_artist,
+            added_by=body.player_id,
+            created_at=now,
+        )
+        pair = SongPair(
+            id=pair_id,
+            song_a=song_a,
+            song_b=song_b,
+            added_by=body.player_id,
+            created_at=now,
+        )
+        room.song_pairs.append(pair)
 
         # Update last_active_at and save
         room.last_active_at = datetime.utcnow()
         await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-        logger.info(f'Song {song_id} added to room {room_code} by player {body.player_id}')
-        song_count = len(room.songs)
+        logger.info(f'Song pair {pair_id} added to room {room_code} by player {body.player_id}')
+        pair_count = len(room.song_pairs)
 
     # Broadcast song_added to all players in room (outside lock — network I/O)
     manager = get_connection_manager()
@@ -319,7 +340,7 @@ async def add_song(
         room_code,
         {
             'type': 'song_added',
-            'song_count': song_count,
+            'song_count': pair_count,
         },
     )
 
@@ -337,7 +358,8 @@ async def start_game(
     """
     Start the game (host only).
 
-    Picks two random songs from the pool, assigns incognito player, and assigns songs to all players.
+    Picks one random song pair from the pool, assigns incognito player, and assigns songs to all players.
+    Majority players receive song_a (or song_b), incognito player receives the other song of the pair.
     Transitions room status from 'lobby' to 'song_selection'.
     Returns updated room state.
     Security: Excludes incognito player identity from response. Players can only see
@@ -359,30 +381,33 @@ async def start_game(
         if room.status != 'lobby':
             raise HTTPException(status_code=400, detail=f'Cannot start game from {room.status} state')
 
-        # Verify there are at least 2 songs
-        if len(room.songs) < 2:
-            raise HTTPException(status_code=400, detail='Need at least 2 songs to start the game')
+        # Verify there is at least 1 song pair
+        if not room.song_pairs:
+            raise HTTPException(status_code=400, detail='Need at least 1 song pair to start the game')
 
-        # Pick two songs (deterministic in debug mode for reproducible E2E tests)
+        # Determine how many incognito players to pick (2 for large rooms, else 1)
+        num_incognito = 2 if len(room.players) > _LARGE_ROOM_PLAYER_THRESHOLD else 1
+
+        # Pick one pair (deterministic in debug mode for reproducible E2E tests)
         if settings.debug:
-            selected_songs = room.songs[:2]  # Always first two songs
-            incognito_player = room.players[0]  # Always first player (host)
+            selected_pair = room.song_pairs[0]  # Always first pair
+            incognito_players = room.players[:num_incognito]  # Always first N players
             use_song_a_for_majority = True
         else:
-            selected_songs = random.sample(room.songs, 2)
-            incognito_player = random.choice(room.players)
+            selected_pair = random.choice(room.song_pairs)
+            incognito_players = random.sample(room.players, num_incognito)
             use_song_a_for_majority = random.choice([True, False])
 
-        # Create SongInfo objects for the two songs
+        # Create SongInfo objects from the selected pair
         song_a = SongInfo(
-            id=selected_songs[0].id,
-            title=selected_songs[0].title,
-            artist=selected_songs[0].artist,
+            id=selected_pair.song_a.id,
+            title=selected_pair.song_a.title,
+            artist=selected_pair.song_a.artist,
         )
         song_b = SongInfo(
-            id=selected_songs[1].id,
-            title=selected_songs[1].title,
-            artist=selected_songs[1].artist,
+            id=selected_pair.song_b.id,
+            title=selected_pair.song_b.title,
+            artist=selected_pair.song_b.artist,
         )
 
         # Decide which song is for majority vs incognito
@@ -391,10 +416,11 @@ async def start_game(
         else:
             song_for_majority, song_for_incognito = song_b, song_a
 
-        # Build player_assignments: incognito gets song_for_incognito, others get song_for_majority
+        # Build player_assignments: incognito players get song_for_incognito, others get song_for_majority
+        incognito_ids_set = {p.id for p in incognito_players}
         player_assignments: dict[str, SongInfo] = {}
         for player in room.players:
-            if player.id == incognito_player.id:
+            if player.id in incognito_ids_set:
                 player_assignments[player.id] = song_for_incognito
             else:
                 player_assignments[player.id] = song_for_majority
@@ -403,19 +429,19 @@ async def start_game(
         room.current_round = CurrentRound(
             song_for_majority=song_for_majority,
             song_for_incognito=song_for_incognito,
-            incognito_player_id=incognito_player.id,
+            incognito_player_ids=[p.id for p in incognito_players],
             player_assignments=player_assignments,
         )
 
         # Transition to song_selection
         room.status = 'song_selection'
-        room.dancer_incognito_player_id = incognito_player.id
+        room.dancer_incognito_player_ids = [p.id for p in incognito_players]
 
         # Update last_active_at and save
         room.last_active_at = datetime.utcnow()
         await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-        logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {incognito_player.id}')
+        logger.info(f'Game started in room {room_code} by host {body.player_id}, incognito: {[p.id for p in incognito_players]}')
 
     # Broadcast phase change to all connected clients (outside lock — network I/O)
     await broadcast_phase_changed(room_code, 'song_selection')
@@ -766,12 +792,12 @@ async def get_results(
     if not room.current_round:
         raise HTTPException(status_code=400, detail='No active round')
 
-    # Calculate correct guessers
-    incognito_id = room.current_round.incognito_player_id
-    correct_guessers = [voter_id for voter_id, guessed_id in room.current_round.votes.items() if guessed_id == incognito_id]
+    # Calculate correct guessers (correct if they voted for any incognito player)
+    incognito_ids = room.current_round.incognito_player_ids
+    correct_guessers = [voter_id for voter_id, guessed_id in room.current_round.votes.items() if guessed_id in incognito_ids]
 
     return RoundResultsResponse(
-        incognito_player_id=incognito_id,
+        incognito_player_ids=incognito_ids,
         votes=room.current_round.votes,
         correct_guessers=correct_guessers,
     )
@@ -788,8 +814,8 @@ async def finish_round(
     """
     Finish the current round and return to lobby (host only).
 
-    Removes the used songs from the pool, resets room status to 'lobby',
-    and clears the current round. Players can then start a new round if enough songs remain.
+    Removes the used song pair from the pool, resets room status to 'lobby',
+    and clears the current round. Players can then start a new round if enough pairs remain.
     """
     async with _room_locks[room_code]:
         room_data = await storage.get_room(room_code)
@@ -811,21 +837,24 @@ async def finish_round(
         if not room.current_round:
             raise HTTPException(status_code=400, detail='No active round to finish')
 
-        # Find and remove the used songs by matching their IDs
+        # Find and remove the used song pair by matching song IDs
         used_song_ids = {
             room.current_round.song_for_majority.id,
             room.current_round.song_for_incognito.id,
         }
-        original_song_count = len(room.songs)
-        room.songs = [song for song in room.songs if song.id not in used_song_ids]
+        original_pair_count = len(room.song_pairs)
+        room.song_pairs = [
+            pair for pair in room.song_pairs
+            if pair.song_a.id not in used_song_ids and pair.song_b.id not in used_song_ids
+        ]
 
-        if len(room.songs) < original_song_count:
-            logger.info(f'Removed used songs from room {room_code} ({original_song_count} -> {len(room.songs)} songs)')
+        if len(room.song_pairs) < original_pair_count:
+            logger.info(f'Removed used song pair from room {room_code} ({original_pair_count} -> {len(room.song_pairs)} pairs)')
 
         # Reset room state for next round
         room.status = 'lobby'
         room.current_round = None
-        room.dancer_incognito_player_id = None
+        room.dancer_incognito_player_ids = []
 
         # Update last_active_at and save
         room.last_active_at = datetime.utcnow()

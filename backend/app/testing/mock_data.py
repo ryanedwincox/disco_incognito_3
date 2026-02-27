@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime
 
 from ..dependencies.storage import get_storage_adapter
-from ..models.room import Player, RoomState, Song
+from ..models.room import Player, RoomState, Song, SongPair
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +68,13 @@ def generate_test_player(name: str, is_host: bool = False, player_id: str | None
     return Player(id=user_id, display_name=name, is_host=is_host, is_connected=True)
 
 
-def generate_song(player_id: str, title: str, artist: str) -> Song:
-    """Generate a song for the pool."""
-    song_id = f'song-{uuid.uuid4().hex[:8]}'
-    return Song(id=song_id, title=title, artist=artist, added_by=player_id, created_at=datetime.utcnow())
+def generate_song_pair(player_id: str, title_a: str, artist_a: str, title_b: str, artist_b: str) -> SongPair:
+    """Generate a song pair for the pool."""
+    pair_id = f'pair-{uuid.uuid4().hex[:8]}'
+    now = datetime.utcnow()
+    song_a = Song(id=f'{pair_id}-a', title=title_a, artist=artist_a, added_by=player_id, created_at=now)
+    song_b = Song(id=f'{pair_id}-b', title=title_b, artist=artist_b, added_by=player_id, created_at=now)
+    return SongPair(id=pair_id, song_a=song_a, song_b=song_b, added_by=player_id, created_at=now)
 
 
 async def seed_room_lobby_empty() -> dict[str, str]:
@@ -82,7 +85,7 @@ async def seed_room_lobby_empty() -> dict[str, str]:
     host_id = 'test-host-123'
     host = generate_test_player('Groovy Dancer', is_host=True, player_id=host_id)
 
-    room = RoomState(code='123', host_id=host.id, players=[host], songs=[], status='lobby')
+    room = RoomState(code='123', host_id=host.id, players=[host], song_pairs=[], status='lobby')
 
     await storage.upsert_room('123', room.model_dump())
     logger.info('Seeded room 123: lobby with 1 player, no songs')
@@ -104,7 +107,7 @@ async def seed_room_lobby_with_players() -> dict[str, str]:
     players.append(generate_test_player(names[1], player_id=player_id))
     players.extend([generate_test_player(name) for name in names[2:]])
 
-    room = RoomState(code='456', host_id=players[0].id, players=players, songs=[], status='lobby')
+    room = RoomState(code='456', host_id=players[0].id, players=players, song_pairs=[], status='lobby')
 
     await storage.upsert_room('456', room.model_dump())
     logger.info('Seeded room 456: lobby with 7 players, no songs')
@@ -125,42 +128,56 @@ async def seed_room_lobby_ready() -> dict[str, str]:
     players.append(generate_test_player(names[1], player_id=player_id))
     players.extend([generate_test_player(name) for name in names[2:]])
 
-    # Add 6 songs from different players (need at least 2 for a game)
-    songs = []
-    for i in range(6):
-        title, artist = DISCO_SONGS[i]
-        song = generate_song(player_id=players[i % len(players)].id, title=title, artist=artist)
-        songs.append(song)
+    # Add 3 song pairs from different players (need at least 1 pair for a game)
+    song_pairs = []
+    for i in range(0, 6, 2):
+        title_a, artist_a = DISCO_SONGS[i]
+        title_b, artist_b = DISCO_SONGS[i + 1]
+        pair = generate_song_pair(
+            player_id=players[(i // 2) % len(players)].id,
+            title_a=title_a,
+            artist_a=artist_a,
+            title_b=title_b,
+            artist_b=artist_b,
+        )
+        song_pairs.append(pair)
 
-    room = RoomState(code='789', host_id=players[0].id, players=players, songs=songs, status='lobby')
+    room = RoomState(code='789', host_id=players[0].id, players=players, song_pairs=song_pairs, status='lobby')
 
     await storage.upsert_room('789', room.model_dump())
-    logger.info('Seeded room 789: lobby with 7 players and 6 songs')
+    logger.info('Seeded room 789: lobby with 7 players and 3 song pairs')
     return {'host_id': host_id, 'player_id': player_id}
 
 
 async def seed_room_playing() -> None:
-    """Seed: Room in playing state with 7 players and 6 songs (room code: 111)."""
+    """Seed: Room in playing state with 7 players and 3 song pairs (room code: 111)."""
     storage = get_storage_adapter()
 
     names = random.sample(DISCO_NAMES, 7)
     players = [generate_test_player(names[0], is_host=True)]
     players.extend([generate_test_player(name) for name in names[1:]])
 
-    # Add 6 songs
-    songs = []
-    for i in range(6):
-        title, artist = DISCO_SONGS[i]
-        song = generate_song(player_id=players[i % len(players)].id, title=title, artist=artist)
-        songs.append(song)
+    # Add 3 song pairs
+    song_pairs = []
+    for i in range(0, 6, 2):
+        title_a, artist_a = DISCO_SONGS[i]
+        title_b, artist_b = DISCO_SONGS[i + 1]
+        pair = generate_song_pair(
+            player_id=players[(i // 2) % len(players)].id,
+            title_a=title_a,
+            artist_a=artist_a,
+            title_b=title_b,
+            artist_b=artist_b,
+        )
+        song_pairs.append(pair)
 
     # Pick a random player as the dancer incognito
     dancer_incognito = random.choice(players)
 
-    room = RoomState(code='111', host_id=players[0].id, players=players, songs=songs, status='playing', dancer_incognito_player_id=dancer_incognito.id)
+    room = RoomState(code='111', host_id=players[0].id, players=players, song_pairs=song_pairs, status='playing', dancer_incognito_player_ids=[dancer_incognito.id])
 
     await storage.upsert_room('111', room.model_dump())
-    logger.info(f'Seeded room 111: playing with 7 players, dancer incognito is {dancer_incognito.display_name}')
+    logger.info(f'Seeded room 111: playing with 7 players and 3 song pairs, dancer incognito is {dancer_incognito.display_name}')
 
 
 async def seed_room_guessing() -> None:
@@ -171,18 +188,25 @@ async def seed_room_guessing() -> None:
     players = [generate_test_player(names[0], is_host=True)]
     players.extend([generate_test_player(name) for name in names[1:]])
 
-    songs = []
-    for i in range(6):
-        title, artist = DISCO_SONGS[i]
-        song = generate_song(player_id=players[i % len(players)].id, title=title, artist=artist)
-        songs.append(song)
+    song_pairs = []
+    for i in range(0, 6, 2):
+        title_a, artist_a = DISCO_SONGS[i]
+        title_b, artist_b = DISCO_SONGS[i + 1]
+        pair = generate_song_pair(
+            player_id=players[(i // 2) % len(players)].id,
+            title_a=title_a,
+            artist_a=artist_a,
+            title_b=title_b,
+            artist_b=artist_b,
+        )
+        song_pairs.append(pair)
 
     dancer_incognito = random.choice(players)
 
-    room = RoomState(code='222', host_id=players[0].id, players=players, songs=songs, status='guessing', dancer_incognito_player_id=dancer_incognito.id)
+    room = RoomState(code='222', host_id=players[0].id, players=players, song_pairs=song_pairs, status='guessing', dancer_incognito_player_ids=[dancer_incognito.id])
 
     await storage.upsert_room('222', room.model_dump())
-    logger.info(f'Seeded room 222: guessing with 7 players, dancer incognito is {dancer_incognito.display_name}')
+    logger.info(f'Seeded room 222: guessing with 7 players and 3 song pairs, dancer incognito is {dancer_incognito.display_name}')
 
 
 async def seed_room_reveal() -> None:
@@ -193,18 +217,60 @@ async def seed_room_reveal() -> None:
     players = [generate_test_player(names[0], is_host=True)]
     players.extend([generate_test_player(name) for name in names[1:]])
 
-    songs = []
-    for i in range(6):
-        title, artist = DISCO_SONGS[i]
-        song = generate_song(player_id=players[i % len(players)].id, title=title, artist=artist)
-        songs.append(song)
+    song_pairs = []
+    for i in range(0, 6, 2):
+        title_a, artist_a = DISCO_SONGS[i]
+        title_b, artist_b = DISCO_SONGS[i + 1]
+        pair = generate_song_pair(
+            player_id=players[(i // 2) % len(players)].id,
+            title_a=title_a,
+            artist_a=artist_a,
+            title_b=title_b,
+            artist_b=artist_b,
+        )
+        song_pairs.append(pair)
 
     dancer_incognito = random.choice(players)
 
-    room = RoomState(code='333', host_id=players[0].id, players=players, songs=songs, status='reveal', dancer_incognito_player_id=dancer_incognito.id)
+    room = RoomState(code='333', host_id=players[0].id, players=players, song_pairs=song_pairs, status='reveal', dancer_incognito_player_ids=[dancer_incognito.id])
 
     await storage.upsert_room('333', room.model_dump())
-    logger.info(f'Seeded room 333: reveal with 7 players, dancer incognito is {dancer_incognito.display_name}')
+    logger.info(f'Seeded room 333: reveal with 7 players and 3 song pairs, dancer incognito is {dancer_incognito.display_name}')
+
+
+async def seed_room_large_lobby() -> dict[str, str]:
+    """Seed: Room lobby with 9 players and 6 song pairs ready for incognito dancers (room code: 444)."""
+    storage = get_storage_adapter()
+
+    # Use deterministic player IDs for test injection
+    host_id = 'test-host-444'
+    player_id = 'test-player-444'
+
+    # Create 9 players (triggers 2-incognito logic when game starts)
+    names = random.sample(DISCO_NAMES, 9)
+    players = [generate_test_player(names[0], is_host=True, player_id=host_id)]
+    players.append(generate_test_player(names[1], player_id=player_id))
+    players.extend([generate_test_player(name) for name in names[2:]])
+
+    # Add 3 song pairs
+    song_pairs = []
+    for i in range(0, 6, 2):
+        title_a, artist_a = DISCO_SONGS[i]
+        title_b, artist_b = DISCO_SONGS[i + 1]
+        pair = generate_song_pair(
+            player_id=players[(i // 2) % len(players)].id,
+            title_a=title_a,
+            artist_a=artist_a,
+            title_b=title_b,
+            artist_b=artist_b,
+        )
+        song_pairs.append(pair)
+
+    room = RoomState(code='444', host_id=players[0].id, players=players, song_pairs=song_pairs, status='lobby')
+
+    await storage.upsert_room('444', room.model_dump())
+    logger.info('Seeded room 444: lobby with 9 players and 3 song pairs (incognito dancers scenario)')
+    return {'host_id': host_id, 'player_id': player_id}
 
 
 async def seed_test_data() -> dict[str, dict[str, str]]:
@@ -218,6 +284,7 @@ async def seed_test_data() -> dict[str, dict[str, str]]:
     - 111: Playing state
     - 222: Guessing state
     - 333: Reveal state
+    - 444: Lobby with 9 players and 3 song pairs (incognito dancers scenario)
 
     Returns:
         Dict mapping room codes to player IDs for localStorage injection.
@@ -231,6 +298,7 @@ async def seed_test_data() -> dict[str, dict[str, str]]:
     await seed_room_playing()
     await seed_room_guessing()
     await seed_room_reveal()
+    player_ids['444'] = await seed_room_large_lobby()
     logger.info('Test data seeding complete')
 
     return player_ids
@@ -239,7 +307,7 @@ async def seed_test_data() -> dict[str, dict[str, str]]:
 async def clear_test_data() -> None:
     """Clear all test data from storage."""
     storage = get_storage_adapter()
-    test_room_codes = ['123', '456', '789', '111', '222', '333']
+    test_room_codes = ['123', '456', '789', '111', '222', '333', '444']
 
     for code in test_room_codes:
         await storage.delete_room(code)

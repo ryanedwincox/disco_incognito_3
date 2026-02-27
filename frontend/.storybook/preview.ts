@@ -12,7 +12,7 @@ const mockRouter = createRouter({
     { path: '/', component: { template: '<div />' } },
     { path: '/rooms', component: { template: '<div />' } },
     { path: '/rooms/:code', component: { template: '<div />' } },
-    { path: '/rooms/:code/songs', component: { template: '<div />' } },
+    { path: '/rooms/:code/song-pairs', component: { template: '<div />' } },
     { path: '/rooms/:code/play', component: { template: '<div />' } },
     { path: '/rooms/:code/guess', component: { template: '<div />' } },
     { path: '/rooms/:code/assignment', component: { template: '<div />' } },

@@ -37,12 +37,22 @@ class Song(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class SongPair(BaseModel):
+    """A submitted pair of songs used together in one round."""
+
+    id: str
+    song_a: Song
+    song_b: Song
+    added_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class CurrentRound(BaseModel):
     """Current round state with song assignments (internal model with incognito identity)."""
 
     song_for_majority: SongInfo
     song_for_incognito: SongInfo
-    incognito_player_id: str
+    incognito_player_ids: list[str] = Field(default_factory=list)
     player_assignments: dict[str, SongInfo]  # player_id -> assigned song
     ready_players: list[str] = Field(default_factory=list)  # player_ids who clicked ready
     votes: dict[str, str] = Field(default_factory=dict)  # player_id -> guessed_player_id
@@ -63,7 +73,7 @@ class CurrentRoundResponse(BaseModel):
 class RoundResultsResponse(BaseModel):
     """Results response model after voting (reveals incognito identity)."""
 
-    incognito_player_id: str
+    incognito_player_ids: list[str]
     votes: dict[str, str]  # player_id -> guessed_player_id
     correct_guessers: list[str]  # player_ids who guessed correctly
 
@@ -76,9 +86,9 @@ class RoomState(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_active_at: datetime = Field(default_factory=datetime.utcnow)
     players: list[Player] = Field(default_factory=list)
-    songs: list[Song] = Field(default_factory=list)
+    song_pairs: list[SongPair] = Field(default_factory=list)
     status: str = 'lobby'
-    dancer_incognito_player_id: str | None = None
+    dancer_incognito_player_ids: list[str] = Field(default_factory=list)
     current_round: CurrentRound | None = None
 
     class Config:
@@ -87,7 +97,7 @@ class RoomState(BaseModel):
                 'code': '123',
                 'host_id': 'player-1',
                 'players': [{'id': 'player-1', 'display_name': 'Host', 'is_host': True, 'is_connected': True}],
-                'songs': [],
+                'song_pairs': [],
                 'status': 'lobby',
             }
         }
@@ -96,7 +106,7 @@ class RoomState(BaseModel):
 class RoomStateResponse(BaseModel):
     """Public API response model for room state (excludes incognito identity).
 
-    Security: Does not expose dancer_incognito_player_id or the full CurrentRound.
+    Security: Does not expose dancer_incognito_player_ids or the full CurrentRound.
     Instead uses CurrentRoundResponse which only contains player_assignments.
     Each player can look up their own song but cannot identify who is incognito.
     """
@@ -106,7 +116,7 @@ class RoomStateResponse(BaseModel):
     created_at: datetime
     last_active_at: datetime
     players: list[Player]
-    songs: list[Song]
+    song_pairs: list[SongPair]
     status: str
     current_round: CurrentRoundResponse | None = None
 
@@ -127,7 +137,7 @@ class RoomStateResponse(BaseModel):
             created_at=room.created_at,
             last_active_at=room.last_active_at,
             players=room.players,
-            songs=room.songs,
+            song_pairs=room.song_pairs,
             status=room.status,
             current_round=current_round_response,
         )
