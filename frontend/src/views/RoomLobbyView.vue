@@ -11,14 +11,6 @@
       </div>
       <div class="flex flex-col space-y-3">
         <button
-          class="w-full px-6 py-3 rounded-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          type="button"
-          :disabled="isLeaving"
-          @click="leaveRoom"
-        >
-          {{ isLeaving ? 'Leaving...' : 'Leave' }}
-        </button>
-        <button
           class="w-full px-6 py-3 rounded-full bg-disco-pink hover:bg-disco-pink-hover text-white font-semibold transition-colors"
           type="button"
           @click="pickSongs"
@@ -65,6 +57,15 @@
         <p class="text-zinc-400">{{ songCountText }}</p>
       </div>
     </section>
+
+    <button
+      class="w-full px-6 py-3 rounded-full bg-zinc-700 hover:bg-zinc-600 text-white border border-zinc-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+      type="button"
+      :disabled="isLeaving"
+      @click="leaveRoom"
+    >
+      {{ isLeaving ? 'Leaving...' : 'Leave' }}
+    </button>
     </div>
   </div>
 </template>
