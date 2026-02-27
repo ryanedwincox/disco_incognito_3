@@ -13,8 +13,8 @@ from pathlib import Path
 from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Reconnection token expires after 5 minutes (configurable)
-RECONNECT_TOKEN_EXPIRATION_MINUTES = 5
+# Reconnection token expires after 30 minutes (configurable)
+RECONNECT_TOKEN_EXPIRATION_MINUTES = 30
 
 
 class Settings(BaseSettings):

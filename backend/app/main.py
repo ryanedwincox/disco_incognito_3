@@ -146,7 +146,7 @@ async def room_websocket_endpoint(
     """Room-scoped WebSocket endpoint.
 
     On connect:
-    1. Validates reconnect_token if provided (5-min window)
+    1. Validates reconnect_token if provided (30-min window)
     2. Accepts WebSocket, registers with connection manager
     3. Sends 'connected' with reconnect_token, then 'room_state' with per-user data
     4. Broadcasts player_connected to room (unless reconnecting)
@@ -161,7 +161,7 @@ async def room_websocket_endpoint(
 
     Query params:
         user_id: User's unique identifier
-        reconnect_token: Optional token for session resumption within 5-min window
+        reconnect_token: Optional token for session resumption within 30-min window
     """
     is_reconnect = False
 
