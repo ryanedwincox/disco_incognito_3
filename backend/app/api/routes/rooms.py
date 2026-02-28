@@ -41,6 +41,60 @@ _room_locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 _LARGE_ROOM_PLAYER_THRESHOLD = 8
 
 
+def _rewrite_player_id(room: RoomState, old_id: str, new_id: str) -> None:
+    if room.host_id == old_id:
+        room.host_id = new_id
+
+    room.dancer_incognito_player_ids = [
+        new_id if pid == old_id else pid for pid in room.dancer_incognito_player_ids
+    ]
+
+    if room.current_round is not None:
+        cr = room.current_round
+
+        cr.incognito_player_ids = [
+            new_id if pid == old_id else pid for pid in cr.incognito_player_ids
+        ]
+
+        cr.player_assignments = {
+            (new_id if pid == old_id else pid): song
+            for pid, song in cr.player_assignments.items()
+        }
+
+        cr.ready_players = [
+            new_id if pid == old_id else pid for pid in cr.ready_players
+        ]
+
+        cr.votes = {
+            (new_id if voter == old_id else voter): (new_id if guessed == old_id else guessed)
+            for voter, guessed in cr.votes.items()
+        }
+
+
+def _deduplicate_room_players(room: RoomState) -> RoomState:
+    seen: dict[str, int] = {}  # normalized name → index in deduped list
+    deduped: list[Player] = []
+
+    for player in room.players:
+        key = player.display_name.strip().lower()
+        if key not in seen:
+            seen[key] = len(deduped)
+            deduped.append(player)
+        else:
+            existing_idx = seen[key]
+            existing = deduped[existing_idx]
+            # Prefer connected over disconnected; otherwise keep first occurrence
+            if player.is_connected and not existing.is_connected:
+                old_id = existing.id
+                deduped[existing_idx] = player
+                # Rewrite all room references to point to the surviving player's ID
+                if old_id != player.id:
+                    _rewrite_player_id(room, old_id, player.id)
+
+    room.players = deduped
+    return room
+
+
 async def broadcast_phase_changed(room_code: str, phase: str) -> None:
     """Broadcast phase change to all connected clients in a room.
 
@@ -237,21 +291,45 @@ async def join_room(
 
         room = RoomState(**room_data)
 
-        # Check if player already in room
+        # Clean up any pre-existing duplicate players before processing this join
+        room = _deduplicate_room_players(room)
+
+        # Step 1 — Fast path: player already present under current deterministic ID
         existing_player = next((p for p in room.players if p.id == body.player_id), None)
+
         if existing_player:
-            # Update connection status and display name if rejoining (name may have changed)
+            # Rejoin: update connection status and display name
             existing_player.is_connected = True
             existing_player.display_name = body.display_name
         else:
-            # Add new player
-            new_player = Player(
-                id=body.player_id,
-                display_name=body.display_name,
-                is_host=False,
-                is_connected=True,
+            # Step 2 — Migration fallback: find by display name (case-insensitive)
+            # Handles legacy UUID players whose ID doesn't match the new deterministic one.
+            name_key = body.display_name.strip().lower()
+            legacy_player = next(
+                (p for p in room.players if p.display_name.strip().lower() == name_key),
+                None,
             )
-            room.players.append(new_player)
+
+            if legacy_player:
+                # Rewrite the legacy UUID to the new deterministic ID throughout the room
+                old_id = legacy_player.id
+                legacy_player.id = body.player_id
+                legacy_player.is_connected = True
+                legacy_player.display_name = body.display_name
+                _rewrite_player_id(room, old_id, body.player_id)
+                logger.info(
+                    f'Migrated legacy player ID {old_id!r} → {body.player_id!r} '
+                    f'in room {room_code} for display name {body.display_name!r}'
+                )
+            else:
+                # Step 3 — New player: append
+                new_player = Player(
+                    id=body.player_id,
+                    display_name=body.display_name,
+                    is_host=False,
+                    is_connected=True,
+                )
+                room.players.append(new_player)
 
         # Update last_active_at and save
         room.last_active_at = datetime.utcnow()

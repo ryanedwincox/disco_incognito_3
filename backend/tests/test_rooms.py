@@ -1,7 +1,8 @@
 """
-Automated tests for room creation endpoint.
+Automated tests for room creation and join deduplication endpoints.
 
-Tests POST /api/rooms endpoint for creating game rooms.
+Tests POST /api/rooms for room creation and POST /api/rooms/{room_code}/join
+for player deduplication and legacy-ID migration on re-join.
 """
 
 import pytest
@@ -199,3 +200,98 @@ def test_create_room_uses_display_name_from_session(client):
     data = response.json()
     # Display name comes from session, not header
     assert data['players'][0]['display_name'] == 'Guest'
+
+
+# ---------------------------------------------------------------------------
+# Join deduplication tests — legacy UUID migration
+# ---------------------------------------------------------------------------
+
+
+def test_join_deduplicates_legacy_uuid_player(client, mock_storage):
+    """Player with a legacy UUID re-joins using a deterministic ID → room has one entry, not two."""
+    # Seed room with a host + a guest whose ID is a legacy UUID (random, non-deterministic)
+    legacy_uuid_id = 'guest_aabbccddeeff'  # simulated legacy UUID-style ID
+    guest_display_name = 'Returning Guest'
+    mock_storage.rooms['999'] = {
+        'code': '999',
+        'host_id': 'host-user',
+        'created_at': '2025-01-01T00:00:00',
+        'last_active_at': '2025-01-01T00:00:00',
+        'status': 'lobby',
+        'players': [
+            {'id': 'host-user', 'display_name': 'Test Host', 'is_host': True, 'is_connected': True},
+            {'id': legacy_uuid_id, 'display_name': guest_display_name, 'is_host': False, 'is_connected': False},
+        ],
+        'song_pairs': [],
+        'dancer_incognito_player_ids': [],
+        'current_round': None,
+    }
+
+    # Derive the deterministic ID via the API contract — not by replicating the hash implementation
+    login_resp = client.post('/api/auth/login', json={'display_name': guest_display_name})
+    assert login_resp.status_code == 200
+    deterministic_id = login_resp.json()['user_id']
+
+    response = client.post(
+        '/api/rooms/999/join',
+        json={'player_id': deterministic_id, 'display_name': guest_display_name},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Room should still have exactly 2 players (not 3)
+    assert len(data['players']) == 2
+
+    player_ids = [p['id'] for p in data['players']]
+
+    # Legacy UUID must be gone; deterministic ID must be present
+    assert legacy_uuid_id not in player_ids
+    assert deterministic_id in player_ids
+
+
+def test_join_deduplicates_host_legacy_id(client, mock_storage):
+    """When the host has a legacy UUID, rejoining with the deterministic ID updates host_id."""
+    host_display_name = 'OG Host'
+    legacy_host_id = 'guest_deadbeef1234'  # simulated legacy UUID-style ID for host
+
+    # Derive the deterministic ID via the API contract — not by replicating the hash implementation
+    login_resp = client.post('/api/auth/login', json={'display_name': host_display_name})
+    assert login_resp.status_code == 200
+    deterministic_host_id = login_resp.json()['user_id']
+
+    # Add a session for the host's login so get_current_user doesn't fail for this test.
+    # (join_room doesn't require auth but needs storage to find the room)
+    mock_storage.rooms['888'] = {
+        'code': '888',
+        'host_id': legacy_host_id,
+        'created_at': '2025-01-01T00:00:00',
+        'last_active_at': '2025-01-01T00:00:00',
+        'status': 'lobby',
+        'players': [
+            {'id': legacy_host_id, 'display_name': host_display_name, 'is_host': True, 'is_connected': False},
+        ],
+        'song_pairs': [],
+        'dancer_incognito_player_ids': [],
+        'current_round': None,
+    }
+
+    response = client.post(
+        '/api/rooms/888/join',
+        json={'player_id': deterministic_host_id, 'display_name': host_display_name},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # host_id must be updated to the deterministic ID
+    assert data['host_id'] == deterministic_host_id
+
+    # There should still be exactly 1 player
+    assert len(data['players']) == 1
+
+    # The surviving player should have the deterministic ID and is_host=True
+    host_entry = data['players'][0]
+    assert host_entry['id'] == deterministic_host_id
+    assert host_entry['is_host'] is True
+    assert host_entry['is_connected'] is True

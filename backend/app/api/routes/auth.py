@@ -4,9 +4,9 @@ Provides endpoints for guest login (name-based), logout, display name updates,
 and token verification. Manages session lifecycle for all users.
 """
 
+import hashlib
 import logging
 import secrets
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
@@ -57,7 +57,9 @@ async def login(
         Dict containing access_token, user_id, and display_name
     """
     try:
-        user_id = f'guest_{uuid.uuid4().hex[:12]}'
+        name_key = body.display_name.strip().lower()
+        # Intentional: same display_name always yields the same user_id (deterministic identity)
+        user_id = f'guest_{hashlib.sha256(name_key.encode()).hexdigest()[:12]}'
         access_token = f'token_{secrets.token_urlsafe(32)}'
 
         await storage.set_session(
