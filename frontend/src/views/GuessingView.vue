@@ -63,8 +63,6 @@ import { useAuthStore } from '@/stores/auth';
 import { useRoomStore } from '@/stores/room';
 import { useRoomApi } from '@/composables/useRoomApi';
 import { useActionDebounce } from '@/composables/useActionDebounce';
-import { useNotificationStore } from '@/stores/notifications';
-import { getErrorStatus } from '@/utils/getErrorStatus';
 
 const { roomFetch } = useRoomApi();
 
@@ -93,7 +91,6 @@ interface RoomResponse {
 const playerStore = usePlayerStore();
 const authStore = useAuthStore();
 const roomStore = useRoomStore();
-const notifications = useNotificationStore();
 const { isPending: submitting, trigger: triggerVote } = useActionDebounce();
 const { isPending: revealing, trigger: triggerReveal } = useActionDebounce();
 
@@ -192,10 +189,6 @@ async function vote(guessedPlayerId: string) {
         }),
       });
 
-      if (response.status === 429) {
-        throw Object.assign(new Error('Rate limited'), { status: 429 });
-      }
-
       if (response.status === 404) {
         return; // roomFetch already redirected
       }
@@ -213,12 +206,8 @@ async function vote(guessedPlayerId: string) {
       }
     });
   } catch (err) {
-    if (getErrorStatus(err) === 429) {
-      notifications.warning('Server busy', 'Server is busy, please try again in a moment.');
-    } else {
-      console.error('Failed to vote:', err);
-      error.value = 'Failed to submit vote. Please try again.';
-    }
+    console.error('Failed to vote:', err);
+    error.value = 'Failed to submit vote. Please try again.';
   }
 }
 
@@ -235,10 +224,6 @@ async function revealResults() {
         body: JSON.stringify({ player_id: playerId }),
       });
 
-      if (response.status === 429) {
-        throw Object.assign(new Error('Rate limited'), { status: 429 });
-      }
-
       if (response.status === 404) return; // roomFetch already redirected
 
       if (response.ok) {
@@ -251,17 +236,12 @@ async function revealResults() {
       }
     });
   } catch (err) {
-    const status = (err as { status?: number }).status;
-    if (status === 429) {
-      notifications.warning('Server busy', 'Server is busy, please try again in a moment.');
-    } else {
-      console.error('Error revealing results:', err);
-      error.value = 'Failed to reveal results. Please try again.';
-    }
+    console.error('Error revealing results:', err);
+    error.value = 'Failed to reveal results. Please try again.';
   }
 }
 
-onMounted(() => {
-  fetchRoom();
+onMounted(async () => {
+  await fetchRoom();
 });
 </script>

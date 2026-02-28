@@ -93,6 +93,8 @@ import { useAuthStore } from '../stores/auth'
 import { useRoomStore } from '../stores/room'
 import { useNotificationStore } from '../stores/notifications'
 import { useRoomApi } from '../composables/useRoomApi'
+import { useActionDebounce } from '../composables/useActionDebounce'
+import { getErrorStatus } from '../utils/getErrorStatus'
 import { STORAGE_KEYS } from '../config/storageKeys'
 
 interface SongPickerStoredState {
@@ -108,13 +110,13 @@ const authStore = useAuthStore()
 const roomStore = useRoomStore()
 const notificationStore = useNotificationStore()
 const { roomFetch } = useRoomApi()
+const { isPending: isSaving, trigger: triggerAdd } = useActionDebounce()
 
 // Reactive refs — declared before functions that close over them
 const song1Title = ref('')
 const song1Artist = ref('')
 const song2Title = ref('')
 const song2Artist = ref('')
-const isSaving = ref(false)
 
 // Type guard for localStorage deserialization (DbC)
 function isSongPickerState(v: unknown): v is SongPickerStoredState {
@@ -188,41 +190,48 @@ async function addSongPair() {
     return
   }
 
-  isSaving.value = true
   try {
-    const roomCode = roomStore.code
-    const response = await roomFetch(`/api/rooms/${roomCode}/song-pairs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        player_id: userId,
-        song_a_title: song1Title.value.trim(),
-        song_a_artist: song1Artist.value.trim(),
-        song_b_title: song2Title.value.trim(),
-        song_b_artist: song2Artist.value.trim(),
-      }),
+    await triggerAdd(async () => {
+      const roomCode = roomStore.code
+      const response = await roomFetch(`/api/rooms/${roomCode}/song-pairs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player_id: userId,
+          song_a_title: song1Title.value.trim(),
+          song_a_artist: song1Artist.value.trim(),
+          song_b_title: song2Title.value.trim(),
+          song_b_artist: song2Artist.value.trim(),
+        }),
+      })
+
+      if (response.status === 429) {
+        throw Object.assign(new Error('Rate limited'), { status: 429 })
+      }
+
+      if (response.status === 404) {
+        return // roomFetch already redirected
+      }
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || 'Failed to add song pair')
+      }
+
+      // Capture titles before clearing
+      const titleA = song1Title.value.trim()
+      const titleB = song2Title.value.trim()
+      clearSongPickerState()
+      notificationStore.success('Songs Added', `Added "${titleA}" and "${titleB}" to the room!`)
+      goBack()
     })
-
-    if (response.status === 404) {
-      return // roomFetch already redirected
-    }
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.detail || 'Failed to add song pair')
-    }
-
-    // Capture titles before clearing
-    const titleA = song1Title.value.trim()
-    const titleB = song2Title.value.trim()
-    clearSongPickerState()
-    notificationStore.success('Songs Added', `Added "${titleA}" and "${titleB}" to the room!`)
-    goBack()
   } catch (error: unknown) {
-    console.error('Failed to add song pair:', error)
-    notificationStore.error('Error', 'Failed to add song pair')
-  } finally {
-    isSaving.value = false
+    if (getErrorStatus(error) === 429) {
+      notificationStore.warning('Server busy', 'Server is busy, please try again in a moment.')
+    } else {
+      console.error('Failed to add song pair:', error)
+      notificationStore.error('Error', 'Failed to add song pair')
+    }
   }
 }
 

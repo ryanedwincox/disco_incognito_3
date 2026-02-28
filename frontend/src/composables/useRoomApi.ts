@@ -20,6 +20,20 @@ export function useRoomApi() {
     return authStore.accessToken ?? sessionStorage.getItem("access_token");
   }
 
+  // Notifies the user and redirects to /rooms when a 404 detail string
+  // indicates room expiry. Returns true if it matched (room expired), false otherwise.
+  function redirectIfRoomExpired(detail: string): boolean {
+    if (detail.includes("Room") || detail.includes("not found")) {
+      notifications.error(
+        "Room Expired",
+        "This room has expired or no longer exists. Please create or join a new room."
+      );
+      router.push("/rooms");
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Fetch wrapper that injects the Authorization header and handles 404
    * room-expired responses.
@@ -44,18 +58,14 @@ export function useRoomApi() {
     };
     const response = await fetch(`${API_URL}${endpoint}`, mergedOptions);
 
+    if (response.status === 429) {
+      // Throw a tagged error so retryWithBackoff / useActionDebounce can retry.
+      throw Object.assign(new Error("Rate limited"), { status: 429 });
+    }
+
     if (response.status === 404) {
       const data = await response.json().catch(() => ({}));
-      const detail = data.detail || "Room not found";
-
-      // Check if it's a room not found error
-      if (detail.includes("Room") || detail.includes("not found")) {
-        notifications.error(
-          "Room Expired",
-          "This room has expired or no longer exists. Please create or join a new room."
-        );
-        router.push("/rooms");
-      }
+      redirectIfRoomExpired(data.detail ?? "Room not found");
     }
 
     return response;
@@ -68,16 +78,7 @@ export function useRoomApi() {
   async function handleRoomResponse(response: Response): Promise<boolean> {
     if (response.status === 404) {
       const data = await response.clone().json().catch(() => ({}));
-      const detail = data.detail || "Room not found";
-
-      if (detail.includes("Room") || detail.includes("not found")) {
-        notifications.error(
-          "Room Expired",
-          "This room has expired or no longer exists. Please create or join a new room."
-        );
-        router.push("/rooms");
-        return true; // Handled as expired
-      }
+      return redirectIfRoomExpired(data.detail ?? "Room not found");
     }
     return false; // Not a room expiration error
   }

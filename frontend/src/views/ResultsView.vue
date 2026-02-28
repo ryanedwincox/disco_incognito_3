@@ -71,8 +71,6 @@ import { useAuthStore } from '@/stores/auth';
 import { useRoomStore } from '@/stores/room';
 import { useRoomApi } from '@/composables/useRoomApi';
 import { useActionDebounce } from '@/composables/useActionDebounce';
-import { useNotificationStore } from '@/stores/notifications';
-import { getErrorStatus } from '@/utils/getErrorStatus';
 
 const { roomFetch } = useRoomApi();
 
@@ -107,7 +105,6 @@ interface VoteResult {
 const playerStore = usePlayerStore();
 const authStore = useAuthStore();
 const roomStore = useRoomStore();
-const notifications = useNotificationStore();
 const { isPending: isFinishing, trigger: triggerFinish } = useActionDebounce();
 
 const loading = ref(true);
@@ -206,10 +203,6 @@ async function finishRound() {
         body: JSON.stringify({ player_id: currentUserId }),
       });
 
-      if (response.status === 429) {
-        throw Object.assign(new Error('Rate limited'), { status: 429 });
-      }
-
       if (response.status === 404) {
         return; // roomFetch already redirected
       }
@@ -225,17 +218,12 @@ async function finishRound() {
       roomStore.setStatus('lobby');
     });
   } catch (err) {
-    const status = (err as { status?: number }).status;
-    if (status === 429) {
-      notifications.warning('Server busy', 'Server is busy, please try again in a moment.');
-    } else {
-      console.error('Failed to finish round:', err);
-      error.value = 'Failed to finish round. Please try again.';
-    }
+    console.error('Failed to finish round:', err);
+    error.value = 'Failed to finish round. Please try again.';
   }
 }
 
-onMounted(() => {
-  fetchResults();
+onMounted(async () => {
+  await fetchResults();
 });
 </script>

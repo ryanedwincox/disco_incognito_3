@@ -16,14 +16,11 @@ import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useRoomApi } from '../composables/useRoomApi'
 import { useActionDebounce } from '../composables/useActionDebounce'
-import { useNotificationStore } from '../stores/notifications'
-import { getErrorStatus } from '../utils/getErrorStatus'
 import type { TrackInfo } from '../types'
 import SongAssignmentView from './SongAssignmentView.vue'
 
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
-const notifications = useNotificationStore()
 const { roomFetch } = useRoomApi()
 const { isPending: isEndingRound, trigger: triggerEndRound } = useActionDebounce()
 
@@ -102,10 +99,6 @@ async function handleEndRound() {
         body: JSON.stringify({ player_id: currentUserId.value }),
       })
 
-      if (response.status === 429) {
-        throw Object.assign(new Error('Rate limited'), { status: 429 })
-      }
-
       if (response.status === 404) return // roomFetch already redirected
 
       if (response.ok) {
@@ -117,12 +110,7 @@ async function handleEndRound() {
       }
     })
   } catch (error) {
-    const status = (error as { status?: number }).status
-    if (status === 429) {
-      notifications.warning('Server busy', 'Server is busy, please try again in a moment.')
-    } else {
-      console.error('Error ending round:', error)
-    }
+    console.error('Error ending round:', error)
   }
 }
 
