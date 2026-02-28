@@ -1,6 +1,5 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
-import axios from "axios";
 import App from "./App.vue";
 import router from "./router";
 import "./assets/tailwind.css";
@@ -11,21 +10,6 @@ const app = createApp(App);
 const pinia = createPinia();
 app.use(pinia);
 app.use(router);
-
-// Configure axios interceptor for rate limiting (429) responses
-axios.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 429) {
-      const notificationStore = useNotificationStore();
-      notificationStore.warning(
-        "Rate Limited",
-        "Too many requests. Please wait a moment and try again."
-      );
-    }
-    return Promise.reject(error);
-  }
-);
 
 // Global error handler for uncaught exceptions
 app.config.errorHandler = (err, instance, info) => {

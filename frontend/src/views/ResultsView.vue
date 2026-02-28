@@ -70,8 +70,11 @@ import { usePlayerStore } from '@/stores/player';
 import { useAuthStore } from '@/stores/auth';
 import { useRoomStore } from '@/stores/room';
 import { useRoomApi } from '@/composables/useRoomApi';
+import { useActionDebounce } from '@/composables/useActionDebounce';
+import { useNotificationStore } from '@/stores/notifications';
+import { getErrorStatus } from '@/utils/getErrorStatus';
 
-const { handleRoomResponse, API_URL } = useRoomApi();
+const { roomFetch } = useRoomApi();
 
 interface RoomPlayer {
   id: string;
@@ -104,10 +107,11 @@ interface VoteResult {
 const playerStore = usePlayerStore();
 const authStore = useAuthStore();
 const roomStore = useRoomStore();
+const notifications = useNotificationStore();
+const { isPending: isFinishing, trigger: triggerFinish } = useActionDebounce();
 
 const loading = ref(true);
 const error = ref<string | null>(null);
-const isFinishing = ref(false);
 const players = ref<RoomPlayer[]>([]);
 const hostId = ref<string | null>(null);
 // NOTE: incognitoPlayerIds is populated from the REST /results API response (post-round reveal
@@ -155,11 +159,10 @@ async function fetchResults() {
     authStore.loadFromStorage();
 
     // Fetch room data for player list and host info
-    const roomResponse = await fetch(`${API_URL}/api/rooms/${roomCode.value}`);
+    const roomResponse = await roomFetch(`/api/rooms/${roomCode.value}`);
 
-    // Handle expired room (404)
-    if (await handleRoomResponse(roomResponse)) {
-      return;
+    if (roomResponse.status === 404) {
+      return; // roomFetch already redirected
     }
 
     if (!roomResponse.ok) {
@@ -170,7 +173,7 @@ async function fetchResults() {
     hostId.value = roomData.host_id;
 
     // Fetch results data
-    const resultsResponse = await fetch(`${API_URL}/api/rooms/${roomCode.value}/results`);
+    const resultsResponse = await roomFetch(`/api/rooms/${roomCode.value}/results`);
     if (!resultsResponse.ok) {
       if (resultsResponse.status === 400) {
         error.value = 'Results not available yet. Waiting for all players to vote.';
@@ -191,36 +194,44 @@ async function fetchResults() {
 }
 
 async function finishRound() {
-  isFinishing.value = true;
+  error.value = null;
   try {
-    const currentUserId = authStore.user?.id ?? playerStore.id;
+    await triggerFinish(async () => {
+      const currentUserId = authStore.user?.id ?? playerStore.id;
 
-    // Call backend to finish round (removes song pair, resets state)
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/finish-round`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ player_id: currentUserId }),
+      // Call backend to finish round (removes song pair, resets state)
+      const response = await roomFetch(`/api/rooms/${roomCode.value}/finish-round`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player_id: currentUserId }),
+      });
+
+      if (response.status === 429) {
+        throw Object.assign(new Error('Rate limited'), { status: 429 });
+      }
+
+      if (response.status === 404) {
+        return; // roomFetch already redirected
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        console.error('Failed to finish round:', errorData.detail);
+        error.value = errorData.detail || 'Failed to finish round';
+        return;
+      }
+
+      // Go back to lobby for next round - AppOrchestrator will switch view
+      roomStore.setStatus('lobby');
     });
-
-    // Handle expired room (404)
-    if (await handleRoomResponse(response)) {
-      return;
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      console.error('Failed to finish round:', errorData.detail);
-      error.value = errorData.detail || 'Failed to finish round';
-      return;
-    }
-
-    // Go back to lobby for next round - AppOrchestrator will switch view
-    roomStore.setStatus('lobby');
   } catch (err) {
-    console.error('Failed to finish round:', err);
-    error.value = 'Failed to finish round. Please try again.';
-  } finally {
-    isFinishing.value = false;
+    const status = (err as { status?: number }).status;
+    if (status === 429) {
+      notifications.warning('Server busy', 'Server is busy, please try again in a moment.');
+    } else {
+      console.error('Failed to finish round:', err);
+      error.value = 'Failed to finish round. Please try again.';
+    }
   }
 }
 

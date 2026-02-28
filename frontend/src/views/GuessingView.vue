@@ -1,4 +1,4 @@
-<!-- Odd Duck guessing interface where players vote on who heard a different song. Displays all players as cards with guess buttons. Players select who they think is the Odd Duck. -->
+<!-- Dancer Incognito guessing interface where players vote on who heard a different song. Displays all players as cards with guess buttons. Players select who they think is the Dancer Incognito. -->
 <template>
   <div class="min-h-screen bg-zinc-950 text-white px-6 pt-12 pb-28">
     <header class="text-center mb-10 space-y-2">
@@ -62,8 +62,11 @@ import { usePlayerStore } from '@/stores/player';
 import { useAuthStore } from '@/stores/auth';
 import { useRoomStore } from '@/stores/room';
 import { useRoomApi } from '@/composables/useRoomApi';
+import { useActionDebounce } from '@/composables/useActionDebounce';
+import { useNotificationStore } from '@/stores/notifications';
+import { getErrorStatus } from '@/utils/getErrorStatus';
 
-const { handleRoomResponse, API_URL } = useRoomApi();
+const { roomFetch } = useRoomApi();
 
 interface GuessingPlayer {
   id: string;
@@ -90,13 +93,14 @@ interface RoomResponse {
 const playerStore = usePlayerStore();
 const authStore = useAuthStore();
 const roomStore = useRoomStore();
+const notifications = useNotificationStore();
+const { isPending: submitting, trigger: triggerVote } = useActionDebounce();
+const { isPending: revealing, trigger: triggerReveal } = useActionDebounce();
 
 const players = ref<GuessingPlayer[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const votedFor = ref<string | null>(null);
-const submitting = ref(false);
-const revealing = ref(false);
 const votesCount = ref(0);
 
 const hasVoted = computed(() => votedFor.value !== null);
@@ -128,11 +132,11 @@ async function fetchRoom() {
     // Load auth state from sessionStorage (in case of page refresh)
     authStore.loadFromStorage();
 
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}`);
+    const response = await roomFetch(`/api/rooms/${roomCode.value}`);
 
     // Handle expired room (404)
-    if (await handleRoomResponse(response)) {
-      return;
+    if (response.status === 404) {
+      return; // roomFetch already redirected
     }
 
     if (!response.ok) {
@@ -176,77 +180,84 @@ async function vote(guessedPlayerId: string) {
     return;
   }
 
+  error.value = null;
   try {
-    submitting.value = true;
-    error.value = null;
+    await triggerVote(async () => {
+      const response = await roomFetch(`/api/rooms/${roomCode.value}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          player_id: currentPlayerId,
+          guessed_player_id: guessedPlayerId,
+        }),
+      });
 
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/vote`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        player_id: currentPlayerId,
-        guessed_player_id: guessedPlayerId,
-      }),
-    });
-
-    // Handle expired room (404)
-    if (await handleRoomResponse(response)) {
-      return;
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      if (errorData.detail === 'Player has already voted') {
-        error.value = 'You have already voted.';
-        votedFor.value = guessedPlayerId;
-        return;
+      if (response.status === 429) {
+        throw Object.assign(new Error('Rate limited'), { status: 429 });
       }
-      throw new Error(`Failed to vote: ${response.status}`);
-    }
 
-    const data: RoomResponse = await response.json();
-    votedFor.value = guessedPlayerId;
+      if (response.status === 404) {
+        return; // roomFetch already redirected
+      }
 
-    // If status is 'results', update store - AppOrchestrator will switch view
-    if (data.status === 'results') {
-      roomStore.setStatus('results');
-    }
+      if (!response.ok) {
+        throw new Error(`Failed to vote: ${response.status}`);
+      }
+
+      const data: RoomResponse = await response.json();
+      votedFor.value = guessedPlayerId;
+
+      // If status is 'results', update store - AppOrchestrator will switch view
+      if (data.status === 'results') {
+        roomStore.setStatus('results');
+      }
+    });
   } catch (err) {
-    console.error('Failed to vote:', err);
-    error.value = 'Failed to submit vote. Please try again.';
-  } finally {
-    submitting.value = false;
+    if (getErrorStatus(err) === 429) {
+      notifications.warning('Server busy', 'Server is busy, please try again in a moment.');
+    } else {
+      console.error('Failed to vote:', err);
+      error.value = 'Failed to submit vote. Please try again.';
+    }
   }
 }
 
 async function revealResults() {
-  if (revealing.value) return;
-
   const playerId = authStore.user?.id;
   if (!playerId || !roomCode.value) return;
-  try {
-    revealing.value = true;
-    error.value = null;
 
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/reveal`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ player_id: playerId }),
+  error.value = null;
+  try {
+    await triggerReveal(async () => {
+      const response = await roomFetch(`/api/rooms/${roomCode.value}/reveal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player_id: playerId }),
+      });
+
+      if (response.status === 429) {
+        throw Object.assign(new Error('Rate limited'), { status: 429 });
+      }
+
+      if (response.status === 404) return; // roomFetch already redirected
+
+      if (response.ok) {
+        const data: RoomResponse = await response.json();
+        roomStore.setStatus(data.status);
+      } else {
+        const err = await response.json().catch(() => ({}));
+        console.error('Failed to reveal results:', err.detail);
+        error.value = 'Failed to reveal results. Please try again.';
+      }
     });
-    if (await handleRoomResponse(response)) return;
-    if (response.ok) {
-      const data: RoomResponse = await response.json();
-      roomStore.setStatus(data.status);
+  } catch (err) {
+    const status = (err as { status?: number }).status;
+    if (status === 429) {
+      notifications.warning('Server busy', 'Server is busy, please try again in a moment.');
     } else {
-      const err = await response.json().catch(() => ({}));
-      console.error('Failed to reveal results:', err.detail);
+      console.error('Error revealing results:', err);
       error.value = 'Failed to reveal results. Please try again.';
     }
-  } catch (err) {
-    console.error('Error revealing results:', err);
-    error.value = 'Failed to reveal results. Please try again.';
-  } finally {
-    revealing.value = false;
   }
 }
 

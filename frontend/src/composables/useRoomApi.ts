@@ -1,24 +1,48 @@
 /**
- * Room API composable with automatic 404 handling for expired rooms.
+ * Room API composable with automatic 404 handling for expired rooms and
+ * automatic Authorization header injection from the active session.
+ *
  * Redirects to home page with a notification when a room is not found.
+ * Injects the Bearer token so the backend rate-limiter can key on the
+ * per-player identity rather than the shared IP address (NAT collapse fix).
  */
 import { useRouter } from "vue-router";
 import { useNotificationStore } from "@/stores/notifications";
+import { useAuthStore } from "@/stores/auth";
 import { API_URL } from "@/config/api";
 
 export function useRoomApi() {
   const router = useRouter();
   const notifications = useNotificationStore();
+  const authStore = useAuthStore();
+
+  function getToken(): string | null {
+    return authStore.accessToken ?? sessionStorage.getItem("access_token");
+  }
 
   /**
-   * Fetch wrapper that handles 404 room expired responses.
-   * Redirects to /rooms with an error notification on 404.
+   * Fetch wrapper that injects the Authorization header and handles 404
+   * room-expired responses.
+   *
+   * Merges the auth header with any caller-supplied headers so all room
+   * API calls carry the Bearer token needed for per-player rate-limit keys.
    */
   async function roomFetch(
     endpoint: string,
     options?: RequestInit
   ): Promise<Response> {
-    const response = await fetch(`${API_URL}${endpoint}`, options);
+    const token = getToken();
+    const authHeaders: HeadersInit = token
+      ? { Authorization: `Bearer ${token}` }
+      : {};
+    const mergedOptions: RequestInit = {
+      ...options,
+      headers: {
+        ...authHeaders,
+        ...(options?.headers ?? {}),
+      },
+    };
+    const response = await fetch(`${API_URL}${endpoint}`, mergedOptions);
 
     if (response.status === 404) {
       const data = await response.json().catch(() => ({}));
@@ -58,9 +82,22 @@ export function useRoomApi() {
     return false; // Not a room expiration error
   }
 
+  /**
+   * Returns the Authorization header object for the current session.
+   * Spread into fetch `headers` so room endpoints carry the Bearer token
+   * required for per-player-per-room rate-limit bucketing on the backend.
+   *
+   * @example
+   *   fetch(url, { headers: { 'Content-Type': 'application/json', ...authHeaders() } })
+   */
+  function authHeaders(): HeadersInit {
+    const token = getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   return {
     roomFetch,
     handleRoomResponse,
-    API_URL
+    authHeaders,
   };
 }

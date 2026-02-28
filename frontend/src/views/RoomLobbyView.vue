@@ -75,11 +75,16 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useRoomApi } from '../composables/useRoomApi'
+import { useActionDebounce } from '../composables/useActionDebounce'
+import { useNotificationStore } from '../stores/notifications'
+import { getErrorStatus } from '../utils/getErrorStatus'
 import { websocketService } from '../services/websocket'
 
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
-const { handleRoomResponse, API_URL } = useRoomApi()
+const notifications = useNotificationStore()
+const { roomFetch } = useRoomApi()
+const { isPending: isStarting, trigger: triggerStart } = useActionDebounce()
 
 const roomCode = computed(() => roomStore.code || '')
 const players = computed(() => roomStore.players)
@@ -94,7 +99,6 @@ const isHost = computed(() => {
   const currentPlayer = players.value.find(p => p.id === currentUserId.value)
   return currentPlayer?.isHost ?? false
 })
-const isStarting = ref(false)
 const isLeaving = ref(false)
 
 onMounted(async () => {
@@ -108,11 +112,10 @@ onMounted(async () => {
 
   // Fetch room data from API if available
   try {
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}`)
+    const response = await roomFetch(`/api/rooms/${roomCode.value}`)
 
-    // Handle expired room (404)
-    if (await handleRoomResponse(response)) {
-      return
+    if (response.status === 404) {
+      return // roomFetch already redirected
     }
 
     if (response.ok) {
@@ -149,7 +152,7 @@ onMounted(async () => {
 
 async function joinRoomAsPlayer(playerId: string, displayName: string) {
   try {
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/join`, {
+    const response = await roomFetch(`/api/rooms/${roomCode.value}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -158,9 +161,8 @@ async function joinRoomAsPlayer(playerId: string, displayName: string) {
       }),
     })
 
-    // Handle expired room (404)
-    if (await handleRoomResponse(response)) {
-      return
+    if (response.status === 404) {
+      return // roomFetch already redirected
     }
 
     if (response.ok) {
@@ -194,7 +196,7 @@ async function leaveRoom() {
     // Call API to leave room
     if (userId && roomCode.value) {
       try {
-        await fetch(`${API_URL}/api/rooms/${roomCode.value}/leave`, {
+        await roomFetch(`/api/rooms/${roomCode.value}/leave`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ player_id: userId }),
@@ -226,50 +228,57 @@ async function startGame() {
     return
   }
 
-  isStarting.value = true
   try {
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/start`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        player_id: currentUserId.value,
-      }),
-    })
+    await triggerStart(async () => {
+      const response = await roomFetch(`/api/rooms/${roomCode.value}/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          player_id: currentUserId.value,
+        }),
+      })
 
-    // Handle expired room (404)
-    if (await handleRoomResponse(response)) {
-      return
-    }
-
-    if (response.ok) {
-      const data = await response.json()
-      roomStore.setStatus(data.status)
-
-      // Extract assigned song for current player from current_round.player_assignments
-      if (data.current_round?.player_assignments && currentUserId.value) {
-        const assignment = data.current_round.player_assignments[currentUserId.value]
-        if (assignment) {
-          roomStore.setAssignedSong({
-            id: assignment.id,
-            title: assignment.title,
-            artist: assignment.artist,
-          })
-          console.log('Assigned song:', assignment.title, 'by', assignment.artist)
-        }
+      if (response.status === 429) {
+        throw Object.assign(new Error('Rate limited'), { status: 429 })
       }
 
-      console.log('Game started, status:', data.status)
-      // AppOrchestrator will switch view based on roomStore.status
-    } else {
-      const error = await response.json()
-      console.error('Failed to start game:', error.detail)
-    }
+      if (response.status === 404) {
+        return // roomFetch already redirected
+      }
+
+      if (response.ok) {
+        const data = await response.json()
+        roomStore.setStatus(data.status)
+
+        // Extract assigned song for current player from current_round.player_assignments
+        if (data.current_round?.player_assignments && currentUserId.value) {
+          const assignment = data.current_round.player_assignments[currentUserId.value]
+          if (assignment) {
+            roomStore.setAssignedSong({
+              id: assignment.id,
+              title: assignment.title,
+              artist: assignment.artist,
+            })
+            console.log('Assigned song:', assignment.title, 'by', assignment.artist)
+          }
+        }
+
+        console.log('Game started, status:', data.status)
+        // AppOrchestrator will switch view based on roomStore.status
+      } else {
+        const error = await response.json()
+        console.error('Failed to start game:', error.detail)
+      }
+    })
   } catch (error) {
-    console.error('Error starting game:', error)
-  } finally {
-    isStarting.value = false
+    const status = (error as { status?: number }).status
+    if (status === 429) {
+      notifications.warning('Server busy', 'Server is busy, please try again in a moment.')
+    } else {
+      console.error('Error starting game:', error)
+    }
   }
 }
 </script>

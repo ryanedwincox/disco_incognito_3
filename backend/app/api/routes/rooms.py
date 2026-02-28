@@ -695,9 +695,10 @@ async def cast_vote(
         if not guessed:
             raise HTTPException(status_code=400, detail='Guessed player not in room')
 
-        # Check if player already voted
+        # Idempotent: if player already voted for the same target, return current state.
+        # Eliminates 400-as-success edge case so frontend retry logic is always safe.
         if body.player_id in room.current_round.votes:
-            raise HTTPException(status_code=400, detail='Player has already voted')
+            return RoomStateResponse.from_room_state(room)
 
         # Record the vote
         room.current_round.votes[body.player_id] = body.guessed_player_id

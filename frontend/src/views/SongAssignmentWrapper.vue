@@ -11,20 +11,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useRoomApi } from '../composables/useRoomApi'
+import { useActionDebounce } from '../composables/useActionDebounce'
+import { useNotificationStore } from '../stores/notifications'
+import { getErrorStatus } from '../utils/getErrorStatus'
 import type { TrackInfo } from '../types'
 import SongAssignmentView from './SongAssignmentView.vue'
 
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
-const { handleRoomResponse, API_URL } = useRoomApi()
+const notifications = useNotificationStore()
+const { roomFetch } = useRoomApi()
+const { isPending: isEndingRound, trigger: triggerEndRound } = useActionDebounce()
 
 const roomCode = computed(() => roomStore.code || '')
 const currentUserId = computed(() => authStore.user?.id ?? null)
-const isEndingRound = ref(false)
 
 const isHost = computed(() => {
   if (!currentUserId.value) return false
@@ -52,11 +56,10 @@ onMounted(async () => {
   // If assignedSong is not set (page refresh), fetch room data to get it
   if (!roomStore.assignedSong && currentUserId.value && roomCode.value) {
     try {
-      const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}`)
+      const response = await roomFetch(`/api/rooms/${roomCode.value}`)
 
-      // Handle expired room (404)
-      if (await handleRoomResponse(response)) {
-        return
+      if (response.status === 404) {
+        return // roomFetch already redirected
       }
 
       if (response.ok) {
@@ -91,27 +94,35 @@ onMounted(async () => {
 async function handleEndRound() {
   if (!currentUserId.value || !isHost.value) return
 
-  isEndingRound.value = true
   try {
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode.value}/end-round`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ player_id: currentUserId.value }),
+    await triggerEndRound(async () => {
+      const response = await roomFetch(`/api/rooms/${roomCode.value}/end-round`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player_id: currentUserId.value }),
+      })
+
+      if (response.status === 429) {
+        throw Object.assign(new Error('Rate limited'), { status: 429 })
+      }
+
+      if (response.status === 404) return // roomFetch already redirected
+
+      if (response.ok) {
+        const data = await response.json()
+        roomStore.setStatus(data.status)
+      } else {
+        const error = await response.json()
+        console.error('Failed to end round:', error)
+      }
     })
-
-    if (await handleRoomResponse(response)) return
-
-    if (response.ok) {
-      const data = await response.json()
-      roomStore.setStatus(data.status)
-    } else {
-      const error = await response.json()
-      console.error('Failed to end round:', error)
-    }
   } catch (error) {
-    console.error('Error ending round:', error)
-  } finally {
-    isEndingRound.value = false
+    const status = (error as { status?: number }).status
+    if (status === 429) {
+      notifications.warning('Server busy', 'Server is busy, please try again in a moment.')
+    } else {
+      console.error('Error ending round:', error)
+    }
   }
 }
 

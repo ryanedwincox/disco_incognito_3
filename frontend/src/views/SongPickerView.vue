@@ -107,7 +107,7 @@ interface SongPickerStoredState {
 const authStore = useAuthStore()
 const roomStore = useRoomStore()
 const notificationStore = useNotificationStore()
-const { handleRoomResponse, API_URL } = useRoomApi()
+const { roomFetch } = useRoomApi()
 
 // Reactive refs — declared before functions that close over them
 const song1Title = ref('')
@@ -191,7 +191,7 @@ async function addSongPair() {
   isSaving.value = true
   try {
     const roomCode = roomStore.code
-    const response = await fetch(`${API_URL}/api/rooms/${roomCode}/song-pairs`, {
+    const response = await roomFetch(`/api/rooms/${roomCode}/song-pairs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -203,8 +203,8 @@ async function addSongPair() {
       }),
     })
 
-    if (await handleRoomResponse(response)) {
-      return
+    if (response.status === 404) {
+      return // roomFetch already redirected
     }
 
     if (!response.ok) {
