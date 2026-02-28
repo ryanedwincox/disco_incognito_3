@@ -1,12 +1,15 @@
 /**
  * WebSocket service for room-scoped real-time communication.
  * Manages a single WebSocket connection per room.
- * State-driven navigation via AppOrchestrator - no router.push() calls.
+ * Navigation is state-driven via AppOrchestrator reacting to roomStore changes.
  */
 
 import { useRoomStore } from "../stores/room";
 import { useWebSocketStore } from "../stores/websocket";
+import { useNotificationStore } from "../stores/notifications";
 import { API_URL } from "../config/api";
+import { STORAGE_KEYS } from "../config/storageKeys";
+import { WS_CLOSE } from "../constants/wsCloseCodes";
 
 export interface WebSocketMessage {
   type: string;
@@ -17,6 +20,8 @@ export interface WebSocketMessage {
   reason?: string;
   phase?: string;
   room_code?: string;
+  player_id?: string;
+  ready_players?: string[];
   players?: Array<{
     id: string;
     display_name: string;
@@ -29,18 +34,30 @@ export interface WebSocketMessage {
   new_host_id?: string | null;
 }
 
-const RECONNECT_TOKEN_KEY = "disco_reconnect_token";
+// Reconnect backoff constants
+const BASE_DELAY_MS = 1000;
+const BACKOFF_MULTIPLIER = 2;
+const MAX_DELAY_MS = 16_000;
+const MAX_RECONNECT_ATTEMPTS = 8;
+
+function getBackoffDelay(attempt: number): number {
+  const base = Math.min(
+    BASE_DELAY_MS * Math.pow(BACKOFF_MULTIPLIER, attempt),
+    MAX_DELAY_MS
+  );
+  // ±20% jitter
+  return base * (0.8 + Math.random() * 0.4);
+}
 
 export class WebSocketService {
   private socket: WebSocket | null = null;
   private userId: string | null = null;
   private roomCode: string | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
-  private reconnectTimer: number | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectToken: string | null = null;
-  private heartbeatTimer: number | null = null;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+  private pongWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Connect to a room-scoped WebSocket endpoint.
@@ -61,11 +78,10 @@ export class WebSocketService {
 
     // Build WS URL: /api/ws/room/{roomCode}?user_id={userId}&reconnect_token={token}
     const wsBaseUrl = API_URL.replace(/^http/, "ws");
-    const savedToken = sessionStorage.getItem(RECONNECT_TOKEN_KEY);
-    const tokenParam =
-      savedToken || this.reconnectToken
-        ? `&reconnect_token=${savedToken || this.reconnectToken}`
-        : "";
+    const savedToken =
+      sessionStorage.getItem(STORAGE_KEYS.RECONNECT_TOKEN) ||
+      this.reconnectToken;
+    const tokenParam = savedToken ? `&reconnect_token=${savedToken}` : "";
     const wsUrl = `${wsBaseUrl}/api/ws/room/${roomCode}?user_id=${userId}${tokenParam}`;
 
     console.log(`Connecting to room WebSocket: ${wsUrl}`);
@@ -94,11 +110,31 @@ export class WebSocketService {
         wsStore.setStatus("disconnected");
       };
 
-      this.socket.onclose = () => {
-        console.log(`Room WebSocket disconnected`);
+      this.socket.onclose = (event: CloseEvent) => {
+        console.log(
+          `Room WebSocket disconnected (code=${event.code}, wasClean=${event.wasClean})`
+        );
         this.socket = null;
         this.stopHeartbeat();
         wsStore.setStatus("disconnected");
+
+        // Replaced by a newer connection from the same user — do not reconnect.
+        if (event.code === WS_CLOSE.REPLACED) {
+          return;
+        }
+
+        // Intentional clean close — do not reconnect.
+        if (event.code === 1000 && event.wasClean) {
+          return;
+        }
+
+        // Room no longer exists — notify and navigate home.
+        if (event.code === WS_CLOSE.ROOM_NOT_FOUND) {
+          this.handleRoomNotFound();
+          return;
+        }
+
+        // All other codes (network drop, pong timeout, etc.) → reconnect.
         this.attemptReconnect();
       };
     } catch (error) {
@@ -110,14 +146,11 @@ export class WebSocketService {
 
   /**
    * Disconnect from the current WebSocket connection.
+   * Clears all timers and resets state. Does NOT navigate.
    */
   disconnect(): void {
     this.stopHeartbeat();
-
-    if (this.reconnectTimer !== null) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
+    this.clearReconnectTimer();
 
     if (this.socket) {
       // Null out handlers before close() to prevent the async onclose from
@@ -129,7 +162,7 @@ export class WebSocketService {
     }
 
     // Clear reconnect token when deliberately disconnecting
-    sessionStorage.removeItem(RECONNECT_TOKEN_KEY);
+    sessionStorage.removeItem(STORAGE_KEYS.RECONNECT_TOKEN);
 
     // Reset WS store so hasEverConnected is false — prevents the
     // ServerDisconnectedBanner from flashing during intentional disconnect
@@ -153,18 +186,38 @@ export class WebSocketService {
     }
 
     console.log("Manual reconnection triggered");
+    this.clearReconnectTimer();
     this.reconnectAttempts = 0;
     this.connectToRoom(this.userId, this.roomCode);
   }
 
   /**
-   * Attempt to reconnect with exponential backoff: 1s->2s->4s->8s->16s, max 5 attempts.
+   * Trigger an immediate reconnect attempt if the socket is not OPEN or CONNECTING.
+   * Used by the page-visibility handler on foreground resume.
+   */
+  reconnectIfNeeded(): void {
+    if (!this.userId || !this.roomCode) return;
+    if (
+      this.socket?.readyState === WebSocket.OPEN ||
+      this.socket?.readyState === WebSocket.CONNECTING
+    ) {
+      return;
+    }
+    console.debug("Visibility change: socket not open, triggering reconnect");
+    this.clearReconnectTimer();
+    this.connectToRoom(this.userId, this.roomCode);
+  }
+
+  /**
+   * Attempt to reconnect with exponential backoff + jitter.
+   * After MAX_RECONNECT_ATTEMPTS gives up and navigates home.
    */
   private attemptReconnect(): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error(
-        `Max reconnect attempts (${this.maxReconnectAttempts}) reached. Giving up.`
-      );
+    // Clear any pending timer first — prevents timer accumulation on rapid calls.
+    this.clearReconnectTimer();
+
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      this.handleReconnectFailed();
       return;
     }
 
@@ -173,19 +226,65 @@ export class WebSocketService {
       return;
     }
 
+    const delay = getBackoffDelay(this.reconnectAttempts);
     this.reconnectAttempts++;
-    const delay =
-      this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
     console.log(
-      `Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${delay}ms...`
+      `Attempting to reconnect (${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) in ${Math.round(delay)}ms...`
     );
 
-    this.reconnectTimer = window.setTimeout(() => {
+    this.reconnectTimer = setTimeout(() => {
       if (this.userId && this.roomCode) {
         this.connectToRoom(this.userId, this.roomCode);
       }
     }, delay);
+  }
+
+  /** Clear any pending reconnect timer. */
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  /** Handle exhausted reconnect attempts — clear state and navigate home. */
+  private handleReconnectFailed(): void {
+    console.error(
+      `Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Giving up.`
+    );
+    this.clearReconnectTimer();
+    sessionStorage.removeItem(STORAGE_KEYS.RECONNECT_TOKEN);
+    sessionStorage.removeItem(STORAGE_KEYS.ROOM_CODE);
+    this.reconnectAttempts = 0;
+    this.reconnectToken = null;
+    this.userId = null;
+    this.roomCode = null;
+
+    const notifications = useNotificationStore();
+    notifications.error("Connection Lost", "Could not reconnect to the room.");
+
+    const roomStore = useRoomStore();
+    // reset() clears roomCode → AppOrchestrator's watch navigates to RoomSelectionView.
+    roomStore.reset();
+  }
+
+  /** Handle room_not_found close code — room deleted or never existed. */
+  private handleRoomNotFound(): void {
+    console.warn("Room not found — navigating home");
+    sessionStorage.removeItem(STORAGE_KEYS.RECONNECT_TOKEN);
+    sessionStorage.removeItem(STORAGE_KEYS.ROOM_CODE);
+    this.reconnectToken = null;
+    this.userId = null;
+    this.roomCode = null;
+    this.reconnectAttempts = 0;
+
+    const notifications = useNotificationStore();
+    notifications.error("Room Not Found", "This room no longer exists.");
+
+    const roomStore = useRoomStore();
+    // reset() clears roomCode → AppOrchestrator's watch navigates to RoomSelectionView.
+    roomStore.reset();
   }
 
   /**
@@ -207,7 +306,11 @@ export class WebSocketService {
           break;
 
         case "reconnect_failed":
-          this.handleReconnectFailed(message);
+          this.handleReconnectFailedMessage(message);
+          break;
+
+        case "room_not_found":
+          this.handleRoomNotFound();
           break;
 
         case "room_state":
@@ -238,6 +341,18 @@ export class WebSocketService {
           this.handleSongAdded(message);
           break;
 
+        case "player_ready":
+          this.handlePlayerReady(message, roomStore);
+          break;
+
+        case "pong":
+          // Clear pong watchdog — connection is alive.
+          if (this.pongWatchdogTimer !== null) {
+            clearTimeout(this.pongWatchdogTimer);
+            this.pongWatchdogTimer = null;
+          }
+          break;
+
         default:
           console.warn("Unknown WebSocket message type:", message.type);
       }
@@ -252,17 +367,17 @@ export class WebSocketService {
   private handleConnected(message: WebSocketMessage): void {
     if (message.reconnect_token) {
       this.reconnectToken = message.reconnect_token;
-      sessionStorage.setItem(RECONNECT_TOKEN_KEY, message.reconnect_token);
+      sessionStorage.setItem(STORAGE_KEYS.RECONNECT_TOKEN, message.reconnect_token);
       console.log("Reconnect token stored");
     }
   }
 
   /**
-   * Handle reconnect_failed event.
+   * Handle reconnect_failed message event (token invalid/expired).
    */
-  private handleReconnectFailed(message: WebSocketMessage): void {
+  private handleReconnectFailedMessage(message: WebSocketMessage): void {
     console.error("Reconnection failed:", message.reason);
-    sessionStorage.removeItem(RECONNECT_TOKEN_KEY);
+    sessionStorage.removeItem(STORAGE_KEYS.RECONNECT_TOKEN);
     this.reconnectToken = null;
   }
 
@@ -298,6 +413,10 @@ export class WebSocketService {
         title: message.assigned_song.title,
         artist: message.assigned_song.artist,
       });
+    }
+
+    if (Array.isArray(message.ready_players)) {
+      roomStore.setReadyPlayers(message.ready_players);
     }
 
     // Set status LAST so the view transition sees all data already populated
@@ -466,24 +585,52 @@ export class WebSocketService {
   }
 
   /**
-   * Start sending periodic ping messages to keep the connection alive through proxies/LBs.
+   * Handle player_ready event — update readyPlayers in roomStore.
    */
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-    this.heartbeatTimer = window.setInterval(() => {
-      if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-        this.socket.send(JSON.stringify({ type: "ping" }));
-      }
-    }, 30_000);
+  private handlePlayerReady(
+    message: WebSocketMessage,
+    roomStore: ReturnType<typeof useRoomStore>
+  ): void {
+    if (Array.isArray(message.ready_players)) {
+      roomStore.setReadyPlayers(message.ready_players);
+    } else if (message.player_id) {
+      roomStore.markPlayerReady(message.player_id);
+    }
   }
 
   /**
-   * Stop the heartbeat interval.
+   * Start the heartbeat: ping every 20s, watchdog closes socket after 10s without pong.
+   */
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatInterval = setInterval(() => {
+      this.sendPing();
+    }, 20_000);
+  }
+
+  /** Send a ping and start the pong watchdog. */
+  private sendPing(): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+    this.socket.send(JSON.stringify({ type: "ping" }));
+
+    // Watchdog: close socket if pong doesn't arrive within 10s
+    this.pongWatchdogTimer = setTimeout(() => {
+      console.warn("Pong not received within 10s — closing dead connection");
+      this.socket?.close(WS_CLOSE.PONG_TIMEOUT);
+    }, 10_000);
+  }
+
+  /**
+   * Stop the heartbeat interval and pong watchdog.
    */
   private stopHeartbeat(): void {
-    if (this.heartbeatTimer !== null) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
+    if (this.heartbeatInterval !== null) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    if (this.pongWatchdogTimer !== null) {
+      clearTimeout(this.pongWatchdogTimer);
+      this.pongWatchdogTimer = null;
     }
   }
 

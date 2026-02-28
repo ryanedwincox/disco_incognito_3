@@ -76,11 +76,14 @@ import { useRoomStore } from '../stores/room'
 import { useAuthStore } from '../stores/auth'
 import { useRoomApi } from '../composables/useRoomApi'
 import { useActionDebounce } from '../composables/useActionDebounce'
+import { useNotificationStore } from '../stores/notifications'
 import { websocketService } from '../services/websocket'
+import { STORAGE_KEYS } from '../config/storageKeys'
 
 const roomStore = useRoomStore()
 const authStore = useAuthStore()
 const { roomFetch } = useRoomApi()
+const notifications = useNotificationStore()
 const { isPending: isStarting, trigger: triggerStart } = useActionDebounce()
 
 const roomCode = computed(() => roomStore.code || '')
@@ -175,9 +178,14 @@ async function joinRoomAsPlayer(playerId: string, displayName: string) {
         )
       }
       console.log('Successfully joined room:', roomCode.value)
+    } else {
+      const err = await response.json().catch(() => ({}))
+      console.error('Failed to join room:', err)
+      notifications.error('Join Failed', err.detail || 'Could not join the room — please try again.')
     }
   } catch (error) {
-    console.log('Could not join room:', error)
+    console.error('Could not join room:', error)
+    notifications.error('Join Failed', 'Could not join the room — please try again.')
   }
 }
 
@@ -193,18 +201,24 @@ async function leaveRoom() {
     // Call API to leave room
     if (userId && roomCode.value) {
       try {
-        await roomFetch(`/api/rooms/${roomCode.value}/leave`, {
+        const response = await roomFetch(`/api/rooms/${roomCode.value}/leave`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ player_id: userId }),
         })
+        if (!response.ok && response.status !== 404) {
+          const err = await response.json().catch(() => ({}))
+          console.error('Could not leave room via API:', err)
+          // Non-fatal — proceed with local cleanup anyway
+        }
       } catch (error) {
-        console.log('Could not leave room via API:', error)
+        console.error('Could not leave room via API:', error)
+        notifications.error('Leave Failed', 'Could not leave the room gracefully — you have been removed locally.')
       }
     }
 
     // Clear reconnect token explicitly (sessionStorage, not localStorage)
-    sessionStorage.removeItem('disco_reconnect_token')
+    sessionStorage.removeItem(STORAGE_KEYS.RECONNECT_TOKEN)
 
     // Reset room state - AppOrchestrator will switch to RoomSelectionView
     roomStore.reset()
@@ -261,12 +275,14 @@ async function startGame() {
         console.log('Game started, status:', data.status)
         // AppOrchestrator will switch view based on roomStore.status
       } else {
-        const error = await response.json()
-        console.error('Failed to start game:', error.detail)
+        const err = await response.json().catch(() => ({}))
+        console.error('Failed to start game:', err.detail)
+        notifications.error('Start Failed', err.detail || 'Could not start the game — please try again.')
       }
     })
   } catch (error) {
     console.error('Error starting game:', error)
+    notifications.error('Start Failed', 'Could not start the game — please try again.')
   }
 }
 </script>

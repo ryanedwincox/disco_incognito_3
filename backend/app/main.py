@@ -96,22 +96,17 @@ async def cleanup_expired_rooms() -> None:
             logger.info(f'Cleaned up {deleted_count} expired room(s) on startup')
 
 
-async def _build_room_state_for_user(room_code: str, user_id: str) -> dict[str, Any]:
+async def _build_room_state_for_user(room_code: str, user_id: str) -> dict[str, Any] | None:
     """Build a per-user tailored room_state message.
 
     Returns dict with: type, phase, players[], host_id, pair_count, assigned_song (for this user).
+    Returns None when the room does not exist so the caller can send room_not_found.
     """
     storage = get_storage_adapter()
     room_data = await storage.get_room(room_code)
 
     if not room_data:
-        return {
-            'type': 'room_state',
-            'phase': 'lobby',
-            'players': [],
-            'host_id': None,
-            'pair_count': 0,
-        }
+        return None
 
     room = RoomState(**room_data)
 
@@ -218,8 +213,14 @@ async def room_websocket_endpoint(
         }
     )
 
-    # Send per-user room state
+    # Send per-user room state (or signal room_not_found and close)
     room_state = await _build_room_state_for_user(room_code, user_id)
+    if room_state is None:
+        await websocket.send_json({'type': 'room_not_found', 'room_code': room_code})
+        await websocket.close(code=4004)
+        # Clean up the just-registered connection since the room doesn't exist
+        await connection_manager.disconnect(room_code, user_id)
+        return
     await websocket.send_json(room_state)
 
     # Broadcast player_connected (skip if reconnecting - they were already in room)
@@ -248,12 +249,8 @@ async def room_websocket_endpoint(
     except Exception as e:
         logger.exception(f'Room WS error for user {user_id} in room {room_code}: {e}')
     finally:
+        # Only disconnect if THIS websocket instance is still the registered one.
+        # If a new socket replaced us (zombie eviction via connect()), our entry is gone
+        # and disconnect() will no-op due to its idempotency guard.
+        # disconnect() handles both the dict removal and player_disconnected broadcast.
         await connection_manager.disconnect(room_code, user_id)
-        # Broadcast player_disconnected to remaining players
-        await connection_manager.broadcast_to_room(
-            room_code,
-            {
-                'type': 'player_disconnected',
-                'user_id': user_id,
-            },
-        )

@@ -34,13 +34,30 @@ class ConnectionManager:
 
         Caller must have already called websocket.accept() before this method.
 
+        If a previous socket is registered for this (room_code, user_id), it is evicted
+        and closed with code 4000 (REPLACED) AFTER the dict is updated so that the old
+        socket's finally-block sees user_id is no longer its entry and skips cleanup.
+
         Returns:
             Dict with 'reconnect_token' for session resumption.
         """
         if room_code not in self.active_connections:
             self.active_connections[room_code] = {}
 
+        # Capture old socket BEFORE overwriting — dict update is synchronous (no await),
+        # so no race with other coroutines at this point.
+        old_socket = self.active_connections[room_code].get(user_id)
+
+        # Overwrite first so the old socket's finally-block sees a different owner.
         self.active_connections[room_code][user_id] = websocket
+
+        # Now close the displaced socket (if any).
+        if old_socket is not None and old_socket is not websocket:
+            try:
+                await old_socket.close(code=4000)
+            except Exception:
+                logger.exception(f'Failed to close displaced socket for user {user_id} in room {room_code}')
+
         logger.info(f'User {user_id} connected to room {room_code}')
 
         # Generate reconnect token and update session
@@ -69,33 +86,50 @@ class ConnectionManager:
         return {'reconnect_token': new_reconnect_token}
 
     async def disconnect(self, room_code: str, user_id: str) -> None:
-        """Disconnect a user from a room and record disconnect timestamp."""
-        if room_code in self.active_connections:
-            if user_id in self.active_connections[room_code]:
-                del self.active_connections[room_code][user_id]
-                logger.info(f'User {user_id} disconnected from room {room_code}')
+        """Disconnect a user from a room, record disconnect timestamp, and broadcast player_disconnected.
 
-                # Update session with disconnect timestamp
-                storage = get_storage_adapter()
-                state = await storage.load()
-                sessions = state.get('sessions', {})
+        Idempotent: returns immediately if the user is no longer registered for this room
+        (guards against double-invocation from send-failure path and the WS handler finally).
+        """
+        # Guard: if already removed (e.g. by send-failure path), do nothing.
+        if user_id not in self.active_connections.get(room_code, {}):
+            return
 
-                access_token = None
-                for token, session_data in sessions.items():
-                    if session_data.get('user_id') == user_id:
-                        access_token = token
-                        break
+        del self.active_connections[room_code][user_id]
+        logger.info(f'User {user_id} disconnected from room {room_code}')
 
-                if access_token:
-                    session_data = sessions[access_token]
-                    session_data['disconnected_at'] = datetime.now(timezone.utc).isoformat()
-                    await storage.set_session(access_token, session_data)
-                    logger.info(f'Stored disconnect timestamp for user {user_id}')
+        # Update session with disconnect timestamp
+        storage = get_storage_adapter()
+        state = await storage.load()
+        sessions = state.get('sessions', {})
 
-                # Clean up empty room
-                if not self.active_connections[room_code]:
-                    del self.active_connections[room_code]
-                    logger.info(f'Room {room_code} has no more connections, removed from tracking')
+        access_token = None
+        for token, session_data in sessions.items():
+            if session_data.get('user_id') == user_id:
+                access_token = token
+                break
+
+        if access_token:
+            session_data = sessions[access_token]
+            session_data['disconnected_at'] = datetime.now(timezone.utc).isoformat()
+            await storage.set_session(access_token, session_data)
+            logger.info(f'Stored disconnect timestamp for user {user_id}')
+
+        # Broadcast player_disconnected to remaining connected players.
+        # Done here (not in the WS endpoint finally) so send-failure disconnects
+        # also notify the room.
+        await self.broadcast_to_room(
+            room_code,
+            {
+                'type': 'player_disconnected',
+                'user_id': user_id,
+            },
+        )
+
+        # Clean up empty room
+        if room_code in self.active_connections and not self.active_connections[room_code]:
+            del self.active_connections[room_code]
+            logger.info(f'Room {room_code} has no more connections, removed from tracking')
 
     async def validate_reconnect_token(self, reconnect_token: str) -> dict | None:
         """Validate a reconnection token and return session info if valid.
@@ -136,24 +170,32 @@ class ConnectionManager:
             if websocket:
                 try:
                     await websocket.send_json(message)
-                except Exception as e:
-                    logger.error(f'Error sending to user {user_id} in room {room_code}: {e}')
-                    if room_code in self.active_connections and user_id in self.active_connections[room_code]:
-                        del self.active_connections[room_code][user_id]
+                except Exception:
+                    logger.exception(f'Error sending to user {user_id} in room {room_code}')
+                    # Use disconnect() so disconnected_at is written and player_disconnected is broadcast.
+                    await self.disconnect(room_code, user_id)
+
+    def connected_player_ids(self, room_code: str) -> frozenset[str]:
+        # Returns frozenset of user_ids with active WS connections for the given room.
+        return frozenset(self.active_connections.get(room_code, {}).keys())
 
     async def broadcast_to_room(self, room_code: str, message: dict) -> None:
         """Broadcast a message to all connected users in a room."""
-        if room_code in self.active_connections:
-            connections = list(self.active_connections[room_code].items())
-            for user_id, websocket in connections:
-                try:
-                    await websocket.send_json(message)
-                except Exception as e:
-                    logger.error(f'Error broadcasting to user {user_id} in room {room_code}: {e}')
-                    if room_code in self.active_connections and user_id in self.active_connections[room_code]:
-                        del self.active_connections[room_code][user_id]
-        else:
+        if room_code not in self.active_connections:
             logger.warning(f'Attempted to broadcast to room {room_code} with no connections')
+            return
+
+        connections = list(self.active_connections[room_code].items())
+        for uid, websocket in connections:
+            try:
+                await websocket.send_json(message)
+            except Exception:
+                logger.exception(f'Error broadcasting to user {uid} in room {room_code}')
+                # Simple dict removal here to avoid recursive disconnect() → broadcast_to_room calls.
+                # The WS handler's finally block will call disconnect() (with disconnected_at write
+                # and player_disconnected broadcast) when receive_text() eventually detects the dead socket.
+                if room_code in self.active_connections and uid in self.active_connections[room_code]:
+                    del self.active_connections[room_code][uid]
 
 
 # Singleton instance for access from routes

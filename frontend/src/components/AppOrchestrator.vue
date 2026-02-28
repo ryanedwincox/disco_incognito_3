@@ -21,6 +21,7 @@ import { computed, nextTick, ref, watch, type Component } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useRoomStore } from '../stores/room'
 import { websocketService } from '../services/websocket'
+import { usePageVisibility } from '../composables/usePageVisibility'
 import { STORAGE_KEYS } from '../config/storageKeys'
 import LoginView from '../views/LoginView.vue'
 import RoomSelectionView from '../views/RoomSelectionView.vue'
@@ -41,14 +42,21 @@ const isInitialized = ref(false)
   await authStore.loadFromStorage()
   isInitialized.value = true
 
-  // On init: if sessionStorage has roomCode AND reconnect_token, reconnect WS
+  // On init: reconnect WS if we have a saved room code. Token is optional — server
+  // accepts tokenless connections as fresh joins and still sends full room_state.
   const savedRoomCode = sessionStorage.getItem(STORAGE_KEYS.ROOM_CODE)
-  const savedReconnectToken = sessionStorage.getItem(STORAGE_KEYS.RECONNECT_TOKEN)
-  if (savedRoomCode && savedReconnectToken && authStore.isAuthenticated && authStore.user?.id) {
+  if (savedRoomCode && authStore.isAuthenticated && authStore.user?.id) {
     roomStore.setRoom(savedRoomCode)
     websocketService.connectToRoom(authStore.user.id, savedRoomCode)
   }
 })()
+
+// Page Visibility: reconnect on foreground resume when socket is not open.
+// Handles iOS Safari and other browsers that freeze or silently drop WS connections
+// when the tab is backgrounded without firing onclose.
+usePageVisibility(() => {
+  websocketService.reconnectIfNeeded()
+})
 
 // Phase-to-view mapping
 const phaseToViewMap: Record<string, Component> = {

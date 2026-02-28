@@ -703,20 +703,26 @@ async def cast_vote(
         # Record the vote
         room.current_round.votes[body.player_id] = body.guessed_player_id
 
-        # Check if all players have voted
-        all_player_ids = {p.id for p in room.players}
+        # Check if all *connected* players have voted.
+        # Using connected players as the denominator prevents a disconnected player from
+        # deadlocking the voting phase. Floor: 1 connected player; 0 connected → no auto-advance.
+        conn_manager = get_connection_manager()
+        connected_player_ids = conn_manager.connected_player_ids(room_code)
         voted_player_ids = set(room.current_round.votes.keys())
-        all_voted = all_player_ids == voted_player_ids
+        all_voted = bool(connected_player_ids) and connected_player_ids.issubset(voted_player_ids)
 
         if all_voted:
             room.status = 'results'
-            logger.info(f'All players voted in room {room_code}, transitioning to results')
+            logger.info(f'All connected players voted in room {room_code}, transitioning to results')
 
         # Update last_active_at and save
         room.last_active_at = datetime.utcnow()
         await storage.upsert_room(room_code, room.model_dump(mode='json'))
 
-        logger.info(f'Player {body.player_id} voted for {body.guessed_player_id} in room {room_code} ({len(voted_player_ids)}/{len(all_player_ids)} voted)')
+        logger.info(
+            f'Player {body.player_id} voted for {body.guessed_player_id} in room {room_code} '
+            f'({len(voted_player_ids)}/{len(connected_player_ids)} connected voted)'
+        )
 
     # Broadcast phase change if all players voted (outside lock — network I/O)
     if all_voted:

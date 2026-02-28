@@ -180,29 +180,43 @@ async function vote(guessedPlayerId: string) {
   error.value = null;
   try {
     await triggerVote(async () => {
-      const response = await roomFetch(`/api/rooms/${roomCode.value}/vote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          player_id: currentPlayerId,
-          guessed_player_id: guessedPlayerId,
-        }),
-      });
+      // Retry once on network error or 5xx — vote endpoint is idempotent for same player.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const response = await roomFetch(`/api/rooms/${roomCode.value}/vote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              player_id: currentPlayerId,
+              guessed_player_id: guessedPlayerId,
+            }),
+          });
 
-      if (response.status === 404) {
-        return; // roomFetch already redirected
-      }
+          if (response.status === 404) return; // roomFetch already redirected
 
-      if (!response.ok) {
-        throw new Error(`Failed to vote: ${response.status}`);
-      }
+          if (response.ok) {
+            const data: RoomResponse = await response.json();
+            votedFor.value = guessedPlayerId;
+            if (data.status === 'results') roomStore.setStatus('results');
+            return;
+          }
 
-      const data: RoomResponse = await response.json();
-      votedFor.value = guessedPlayerId;
+          // 5xx server error: retry once after 500ms
+          if (response.status >= 500 && attempt === 0) {
+            await new Promise(r => setTimeout(r, 500));
+            continue;
+          }
 
-      // If status is 'results', update store - AppOrchestrator will switch view
-      if (data.status === 'results') {
-        roomStore.setStatus('results');
+          // 4xx (non-404) or exhausted retries — propagate
+          throw new Error(`Failed to vote: ${response.status}`);
+        } catch (e) {
+          // Network error on first attempt: retry after 500ms
+          if (attempt === 0 && e instanceof TypeError) {
+            await new Promise(r => setTimeout(r, 500));
+            continue;
+          }
+          throw e;
+        }
       }
     });
   } catch (err) {
