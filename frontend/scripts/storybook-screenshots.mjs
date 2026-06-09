@@ -17,11 +17,9 @@ const artifactsDir = resolve(frontendDir, '..', 'artifacts', 'screenshots');
 // Stories to capture screenshots for (exported for visual regression tests)
 export const STORIES = [
   { id: 'views-loginview--default', name: 'LoginView-Default' },
-  { id: 'views-roomselectionview--spotify-user', name: 'RoomSelectionView-SpotifyUser' },
   { id: 'views-roomselectionview--guest-user', name: 'RoomSelectionView-GuestUser' },
   { id: 'views-roomlobbyview--with-players', name: 'RoomLobbyView-WithPlayers' },
   { id: 'views-roomlobbyview--empty-lobby', name: 'RoomLobbyView-EmptyLobby' },
-  { id: 'views-songpickerview--spotify-user', name: 'SongPickerView-SpotifyUser' },
   { id: 'views-songpickerview--guest-user', name: 'SongPickerView-GuestUser' },
   { id: 'views-gameview--round-in-progress', name: 'GameView-RoundInProgress' },
   { id: 'views-guessingview--default', name: 'GuessingView-Default' },
