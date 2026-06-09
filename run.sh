@@ -55,18 +55,18 @@ start_containers() {
     echo ""
 
     if [ "$detached" = true ]; then
-        docker-compose -f docker-compose.dev.yml up -d --build
+        docker-compose -f docker-compose-dev.yml up -d --build
         echo ""
         echo "Running in background."
         echo "Run './run.sh --stop' to stop."
     else
-        docker-compose -f docker-compose.dev.yml up --build
+        docker-compose -f docker-compose-dev.yml up --build
     fi
 }
 
 stop_containers() {
     echo "Stopping Disco Incognito..."
-    docker-compose -f docker-compose.dev.yml down
+    docker-compose -f docker-compose-dev.yml down
     echo "Stopped."
 }
 
