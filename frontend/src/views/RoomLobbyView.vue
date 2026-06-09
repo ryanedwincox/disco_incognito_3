@@ -106,7 +106,6 @@ onMounted(async () => {
   authStore.loadFromStorage()
 
   if (!roomCode.value) {
-    console.log('No room code set')
     return
   }
 
@@ -145,8 +144,8 @@ onMounted(async () => {
         }
       }
     }
-  } catch (error) {
-    console.log('Could not fetch room data:', error)
+  } catch {
+    // Best-effort fetch — failures are non-fatal; the lobby still renders.
   }
 })
 
@@ -177,7 +176,6 @@ async function joinRoomAsPlayer(playerId: string, displayName: string) {
           }))
         )
       }
-      console.log('Successfully joined room:', roomCode.value)
     } else {
       const err = await response.json().catch(() => ({}))
       console.error('Failed to join room:', err)
@@ -190,7 +188,6 @@ async function joinRoomAsPlayer(playerId: string, displayName: string) {
 }
 
 async function leaveRoom() {
-  console.log('Leaving room:', roomCode.value)
   const userId = authStore.user?.id
 
   isLeaving.value = true
@@ -228,7 +225,6 @@ async function leaveRoom() {
 }
 
 function pickSongs() {
-  console.log('Navigating to song picker for room:', roomCode.value)
   // Set status to picking_songs - AppOrchestrator will switch to SongPickerView
   roomStore.setStatus('picking_songs')
 }
@@ -268,11 +264,9 @@ async function startGame() {
               title: assignment.title,
               artist: assignment.artist,
             })
-            console.log('Assigned song:', assignment.title, 'by', assignment.artist)
           }
         }
 
-        console.log('Game started, status:', data.status)
         // AppOrchestrator will switch view based on roomStore.status
       } else {
         const err = await response.json().catch(() => ({}))

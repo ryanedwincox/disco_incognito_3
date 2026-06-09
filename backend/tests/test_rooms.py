@@ -41,9 +41,6 @@ class MockStorage:
     async def set_session(self, token: str, data):
         self.sessions[token] = data
 
-    async def delete_session(self, token: str):
-        self.sessions.pop(token, None)
-
 
 @pytest.fixture
 def mock_storage():

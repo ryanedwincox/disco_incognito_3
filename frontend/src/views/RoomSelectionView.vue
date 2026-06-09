@@ -140,7 +140,6 @@ async function saveName() {
 async function createRoom() {
   // Generate a random 3-digit room code
   const code = Math.floor(100 + Math.random() * 900).toString()
-  console.log('Creating room with code:', code)
 
   isCreating.value = true
   try {
@@ -176,12 +175,10 @@ async function createRoom() {
 
 async function joinRoom() {
   if (roomCode.value.length !== 3) {
-    console.log('Please enter a 3-digit room code')
     return
   }
 
   const code = roomCode.value
-  console.log('Joining room:', code)
 
   isJoining.value = true
   try {

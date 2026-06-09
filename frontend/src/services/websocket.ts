@@ -84,8 +84,6 @@ export class WebSocketService {
     const tokenParam = savedToken ? `&reconnect_token=${savedToken}` : "";
     const wsUrl = `${wsBaseUrl}/api/ws/room/${roomCode}?user_id=${userId}${tokenParam}`;
 
-    console.log(`Connecting to room WebSocket: ${wsUrl}`);
-
     const wsStore = useWebSocketStore();
     wsStore.setStatus("connecting");
 
@@ -93,9 +91,6 @@ export class WebSocketService {
       this.socket = new WebSocket(wsUrl);
 
       this.socket.onopen = () => {
-        console.log(
-          `Room WebSocket connected for user ${userId} in room ${roomCode}`
-        );
         this.reconnectAttempts = 0;
         wsStore.setStatus("connected");
         this.startHeartbeat();
@@ -111,9 +106,6 @@ export class WebSocketService {
       };
 
       this.socket.onclose = (event: CloseEvent) => {
-        console.log(
-          `Room WebSocket disconnected (code=${event.code}, wasClean=${event.wasClean})`
-        );
         this.socket = null;
         this.stopHeartbeat();
         wsStore.setStatus("disconnected");
@@ -185,7 +177,6 @@ export class WebSocketService {
       return;
     }
 
-    console.log("Manual reconnection triggered");
     this.clearReconnectTimer();
     this.reconnectAttempts = 0;
     this.connectToRoom(this.userId, this.roomCode);
@@ -203,7 +194,6 @@ export class WebSocketService {
     ) {
       return;
     }
-    console.debug("Visibility change: socket not open, triggering reconnect");
     this.clearReconnectTimer();
     this.connectToRoom(this.userId, this.roomCode);
   }
@@ -228,10 +218,6 @@ export class WebSocketService {
 
     const delay = getBackoffDelay(this.reconnectAttempts);
     this.reconnectAttempts++;
-
-    console.log(
-      `Attempting to reconnect (${this.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) in ${Math.round(delay)}ms...`
-    );
 
     this.reconnectTimer = setTimeout(() => {
       if (this.userId && this.roomCode) {
@@ -293,7 +279,6 @@ export class WebSocketService {
   private handleMessage(event: MessageEvent): void {
     try {
       const message: WebSocketMessage = JSON.parse(event.data);
-      console.log("WebSocket message received:", message);
 
       const wsStore = useWebSocketStore();
       wsStore.setLastMessage(message as Record<string, unknown>);
@@ -368,7 +353,6 @@ export class WebSocketService {
     if (message.reconnect_token) {
       this.reconnectToken = message.reconnect_token;
       sessionStorage.setItem(STORAGE_KEYS.RECONNECT_TOKEN, message.reconnect_token);
-      console.log("Reconnect token stored");
     }
   }
 
@@ -385,7 +369,6 @@ export class WebSocketService {
    * Handle room_state event - populates roomStore with per-user tailored state.
    */
   private handleRoomState(message: WebSocketMessage): void {
-    console.log("Received room_state:", message);
     const roomStore = useRoomStore();
 
     // Populate all data BEFORE setting status. The status change triggers
@@ -453,7 +436,6 @@ export class WebSocketService {
     });
 
     roomStore.setPlayers(players);
-    console.log(`Player ${user_id} connected`);
   }
 
   /**
@@ -477,7 +459,6 @@ export class WebSocketService {
     });
 
     roomStore.setPlayers(players);
-    console.log(`Player ${user_id} disconnected`);
   }
 
   /**
@@ -496,7 +477,6 @@ export class WebSocketService {
     // Don't add if already in list
     const existing = roomStore.players.find((p) => p.id === user_id);
     if (existing) {
-      console.log(`Player ${user_id} already in list, skipping add`);
       return;
     }
 
@@ -509,7 +489,6 @@ export class WebSocketService {
         isConnected: true,
       },
     ]);
-    console.log(`Player ${user_id} (${display_name}) joined room`);
   }
 
   /**
@@ -536,7 +515,6 @@ export class WebSocketService {
     }
 
     roomStore.setPlayers(players);
-    console.log(`Player ${user_id} left room`);
   }
 
   /**
@@ -545,7 +523,6 @@ export class WebSocketService {
    */
   private handlePhaseChanged(message: WebSocketMessage): void {
     const { phase, room_code, assigned_song } = message;
-    console.log(`Phase changed to: ${phase} in room ${room_code}`);
 
     if (!phase || !room_code) {
       console.warn("phase_changed event missing phase or room_code");
@@ -580,7 +557,6 @@ export class WebSocketService {
     if (typeof message.pair_count === "number") {
       const roomStore = useRoomStore();
       roomStore.setSongCount(message.pair_count);
-      console.log(`Pair count updated: ${message.pair_count}`);
     }
   }
 

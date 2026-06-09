@@ -87,7 +87,6 @@ watch(
 
 function retry() {
   reconnecting.value = true
-  console.log('Retry button clicked - attempting to reconnect...')
   websocketService.reconnect()
 }
 </script>

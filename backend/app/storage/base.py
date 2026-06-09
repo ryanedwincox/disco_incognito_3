@@ -41,7 +41,3 @@ class StorageAdapter(ABC):
     @abstractmethod
     async def set_session(self, token: str, data: dict[str, Any]) -> None:
         """Store session data keyed by access token."""
-
-    @abstractmethod
-    async def delete_session(self, token: str) -> None:
-        """Remove a session from storage."""

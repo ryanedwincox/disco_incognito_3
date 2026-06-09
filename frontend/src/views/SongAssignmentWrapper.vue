@@ -114,8 +114,8 @@ onMounted(async () => {
 
         // Status update will trigger AppOrchestrator to switch view if needed
       }
-    } catch (error) {
-      console.log('Could not fetch room data:', error)
+    } catch {
+      // Best-effort fetch — failures are non-fatal; the view still renders.
     }
   }
 })

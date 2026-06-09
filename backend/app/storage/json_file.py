@@ -106,13 +106,6 @@ class JSONFileStorage(StorageAdapter):
         sessions[token] = data
         await self.save(state)
 
-    async def delete_session(self, token: str) -> None:
-        state = await self.load()
-        sessions = state.get('sessions', {})
-        if token in sessions:
-            del sessions[token]
-            await self.save(state)
-
     async def cleanup_expired_rooms(self) -> int:
         """Remove all expired rooms. Returns count of rooms deleted."""
         state = await self.load()

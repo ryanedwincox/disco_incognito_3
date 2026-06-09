@@ -63,7 +63,6 @@ export const useAuthStore = defineStore("auth", {
           displayName: data.display_name,
         });
 
-        console.log(`✅ Guest user created: ${data.display_name}`);
         return { success: true };
       } catch (error: unknown) {
         console.error("Login failed:", error);
