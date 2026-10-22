@@ -8,13 +8,13 @@
         class="w-full max-w-md mb-3 pointer-events-auto"
       >
         <div
-          class="rounded-2xl shadow-2xl border backdrop-blur-sm transition-all duration-200 hover:scale-[1.02]"
+          class="rounded-2xl shadow-2xl border backdrop-blur-xs transition-all duration-200 hover:scale-[1.02]"
           :class="notificationClasses(notification.type)"
           role="alert"
         >
           <div class="p-4 flex items-start gap-3">
             <!-- Icon -->
-            <div class="flex-shrink-0 pt-0.5">
+            <div class="shrink-0 pt-0.5">
               <!-- Error Icon -->
               <svg
                 v-if="notification.type === 'error'"
@@ -82,7 +82,7 @@
             <!-- Dismiss Button -->
             <button
               v-if="notification.dismissible"
-              class="flex-shrink-0 p-2 opacity-70 hover:opacity-100 transition-opacity"
+              class="shrink-0 p-2 opacity-70 hover:opacity-100 transition-opacity"
               aria-label="Dismiss notification"
               type="button"
               @click="dismiss(notification.id)"

@@ -64,7 +64,7 @@
 
       <!-- Back Button -->
       <button
-        class="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-medium py-3 rounded-full transition-colors mt-6"
+        class="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-medium py-3 rounded-full transition-colors"
         type="button"
         @click="goBack"
       >

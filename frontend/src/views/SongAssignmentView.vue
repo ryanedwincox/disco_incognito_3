@@ -12,11 +12,11 @@
       <!-- Song Card -->
       <div class="bg-zinc-900 rounded-3xl border border-zinc-500 p-6 space-y-4">
         <!-- Song Info -->
-        <div class="relative text-center space-y-1">
+        <div class="relative text-center">
           <h3 class="text-2xl font-bold">{{ song?.name || 'Unknown Song' }}</h3>
-          <p class="text-lg text-zinc-400">{{ song?.artist || 'Unknown Artist' }}</p>
+          <p class="mt-1 text-lg text-zinc-400">{{ song?.artist || 'Unknown Artist' }}</p>
           <button
-            class="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-white transition-colors"
+            class="absolute right-0 top-1/2 -translate-y-1/2 mt-1 p-1.5 text-zinc-400 hover:text-white transition-colors"
             type="button"
             aria-label="Copy song info"
             @click="copyToClipboard"

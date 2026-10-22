@@ -8,7 +8,7 @@
       @end-round="handleEndRound"
     />
     <!-- Ready button — only shown during song_selection phase before player marks ready -->
-    <div v-if="roomStore.status === 'song_selection'" class="fixed bottom-0 left-0 right-0 px-6 pb-6 bg-gradient-to-t from-zinc-950 to-transparent">
+    <div v-if="roomStore.status === 'song_selection'" class="fixed bottom-0 left-0 right-0 px-6 pb-6 bg-linear-to-t from-zinc-950 to-transparent">
       <div class="max-w-md mx-auto">
         <button
           v-if="!isReady"

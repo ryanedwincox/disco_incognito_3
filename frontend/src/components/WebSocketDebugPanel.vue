@@ -18,7 +18,7 @@
     >
       <div class="p-4">
         <div class="mb-2 text-sm text-zinc-400">Last Message:</div>
-        <pre class="font-mono text-xs bg-zinc-800 p-3 rounded overflow-auto max-h-64">{{
+        <pre class="font-mono text-xs bg-zinc-800 p-3 rounded-sm overflow-auto max-h-64">{{
           wsStore.lastMessage ? JSON.stringify(wsStore.lastMessage, null, 2) : 'No messages yet'
         }}</pre>
       </div>

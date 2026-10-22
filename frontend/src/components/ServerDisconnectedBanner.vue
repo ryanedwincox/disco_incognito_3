@@ -9,7 +9,7 @@
       <div class="px-6 py-4 flex items-center justify-between gap-4">
         <div class="flex items-center gap-3 flex-1 min-w-0">
           <!-- Warning Icon -->
-          <div class="flex-shrink-0">
+          <div class="shrink-0">
             <svg aria-hidden="true" class="w-6 h-6 text-red-300 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
               <path
                 fill-rule="evenodd"
@@ -31,7 +31,7 @@
         <!-- Retry Button -->
         <button
           v-if="!reconnecting"
-          class="flex-shrink-0 bg-red-700 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-full text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          class="shrink-0 bg-red-700 hover:bg-red-600 text-white font-medium px-4 py-2 rounded-full text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           type="button"
           :disabled="reconnecting"
           @click="retry"
@@ -40,7 +40,7 @@
         </button>
 
         <!-- Connecting Spinner -->
-        <div v-else class="flex-shrink-0">
+        <div v-else class="shrink-0">
           <svg aria-hidden="true" class="w-5 h-5 text-red-300 animate-spin" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
             <path
