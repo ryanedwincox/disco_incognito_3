@@ -3,6 +3,56 @@
 @config '../../tailwind.config.cjs';
 
 /*
+  Tailwind CSS v4 switched the default palette from sRGB hex to OKLCH, which
+  shifts most shades slightly. Pin every palette shade this app uses (plus
+  gray-200/gray-400, used by the compatibility rules below) to its v3 value
+  so the upgrade does not change how the site looks. Values are from
+  tailwindcss@3.4.19 src/public/colors.js. When adding a new shade to a
+  template, add its v3 value here too if it should match the v3 palette.
+*/
+@theme {
+  --color-blue-100: #dbeafe;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+  --color-blue-900: #1e3a8a;
+  --color-gray-200: #e5e7eb;
+  --color-gray-400: #9ca3af;
+  --color-green-100: #dcfce7;
+  --color-green-200: #bbf7d0;
+  --color-green-400: #4ade80;
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+  --color-green-900: #14532d;
+  --color-purple-500: #a855f7;
+  --color-purple-600: #9333ea;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+  --color-red-800: #991b1b;
+  --color-red-900: #7f1d1d;
+  --color-yellow-100: #fef9c3;
+  --color-yellow-400: #facc15;
+  --color-yellow-500: #eab308;
+  --color-yellow-600: #ca8a04;
+  --color-yellow-700: #a16207;
+  --color-yellow-900: #713f12;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-500: #71717a;
+  --color-zinc-600: #52525b;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-800: #27272a;
+  --color-zinc-900: #18181b;
+  --color-zinc-950: #09090b;
+}
+
+/*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
   looks the same as it did with Tailwind CSS v3.
@@ -17,6 +67,17 @@
   ::backdrop,
   ::file-selector-button {
     border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/*
+  Tailwind CSS v4 preflight colors placeholders with the current text color at
+  50% opacity. Keep the v3 gray-400 placeholder (upgrade guide snippet).
+*/
+@layer base {
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
   }
 }
 
