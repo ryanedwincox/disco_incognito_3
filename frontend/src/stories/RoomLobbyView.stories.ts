@@ -1,5 +1,5 @@
 // Story: RoomLobbyView - Room lobby with player list and host controls
-import type { Meta, StoryObj } from '@storybook/vue3';
+import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import { useRoomStore } from '../stores/room';
 import RoomLobbyView from '../views/RoomLobbyView.vue';
 

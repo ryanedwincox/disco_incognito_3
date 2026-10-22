@@ -1,5 +1,5 @@
 // Story: GuessingView - Dancer incognito voting interface
-import type { Meta, StoryObj } from '@storybook/vue3';
+import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import GuessingView from '../views/GuessingView.vue';
 
 const meta: Meta<typeof GuessingView> = {

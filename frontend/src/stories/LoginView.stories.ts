@@ -1,5 +1,5 @@
 // Story: LoginView - Guest login page with name input and Login button
-import type { Meta, StoryObj } from '@storybook/vue3';
+import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import LoginView from '../views/LoginView.vue';
 
 const meta: Meta<typeof LoginView> = {

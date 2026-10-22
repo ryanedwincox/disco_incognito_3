@@ -1,5 +1,5 @@
 // Story: ResultsView - Round results showing who was the dancer incognito
-import type { Meta, StoryObj } from '@storybook/vue3';
+import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import ResultsView from '../views/ResultsView.vue';
 
 const meta: Meta<typeof ResultsView> = {

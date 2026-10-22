@@ -1,5 +1,5 @@
 // Story: ExceptionDemoView - Demo view showing error notifications on mount
-import type { Meta, StoryObj } from '@storybook/vue3';
+import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import { useNotificationStore } from '../stores/notifications';
 import ExceptionDemoView from '../views/ExceptionDemoView.vue';
 

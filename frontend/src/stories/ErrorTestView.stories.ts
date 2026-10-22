@@ -1,5 +1,5 @@
 // Story: ErrorTestView - Development testing interface for notifications and error states
-import type { Meta, StoryObj } from '@storybook/vue3';
+import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import { useWebSocketStore } from '../stores/websocket';
 import { useNotificationStore } from '../stores/notifications';
 import ErrorTestView from '../views/ErrorTestView.vue';

@@ -2,7 +2,7 @@
 // Primary: disco-pink (#D6006F) with white text - WCAG AA compliant (5.14:1)
 // Secondary: zinc-700 (#3f3f46) with white text and zinc-500 border
 // Cards: zinc-500 (#71717a) border for visibility against dark backgrounds
-import type { Meta, StoryObj } from '@storybook/vue3';
+import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import { defineComponent, h } from 'vue';
 
 // Primary button component - disco-pink with white text

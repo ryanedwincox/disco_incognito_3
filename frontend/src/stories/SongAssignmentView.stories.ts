@@ -1,5 +1,5 @@
 // Story: SongAssignmentView - Song assignment before round ends
-import type { Meta, StoryObj } from '@storybook/vue3';
+import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import SongAssignmentView from '../views/SongAssignmentView.vue';
 import type { TrackInfo } from '../types';
 

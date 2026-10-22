@@ -1,5 +1,5 @@
 // Story: SongPickerView - Manual song entry with title and artist fields
-import type { Meta, StoryObj } from '@storybook/vue3';
+import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import { useAuthStore } from '../stores/auth';
 import { useRoomStore } from '../stores/room';
 import SongPickerView from '../views/SongPickerView.vue';

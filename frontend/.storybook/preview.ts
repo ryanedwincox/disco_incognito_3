@@ -1,6 +1,6 @@
 // Storybook preview config: Mobile viewport default (390x844), Pinia decorator, Tailwind styles
-import type { Preview } from '@storybook/vue3';
-import { setup } from '@storybook/vue3';
+import type { Preview } from '@storybook/vue3-vite';
+import { setup } from '@storybook/vue3-vite';
 import { createPinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import '../src/assets/tailwind.css';
@@ -37,7 +37,7 @@ setup((app) => {
 const preview: Preview = {
   parameters: {
     viewport: {
-      viewports: {
+      options: {
         mobile: {
           name: 'Mobile (390×844)',
           styles: {
@@ -60,14 +60,12 @@ const preview: Preview = {
           },
         },
       },
-      defaultViewport: 'mobile',
     },
     backgrounds: {
-      default: 'dark',
-      values: [
-        { name: 'dark', value: '#09090b' }, // zinc-950
-        { name: 'light', value: '#ffffff' },
-      ],
+      options: {
+        dark: { name: 'dark', value: '#09090b' }, // zinc-950
+        light: { name: 'light', value: '#ffffff' },
+      },
     },
     controls: {
       matchers: {
@@ -75,6 +73,10 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
+  },
+  initialGlobals: {
+    viewport: { value: 'mobile', isRotated: false },
+    backgrounds: { value: 'dark' },
   },
 };
 

@@ -1,5 +1,5 @@
 // Story: RoomSelectionView - Room creation and join interface
-import type { Meta, StoryObj } from '@storybook/vue3';
+import type { Meta, StoryObj } from '@storybook/vue3-vite';
 import { useAuthStore } from '../stores/auth';
 import RoomSelectionView from '../views/RoomSelectionView.vue';
 
