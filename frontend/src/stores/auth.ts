@@ -113,7 +113,7 @@ export const useAuthStore = defineStore("auth", {
       if (userJson) {
         try {
           this.user = JSON.parse(userJson);
-        } catch (e) {
+        } catch {
           console.error("Failed to parse user from storage");
         }
       }

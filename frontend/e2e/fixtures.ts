@@ -265,7 +265,7 @@ export async function compareScreenshots(
   try {
     actualPng = PNG.sync.read(actualBuffer);
     baselinePng = PNG.sync.read(baselineBuffer);
-  } catch (err) {
+  } catch {
     // Baseline might be a Git LFS pointer or corrupted file
     console.log(`  [pixelmatch] ${path.basename(actualPath)}: invalid PNG (possibly Git LFS pointer), skipping comparison`);
     return { match: false, baselineMissing: true };
