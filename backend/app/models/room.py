@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Player(BaseModel):
@@ -91,8 +91,8 @@ class RoomState(BaseModel):
     dancer_incognito_player_ids: list[str] = Field(default_factory=list)
     current_round: CurrentRound | None = None
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             'example': {
                 'code': '123',
                 'host_id': 'player-1',
@@ -101,6 +101,7 @@ class RoomState(BaseModel):
                 'status': 'lobby',
             }
         }
+    )
 
 
 class RoomStateResponse(BaseModel):

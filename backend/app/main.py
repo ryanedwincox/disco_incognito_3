@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +29,39 @@ from .storage.json_file import JSONFileStorage
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title='Disco Incognito API', version='0.1.0')
+
+async def ensure_storage_file() -> None:
+    """Create the JSON storage file (and its directory) if it does not exist yet."""
+    storage = get_storage_adapter()
+    path_attr = getattr(storage, 'path', None)
+    if isinstance(path_attr, Path):
+        path = path_attr
+    else:
+        return
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text('{}', encoding='utf-8')
+
+
+async def cleanup_expired_rooms() -> None:
+    """Clean up expired rooms on application startup."""
+    storage = get_storage_adapter()
+    if isinstance(storage, JSONFileStorage):
+        deleted_count = await storage.cleanup_expired_rooms()
+        if deleted_count > 0:
+            logger.info(f'Cleaned up {deleted_count} expired room(s) on startup')
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Run startup tasks (replaces the deprecated @app.on_event('startup') hooks)."""
+    await ensure_storage_file()
+    await cleanup_expired_rooms()
+    yield
+
+
+app = FastAPI(title='Disco Incognito API', version='0.1.0', lifespan=lifespan)
 
 # WebSocket connection manager (singleton)
 connection_manager = get_connection_manager()
@@ -70,30 +104,6 @@ if static_dir.is_dir():
     async def serve_spa(full_path: str) -> FileResponse:
         """Serve index.html for all non-API routes (SPA client-side routing)."""
         return FileResponse(str(static_dir / 'index.html'))
-
-
-@app.on_event('startup')
-async def ensure_storage_file() -> None:
-    storage = get_storage_adapter()
-    path_attr = getattr(storage, 'path', None)
-    if isinstance(path_attr, Path):
-        path = path_attr
-    else:
-        return
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if not path.exists():
-        path.write_text('{}', encoding='utf-8')
-
-
-@app.on_event('startup')
-async def cleanup_expired_rooms() -> None:
-    """Clean up expired rooms on application startup."""
-    storage = get_storage_adapter()
-    if isinstance(storage, JSONFileStorage):
-        deleted_count = await storage.cleanup_expired_rooms()
-        if deleted_count > 0:
-            logger.info(f'Cleaned up {deleted_count} expired room(s) on startup')
 
 
 async def _build_room_state_for_user(room_code: str, user_id: str) -> dict[str, Any] | None:

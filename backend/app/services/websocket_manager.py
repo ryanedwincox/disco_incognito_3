@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 
 from fastapi import WebSocket
 
@@ -111,7 +111,7 @@ class ConnectionManager:
 
         if access_token:
             session_data = sessions[access_token]
-            session_data['disconnected_at'] = datetime.now(timezone.utc).isoformat()
+            session_data['disconnected_at'] = datetime.now(UTC).isoformat()
             await storage.set_session(access_token, session_data)
             logger.info(f'Stored disconnect timestamp for user {user_id}')
 
@@ -147,9 +147,9 @@ class ConnectionManager:
                 if disconnected_at:
                     disconnected_dt = datetime.fromisoformat(disconnected_at.replace('Z', '+00:00'))
                     if disconnected_dt.tzinfo is None:
-                        disconnected_dt = disconnected_dt.replace(tzinfo=timezone.utc)
+                        disconnected_dt = disconnected_dt.replace(tzinfo=UTC)
 
-                    expiration_threshold = datetime.now(timezone.utc) - timedelta(minutes=RECONNECT_TOKEN_EXPIRATION_MINUTES)
+                    expiration_threshold = datetime.now(UTC) - timedelta(minutes=RECONNECT_TOKEN_EXPIRATION_MINUTES)
                     if disconnected_dt < expiration_threshold:
                         logger.warning(f'Reconnect token expired for user {session_data.get("user_id")}')
                         return None

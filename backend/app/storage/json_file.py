@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Any
@@ -72,9 +72,9 @@ class JSONFileStorage(StorageAdapter):
 
             # Normalize to UTC for comparison
             if last_active_dt.tzinfo is None:
-                last_active_dt = last_active_dt.replace(tzinfo=timezone.utc)
+                last_active_dt = last_active_dt.replace(tzinfo=UTC)
 
-            expiration_threshold = datetime.now(timezone.utc) - timedelta(minutes=ROOM_EXPIRATION_MINUTES)
+            expiration_threshold = datetime.now(UTC) - timedelta(minutes=ROOM_EXPIRATION_MINUTES)
             if last_active_dt < expiration_threshold:
                 # Room expired - delete it and return None
                 await self.delete_room(room_code)
@@ -114,7 +114,7 @@ class JSONFileStorage(StorageAdapter):
         if not rooms:
             return 0
 
-        expiration_threshold = datetime.now(timezone.utc) - timedelta(minutes=ROOM_EXPIRATION_MINUTES)
+        expiration_threshold = datetime.now(UTC) - timedelta(minutes=ROOM_EXPIRATION_MINUTES)
         expired_codes: list[str] = []
 
         for room_code, room in rooms.items():
@@ -126,7 +126,7 @@ class JSONFileStorage(StorageAdapter):
                     last_active_dt = last_active
 
                 if last_active_dt.tzinfo is None:
-                    last_active_dt = last_active_dt.replace(tzinfo=timezone.utc)
+                    last_active_dt = last_active_dt.replace(tzinfo=UTC)
 
                 if last_active_dt < expiration_threshold:
                     expired_codes.append(room_code)
