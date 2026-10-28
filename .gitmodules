@@ -1,3 +1,0 @@
-[submodule ".repo-maintainer"]
-	path = .repo-maintainer
-	url = git@github.com:Olis-Robotics/repo-maintainer.git
